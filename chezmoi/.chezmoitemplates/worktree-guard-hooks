@@ -4,9 +4,17 @@
 {{- $guard := joinPath .ctx.chezmoi.homeDir ".local/libexec/dotfiles/worktree-guard.ts" -}}
 {{- $kept := list -}}
 {{- if hasKey $hooks "PreToolUse" -}}
-{{- range $hooks.PreToolUse -}}
+{{- range $matcher := $hooks.PreToolUse -}}
+{{- $handlers := list -}}
+{{- range (get $matcher "hooks" | default list) -}}
 {{- if not (contains "libexec/dotfiles/worktree-guard" (toJson .)) -}}
-{{- $kept = append $kept . -}}
+{{- $handlers = append $handlers . -}}
+{{- end -}}
+{{- end -}}
+{{- if $handlers -}}
+{{- $kept = append $kept (set $matcher "hooks" $handlers) -}}
+{{- else if not (hasKey $matcher "hooks") -}}
+{{- $kept = append $kept $matcher -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

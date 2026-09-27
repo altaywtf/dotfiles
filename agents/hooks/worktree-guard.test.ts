@@ -30,6 +30,10 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["git worktree add -b fix $HOME/projects/x origin/main", home],
     ["git worktree move old ../moved", repo],
     ["git worktree add ../escape", join(openclaw, ".worktrees")],
+    ["command git worktree add ~/projects/x", home],
+    ["env GIT_DIR=x git worktree add ~/projects/x", home],
+    ["bash -lc 'cd ~/projects/owner/repo && git worktree add ../x'", home],
+    ["cat <<'EOF' > notes.md\nexample\nEOF\ngit worktree add ~/projects/x", home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 2, command);
@@ -45,6 +49,8 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["git worktree list && git worktree remove ~/projects/owner/repo-wt", repo],
     ['echo "git worktree add ~/projects/x"', home],
     ["ls", repo],
+    ["cat <<'EOF' > notes.md\ngit worktree add ~/projects/x\nEOF", home],
+    ["cat <<-EOF\n\tgit worktree add ~/projects/x\n\tEOF\necho done", home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 0, `${command}: ${result.stderr}`);

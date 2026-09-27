@@ -79,6 +79,18 @@ const fixtures: Fixture[] = [
     contents: '{\n    "theme": "dark",\n    "env": {\n        "KEEP": "yes"\n    }\n}\n',
     expected: { theme: "dark", env: { KEEP: "yes" } },
   },
+  {
+    contents:
+      '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"keep"},{"type":"command","command":"node /h/.local/libexec/dotfiles/worktree-guard.ts"}]}]}}',
+    expected: {
+      hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "keep" }] }] },
+    },
+  },
+  {
+    contents:
+      '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"node /h/.local/libexec/dotfiles/worktree-guard.ts"}]}]}}',
+    expected: {},
+  },
   { contents: '{"env":', malformed: true },
 ];
 

@@ -15,10 +15,12 @@ const harnessFolders = ["~/.claude/worktrees", "~/.codex/worktrees", "~/.t3/work
 const unresolved = Symbol("unresolved");
 type Word = string | typeof unresolved;
 
-// Splits a shell command into simple commands of words. Quotes are honoured;
-// any word with a substitution other than $HOME is unresolved.
+// Splits a shell command into simple commands of words. Quotes are honoured,
+// here-document bodies are skipped, and any word with a substitution other
+// than $HOME is unresolved.
 function simpleCommands(source: string): Word[][] {
   const commands: Word[][] = [];
+  const heredocs: { delimiter: string; stripTabs: boolean }[] = [];
   let words: Word[] = [];
   let word = "";
   let started = false;
@@ -76,9 +78,28 @@ function simpleCommands(source: string): Word[][] {
       else word += value;
       started = true;
       index = next;
+    } else if (source.startsWith("<<", index) && !source.startsWith("<<<", index)) {
+      endWord();
+      const match = /^<<(-?)[ \t]*(?:'([^']*)'|"([^"]*)"|([^\s;&|<>()]+))/.exec(
+        source.slice(index),
+      );
+      if (match) {
+        heredocs.push({ delimiter: match[2] ?? match[3] ?? match[4], stripTabs: match[1] === "-" });
+        index += match[0].length;
+      } else index += 2;
     } else if (/[;&|\n()]/.test(char)) {
       endCommand();
       index += 1;
+      if (char === "\n") {
+        for (const { delimiter, stripTabs } of heredocs.splice(0)) {
+          while (index < source.length) {
+            const end = source.indexOf("\n", index);
+            const line = source.slice(index, end === -1 ? source.length : end);
+            index = end === -1 ? source.length : end + 1;
+            if ((stripTabs ? line.replace(/^\t+/, "") : line) === delimiter) break;
+          }
+        }
+      }
     } else if (/\s/.test(char)) {
       endWord();
       index += 1;
@@ -101,19 +122,45 @@ function under(base: Word, path: Word | undefined): Word {
   return resolve(base, path);
 }
 
+const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const launchers = new Set(["builtin", "command", "exec", "nohup", "sudo", "time"]);
+const shells = new Set(["bash", "dash", "sh", "zsh"]);
+
+// Drops leading assignments and launchers such as `env` or `command`.
+function unwrap(words: Word[]): Word[] {
+  let index = 0;
+  const skip = (test: (word: string) => boolean) => {
+    while (typeof words[index] === "string" && test(words[index] as string)) index += 1;
+  };
+  for (;;) {
+    skip((word) => assignment.test(word));
+    const name = words[index];
+    if (name === "env") {
+      index += 1;
+      skip((word) => word.startsWith("-") || assignment.test(word));
+    } else if (typeof name === "string" && launchers.has(name)) {
+      index += 1;
+      skip((word) => word.startsWith("-"));
+    } else return words.slice(index);
+  }
+}
+
 function worktreeTargets(command: string, startCwd: string): string[] {
   const targets: string[] = [];
   let cwd: Word = startCwd;
   for (const words of simpleCommands(command)) {
-    let index = 0;
-    while (
-      typeof words[index] === "string" &&
-      /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index] as string)
-    )
-      index += 1;
-    const [name, ...rest] = words.slice(index);
+    const [name, ...rest] = unwrap(words);
     if (name === "cd" || name === "pushd") {
       cwd = rest[0] === undefined ? home : under(cwd, rest[0]);
+      continue;
+    }
+    if (typeof name === "string" && shells.has(basename(name))) {
+      const flag = rest.findIndex(
+        (word) => typeof word === "string" && /^-[a-z]*c[a-z]*$/.test(word),
+      );
+      const script = flag === -1 ? undefined : rest[flag + 1];
+      if (typeof script === "string" && cwd !== unresolved)
+        targets.push(...worktreeTargets(script, cwd));
       continue;
     }
     if (typeof name !== "string" || basename(name) !== "git") continue;
