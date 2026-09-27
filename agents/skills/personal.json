@@ -1,10 +1,6 @@
 {
   "skills": [
     {
-      "name": "oss-pnpm",
-      "source": "altaywtf/agent-skills"
-    },
-    {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
     },
@@ -15,6 +11,10 @@
     {
       "name": "putio-sdk-dev",
       "source": "putdotio/agent-skills"
+    },
+    {
+      "name": "slopmaster",
+      "source": "altaywtf/agent-skills"
     },
     {
       "name": "uinaf-intake",
