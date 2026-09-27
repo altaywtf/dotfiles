@@ -1,0 +1,29 @@
+{{- /* Returns .hooks with the worktree guard in PreToolUse for personal profiles only. */ -}}
+{{- $hooks := .hooks -}}
+{{- $profile := includeTemplate "profile" .ctx | fromJson -}}
+{{- $guard := joinPath .ctx.chezmoi.homeDir ".local/libexec/dotfiles/worktree-guard.ts" -}}
+{{- $kept := list -}}
+{{- if hasKey $hooks "PreToolUse" -}}
+{{- range $matcher := $hooks.PreToolUse -}}
+{{- $handlers := list -}}
+{{- range (get $matcher "hooks" | default list) -}}
+{{- if not (contains "libexec/dotfiles/worktree-guard" (toJson .)) -}}
+{{- $handlers = append $handlers . -}}
+{{- end -}}
+{{- end -}}
+{{- if $handlers -}}
+{{- $kept = append $kept (set $matcher "hooks" $handlers) -}}
+{{- else if not (hasKey $matcher "hooks") -}}
+{{- $kept = append $kept $matcher -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $profile.capabilities.personal -}}
+{{- $kept = append $kept (dict "matcher" "Bash" "hooks" (list (dict "type" "command" "command" (printf "node %s" (quote $guard)) "timeout" 10))) -}}
+{{- end -}}
+{{- if $kept -}}
+{{- $_ := set $hooks "PreToolUse" $kept -}}
+{{- else -}}
+{{- $_ := unset $hooks "PreToolUse" -}}
+{{- end -}}
+{{- toJson $hooks -}}

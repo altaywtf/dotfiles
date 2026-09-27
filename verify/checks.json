@@ -201,6 +201,12 @@
       "output": "Bounded generated-worktree mise config discovery and trust"
     },
     {
+      "id": "agent-worktree-guard",
+      "domain": "agents",
+      "command": ["pnpm", "exec", "vp", "test", "agents/hooks/worktree-guard.test.ts"],
+      "output": "Personal harness hook blocks git worktree add or move into ~/projects, except OpenClaw's review folder"
+    },
+    {
       "id": "profiles",
       "domain": "profiles",
       "command": ["verify/profiles.ts"],

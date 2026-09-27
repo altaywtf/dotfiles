@@ -30,6 +30,13 @@ ones the audit warns about, are left for the operator. Every profile also
 removes group and other access from the Codex state the devbox audit checks,
 since Codex creates it with the process umask.
 
+Personal profiles install a [worktree guard](../agents/hooks/worktree-guard.ts)
+as a `PreToolUse` Bash hook in Claude Code settings and `~/.codex/hooks.json`.
+It blocks `git worktree add` or `move` into `~/projects`, except OpenClaw's
+`~/projects/openclaw/openclaw/.worktrees/`, and points at the harness worktree
+folders. Paths built from variables pass unchecked. Codex skips a new or changed
+hook until it is trusted in `/hooks`; other profiles remove the hook.
+
 ## Permissions and Privacy
 
 Every harness starts in its auto-approval mode; switch to full access per
