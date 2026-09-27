@@ -454,6 +454,12 @@
       "output": "Linux timer lifecycle and owner isolation"
     },
     {
+      "id": "maintenance-enrollment",
+      "domain": "maintenance",
+      "command": ["pnpm", "exec", "vp", "test", "maintenance/schedule.test.ts"],
+      "output": "Disabled schedule marker that silences the stale-update shell warning"
+    },
+    {
       "id": "mise-github-token",
       "domain": "identity",
       "command": ["pnpm", "exec", "vp", "test", "identity/mise-github-token.test.ts"],

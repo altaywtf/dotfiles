@@ -53,7 +53,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 - [Local rule fragments](agents.md#global-rules) that link into another Git
   checkout advance under the same rules before profile setup renders them. A
   checkout that cannot advance keeps its work: the rest of convergence still
-  runs, then the step fails and names the checkout and the reason.
+  runs, then the step fails and names the checkout and the reason. Linked
+  fragments keep their permissions across the update.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
   Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
@@ -177,7 +178,7 @@ For always-on hosts, provision an owner-only regular file at
   `maintenance:status` for freshness.
 - Interactive zsh warns when the receipt is older than 13 hours, which catches
   a job that fails before its wrapper runs, such as one still loaded from a
-  moved checkout.
+  moved checkout. `maintenance:disable` silences it until `maintenance:enable`.
 
 ## Disable, Reload, And Recover
 

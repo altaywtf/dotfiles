@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -163,6 +165,7 @@ for (const dirty of [false, true]) {
     const home = join(root, "home");
     mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
     symlinkSync(join(rules.repo, "policy"), join(home, ".config/dotfiles/agents.end.md"));
+    chmodSync(join(rules.repo, "policy"), 0o600);
     const next = rules.advance();
     if (dirty) writeFileSync(join(rules.repo, "notes"), "keep\n");
     const before = git(rules.repo, "rev-parse", "HEAD");
@@ -177,7 +180,10 @@ for (const dirty of [false, true]) {
       RULES: join(home, ".config/dotfiles/agents.end.md"),
       RENDERED: rendered,
     });
+    // Git writes changed files under the umask of an interactive shell.
+    const umask = process.umask(0o022);
     t.onTestFinished(() => {
+      process.umask(umask);
       for (const [key, value] of Object.entries(previous))
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
@@ -192,6 +198,7 @@ for (const dirty of [false, true]) {
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), next);
       assert.equal(readFileSync(rendered, "utf8"), "second\n");
     }
+    assert.equal(statSync(join(rules.repo, "policy")).mode & 0o777, 0o600);
   });
 }
 

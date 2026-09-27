@@ -2,7 +2,7 @@
 
 // This entrypoint must run before the checkout's locked dependencies are installed.
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, realpathSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,8 +105,8 @@ export function acquireCheckoutLock(repo: string, options: LockOptions = {}): ()
 
 // Local rule fragments may link into another checkout, whose default branch
 // then has to advance for rendered rules to follow it.
-function ruleSourceCheckouts(home: string, repo: string): string[] {
-  const checkouts = new Set<string>();
+function ruleSourceCheckouts(home: string, repo: string): Map<string, string[]> {
+  const checkouts = new Map<string, string[]>();
   for (const name of ["agents.start.md", "agents.end.md"]) {
     const fragment = join(home, ".config/dotfiles", name);
     let target: string;
@@ -120,10 +120,24 @@ function ruleSourceCheckouts(home: string, repo: string): string[] {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-    if (root.status === 0) checkouts.add(realpathSync(root.stdout.trim()));
+    if (root.status !== 0) continue;
+    const checkout = realpathSync(root.stdout.trim());
+    checkouts.set(checkout, [...(checkouts.get(checkout) ?? []), target]);
   }
   checkouts.delete(realpathSync(repo));
-  return [...checkouts];
+  return checkouts;
+}
+
+// Git rewrites a changed file under the caller's umask, which would widen an
+// owner-only fragment that profile setup then rejects.
+function preservingModes(paths: string[], update: () => string): string {
+  const modes = paths.map((path) => [path, statSync(path).mode & 0o7777] as const);
+  try {
+    return update();
+  } finally {
+    for (const [path, mode] of modes)
+      if (existsSync(path) && (statSync(path).mode & 0o7777) !== mode) chmodSync(path, mode);
+  }
 }
 
 export function converge(repo: string, lockOptions: LockOptions = {}, home = homedir()): void {
@@ -131,11 +145,12 @@ export function converge(repo: string, lockOptions: LockOptions = {}, home = hom
   try {
     const revision = syncCheckout(repo);
     const skipped: string[] = [];
-    for (const checkout of ruleSourceCheckouts(home, repo)) {
+    for (const [checkout, fragments] of ruleSourceCheckouts(home, repo)) {
       try {
-        console.log(
-          `Agent rule checkout ${checkout} at ${syncCheckout(checkout, "agent rule checkout")}`,
+        const advanced = preservingModes(fragments, () =>
+          syncCheckout(checkout, "agent rule checkout"),
         );
+        console.log(`Agent rule checkout ${checkout} at ${advanced}`);
       } catch (error) {
         if (!(error instanceof UpdateFailure)) throw error;
         skipped.push(`${checkout}: ${error.message}`);

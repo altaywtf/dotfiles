@@ -10,22 +10,25 @@ import { profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 // T3 owns the launchd/systemd plumbing and the service's later updates; this
-// step installs the service when absent and proves it under --check.
+// step installs the service when absent, removes it after an explicit opt-out,
+// and proves either state under --check.
 function t3ServiceUnit(home: string, platform: NodeJS.Platform): string {
   return platform === "darwin"
     ? join(home, "Library/LaunchAgents/com.t3tools.t3code.service.plist")
     : join(home, ".config/systemd/user/t3code.service");
 }
 
-const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function* (
-  devboxEnv: string,
-  byDefault: boolean,
-) {
+const t3ServiceSetting = Effect.fn("t3ServiceSetting")(function* (devboxEnv: string) {
   const fs = yield* FileSystem.FileSystem;
   const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
-  const setting = [...contents.matchAll(/^T3_SERVICE=([01])\r?$/gm)].at(-1)?.[1];
-  return setting === undefined ? byDefault : setting === "1";
+  return [...contents.matchAll(/^T3_SERVICE=([01])\r?$/gm)].at(-1)?.[1];
 });
+
+// Durable personal devboxes serve T3 by default; scoped devboxes are on-demand
+// and workstations run the desktop app instead.
+function t3ServiceByDefault(capabilities: { personal: boolean; devbox: boolean }): boolean {
+  return capabilities.personal && capabilities.devbox;
+}
 
 export const installT3Service = Effect.fn("installT3Service")(function* (
   home: string,
@@ -38,17 +41,29 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
   const unit = t3ServiceUnit(home, platform);
-  // Durable personal devboxes serve T3 by default; scoped devboxes are
-  // on-demand and serve it only when asked. T3_SERVICE in devbox.env
-  // overrides the profile default either way.
-  if (!(yield* t3ServiceWanted(join(home, ".config/dotfiles/devbox.env"), byDefault))) {
+  // T3_SERVICE in devbox.env overrides the profile default either way; only an
+  // explicit T3_SERVICE=0 removes a service, so a manual install survives.
+  const setting = yield* t3ServiceSetting(join(home, ".config/dotfiles/devbox.env"));
+  const present = yield* fs.exists(unit);
+  if (setting === "0" && present) {
+    if (check) return yield* fail(`T3_SERVICE=0 but the T3 Code service is installed: ${unit}`);
+    yield* Console.log(`removing the T3 Code service (T3_SERVICE=0) with base dir ${baseDir}`);
+    const uninstall = yield* runner.run("t3", ["service", "uninstall", "--base-dir", baseDir], {
+      output: "inherit",
+    });
+    if (uninstall.status !== 0)
+      return yield* fail(`t3 service uninstall exited ${uninstall.status}`, uninstall.status);
+    if (yield* fs.exists(unit))
+      return yield* fail(`t3 service uninstall finished but ${unit} remains`);
+    return;
+  }
+  if (setting === "0" || (setting === undefined && !byDefault)) {
     return check
       ? undefined
       : yield* Console.log(
           "T3 Code service not requested (set T3_SERVICE=1 in ~/.config/dotfiles/devbox.env)",
         );
   }
-  const present = yield* fs.exists(unit);
   if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
   if (check && present && platform === "linux") {
     // The service inherits the user manager's environment, not the shell's:
@@ -141,7 +156,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const profile = yield* resolveProfile(requested);
     const model = yield* readProfileModelEffect(profileModelFile());
     const { capabilities } = requireProfile(model, profile);
-    return yield* installT3Service(process.env.HOME || "", check, capabilities.personal);
+    return yield* installT3Service(process.env.HOME || "", check, t3ServiceByDefault(capabilities));
   });
   runMain(program.pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 }
