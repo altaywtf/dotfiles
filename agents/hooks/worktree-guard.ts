@@ -186,8 +186,12 @@ function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
       const valued = launcherValues[name] ?? "";
       while (typeof words[index] === "string" && (words[index] as string).startsWith("-")) {
         const word = words[index] as string;
-        if (name === "sudo" && word === "-D") chdir = words[index + 1];
-        index += word.length === 2 && valued.includes(word[1]) ? 2 : 1;
+        if (name === "sudo" && (word === "-D" || word === "--chdir")) chdir = words[index + 1];
+        const long = /^--(?:user|group|chdir|close-from|host|prompt|role|type|other-user)$/;
+        index +=
+          (word.length === 2 && valued.includes(word[1])) || (name === "sudo" && long.test(word))
+            ? 2
+            : 1;
       }
     } else return { words: words.slice(index), chdir };
   }
@@ -196,6 +200,7 @@ function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
 function worktreeTargets(command: string, startCwd: string): string[] {
   const targets: string[] = [];
   let cwd: Word = startCwd;
+  let previous: Word = unresolved;
   const scopes: Word[] = [];
   for (const words of simpleCommands(command)) {
     if (words.length === 1 && words[0] === "(") {
@@ -213,14 +218,17 @@ function worktreeTargets(command: string, startCwd: string): string[] {
       let at = 0;
       while (typeof rest[at] === "string" && /^-[LPe@]+$/.test(rest[at] as string)) at += 1;
       if (rest[at] === "--") at += 1;
-      cwd = rest[at] === undefined ? home : under(cwd, rest[at]);
+      const next =
+        rest[at] === undefined ? home : rest[at] === "-" ? previous : under(cwd, rest[at]);
+      previous = cwd;
+      cwd = next;
       continue;
     }
     if (typeof name === "string" && shells.has(basename(name))) {
       const flag = rest.findIndex(
         (word) => typeof word === "string" && /^-[a-z]*c[a-z]*$/.test(word),
       );
-      const script = flag === -1 ? undefined : rest[flag + 1];
+      const script = flag === -1 ? undefined : rest[rest[flag + 1] === "--" ? flag + 2 : flag + 1];
       if (typeof script === "string" && here !== unresolved)
         targets.push(...worktreeTargets(script, here));
       continue;

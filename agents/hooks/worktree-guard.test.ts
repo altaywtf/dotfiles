@@ -47,6 +47,9 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["cat <<\\EOF\nbody\nEOF\ngit worktree add ~/projects/x", home],
     ['git "work\\\ntree" add ~/projects/x', home],
     ["/usr/bin/env git worktree add ~/projects/x", home],
+    ["cd /tmp; cd -; git worktree add ../x", repo],
+    ["bash -c -- 'git worktree add ~/projects/x'", home],
+    ["sudo --user root git worktree add ~/projects/x", home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 2, command);
