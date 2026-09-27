@@ -11,3 +11,8 @@ Library
 .config/systemd
 .config/environment.d
 {{ end }}
+{{ if .temporarySource }}
+.config/systemd/user/dotfiles-software-update.service
+.config/systemd/user/dotfiles-software-update.timer
+Library/LaunchAgents/local.dotfiles.software-update.plist
+{{ end }}

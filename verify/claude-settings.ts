@@ -247,6 +247,14 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   assert.equal(readFileSync(path, "utf8"), firstContents);
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
+  const reordered = `${JSON.stringify(
+    Object.fromEntries(Object.entries(JSON.parse(firstContents) as Settings).toReversed()),
+  )}\n`;
+  writeFileSync(path, reordered);
+  const reorderedMtime = statSync(path, { bigint: true }).mtimeNs;
+  await runApply("workstation", fixtureRoot);
+  assert.equal(readFileSync(path, "utf8"), reordered);
+  assert.equal(statSync(path, { bigint: true }).mtimeNs, reorderedMtime);
 }
 
 async function main(): Promise<void> {

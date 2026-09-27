@@ -123,6 +123,7 @@ function createFixture(): { repoDir: string; home: string } {
   mkdirSync(join(repoDir, "agents", "plugins"), { recursive: true });
   mkdirSync(join(repoDir, "chezmoi", ".chezmoidata"), { recursive: true });
   mkdirSync(home, { recursive: true });
+  mkdirSync(join(home, ".local/state/dotfiles/agents"), { recursive: true });
   writeFileSync(
     join(repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
     readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
@@ -168,8 +169,8 @@ function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
   return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
-function pluginLockPath(repoDir: string): string {
-  return join(repoDir, "agents", "plugins.lock.json");
+function pluginLockPath(home: string): string {
+  return join(home, ".local/state/dotfiles/agents", "plugins.lock.json");
 }
 
 function lockPlugin(plugin: {
@@ -185,9 +186,10 @@ function lockPlugin(plugin: {
   };
 }
 
-function writePluginLock(repoDir: string, plugins: Parameters<typeof lockPlugin>[0][]): void {
+function writePluginLock(home: string, plugins: Parameters<typeof lockPlugin>[0][]): void {
+  mkdirSync(dirname(pluginLockPath(home)), { recursive: true });
   writeFileSync(
-    pluginLockPath(repoDir),
+    pluginLockPath(home),
     JSON.stringify({ version: 1, plugins: plugins.map(lockPlugin) }, null, 2),
   );
 }
@@ -400,8 +402,8 @@ test("refreshes a stale installed plugin or source on --update", () => {
 
 test("reports a Grok source that is installed but has no managed name to update", () => {
   const { repoDir, home } = createFixture();
-  writePluginLock(repoDir, fixtureSharedPlugins);
-  const previous = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8"));
+  writePluginLock(home, fixtureSharedPlugins);
+  const previous = JSON.parse(readFileSync(pluginLockPath(home), "utf8"));
   const runtime = new FixtureRuntime(repoDir, home, {
     outputs: new Map([
       [
@@ -414,7 +416,7 @@ test("reports a Grok source that is installed but has no managed name to update"
   assert.equal(main(["--update"], runtime), 1);
   assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
   assert.match(runtime.stderr.value, /Grok: fixture\/shared-market could not be refreshed/);
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
 });
 
 test("skips refresh commands after their marketplace add or plugin install fails", () => {
@@ -467,7 +469,7 @@ test("does not prune or advance ownership when a plugin refresh fails", () => {
     ["codex plugin marketplace upgrade shared-market", "upgrade failed"],
     ["grok plugin update shared-plugin", "update failed"],
   ] as const) {
-    writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+    writePluginLock(home, [...fixtureSharedPlugins, retired]);
     const runtime = new FixtureRuntime(repoDir, home, {
       outputs: new Map([["grok plugin list", grokList]]),
       failures: new Map([[command, { stdout: "", stderr }]]),
@@ -478,7 +480,7 @@ test("does not prune or advance ownership when a plugin refresh fails", () => {
       harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
       false,
     );
-    assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+    assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
   }
 });
 
@@ -610,7 +612,7 @@ test("initializes a missing ownership lock without removing unowned plugins", ()
     harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
     false,
   );
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), {
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), {
     version: 1,
     plugins: readLayeredPlugins(repoDir, "workstation", ["developer", "workstation"]).plugins,
   });
@@ -623,7 +625,7 @@ test("initializes a missing ownership lock without removing unowned plugins", ()
 test("removes only plugins dropped from the previous managed lock", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
-  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 0);
@@ -632,7 +634,7 @@ test("removes only plugins dropped from the previous managed lock", () => {
   );
   assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
   assert.ok(harnessCalls(runtime, "grok").includes("plugin uninstall retired-plugin --confirm"));
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.deepEqual(locked.map(pluginRef), [
     "shared-plugin@shared-market",
     "second-plugin@shared-market",
@@ -646,7 +648,7 @@ test("keeps a dropped plugin in the lock when its harness CLI is missing", () =>
     name: "retired-plugin",
     harnesses: ["codex"],
   };
-  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home);
   runtime.installedCommands.delete("codex");
 
@@ -656,7 +658,7 @@ test("keeps a dropped plugin in the lock when its harness CLI is missing", () =>
     false,
   );
   assert.match(runtime.stdout.value, /Skipping Codex plugin removal: 'codex' is not installed/);
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.deepEqual(locked.map(pluginRef), [
     "shared-plugin@shared-market",
     "second-plugin@shared-market",
@@ -669,7 +671,7 @@ test("does not prune or advance ownership when installation fails", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
-  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [
@@ -684,14 +686,14 @@ test("does not prune or advance ownership when installation fails", () => {
     harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
     false,
   );
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
 });
 
 test("does not advance ownership when a managed removal fails", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
-  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [
@@ -705,13 +707,13 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.ok(
     harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
   );
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
   assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
 });
 
 test("rejects an unsafe ownership lock before changing plugins", () => {
   const { repoDir, home } = createFixture();
-  writePluginLock(repoDir, [{ marketplace: "fixture/market", name: "../escape" }]);
+  writePluginLock(home, [{ marketplace: "fixture/market", name: "../escape" }]);
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
@@ -722,7 +724,7 @@ test("rejects an unsafe ownership lock before changing plugins", () => {
 test("rejects a lock that omits explicit harness membership", () => {
   const { repoDir, home } = createFixture();
   writeFileSync(
-    pluginLockPath(repoDir),
+    pluginLockPath(home),
     JSON.stringify({
       version: 1,
       plugins: [
@@ -746,7 +748,7 @@ test("rejects a lock that omits explicit harness membership", () => {
 
 test("drops retired harnesses from the previous managed lock", () => {
   const { repoDir, home } = createFixture();
-  writePluginLock(repoDir, [
+  writePluginLock(home, [
     ...fixtureSharedPlugins.map((plugin) => ({ ...plugin, harnesses: [...HARNESSES, "opencode"] })),
     { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["opencode"] },
   ]);
@@ -757,7 +759,7 @@ test("drops retired harnesses from the previous managed lock", () => {
     runtime.calls.some((call) => call.args.includes("retired-plugin@retired-market")),
     false,
   );
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.deepEqual(
     locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
     fixtureSharedPlugins.map((plugin) => [plugin.name, [...HARNESSES]]),
@@ -770,7 +772,7 @@ test("records only harnesses whose CLI was present", () => {
   runtime.installedCommands.delete("grok");
 
   assert.equal(main([], runtime), 0);
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   for (const plugin of locked) {
     assert.equal(plugin.harnesses.includes("grok"), false);
     assert.ok(plugin.harnesses.includes("claude"));
@@ -779,12 +781,12 @@ test("records only harnesses whose CLI was present", () => {
 
 test("keeps previously owned harnesses when that CLI is temporarily absent", () => {
   const { repoDir, home } = createFixture();
-  writePluginLock(repoDir, fixtureSharedPlugins);
+  writePluginLock(home, fixtureSharedPlugins);
   const runtime = new FixtureRuntime(repoDir, home);
   runtime.installedCommands.delete("grok");
 
   assert.equal(main([], runtime), 0);
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.ok(locked[0]?.harnesses.includes("grok"));
 });
 

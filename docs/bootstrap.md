@@ -121,6 +121,11 @@ mise trust
 - For externally supplied Homebrew packages or refused tap trust, configure
   [external capabilities](profiles.md#externally-managed-homebrew-capabilities).
 
+Provisioning that applies from a clone and then deletes it sets
+`DOTFILES_TEMPORARY_SOURCE=1` for `./dotfiles apply`. The profile then renders
+no updater schedule and no Topgrade commands that would point into the deleted
+clone; [software updates](software-updates.md) need a persistent checkout.
+
 On macOS, run these host-wide steps once from the administrator account:
 
 ```zsh

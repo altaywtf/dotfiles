@@ -2,7 +2,7 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
@@ -23,7 +23,7 @@ import {
 } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile } from "./lock.ts";
+import { readLockFile, writeLockFile, managedLockPath } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -332,7 +332,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
   if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
 
-  const mcpLockPath = join(repoDir, "agents", "mcps.lock.json");
+  const mcpLockPath = managedLockPath(runtime.env, repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],

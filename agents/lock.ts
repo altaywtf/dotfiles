@@ -35,3 +35,22 @@ export function writeLockFile(lockPath: string, value: unknown): void {
     rmSync(temporaryDirectory, { force: true, recursive: true });
   }
 }
+
+// Ownership outlives the checkout: provisioning can apply from a temporary clone
+// that is deleted afterwards, and a lost lock would strand retired assets.
+export function managedLockPath(
+  env: NodeJS.ProcessEnv,
+  repoDir: string,
+  kind: "skills" | "plugins" | "mcps",
+): string {
+  if (!env.HOME) throw new Error(`HOME is required to locate the managed ${kind} lock`);
+  const name = `${kind}.lock.json`;
+  const path = join(env.XDG_STATE_HOME || join(env.HOME, ".local/state"), "dotfiles/agents", name);
+  const legacy = join(repoDir, "agents", name);
+  if (!existsSync(path) && existsSync(legacy)) {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    writeFileSync(path, readFileSync(legacy), { mode: 0o600, flag: "wx" });
+    rmSync(legacy, { force: true });
+  }
+  return path;
+}

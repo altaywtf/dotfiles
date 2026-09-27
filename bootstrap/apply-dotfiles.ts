@@ -148,7 +148,11 @@ const program = Effect.gen(function* () {
       "--destination",
       home,
       "--override-data",
-      JSON.stringify({ agentRulesPath, dotfilesProfile: profile }),
+      JSON.stringify({
+        agentRulesPath,
+        dotfilesProfile: profile,
+        temporarySource: process.env.DOTFILES_TEMPORARY_SOURCE === "1",
+      }),
     ],
     dryRun: args.dryRun,
   };

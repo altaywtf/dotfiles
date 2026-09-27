@@ -3,7 +3,17 @@
 import assert from "node:assert/strict";
 import { Console, Effect } from "effect";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +27,11 @@ const profiles = Object.keys(
   readProfileModel(join(sourceDir, ".chezmoidata/profiles.json")).profiles,
 );
 
-export function runApply(profile: string, fixtureRoot: string): Promise<void> {
+export function runApply(
+  profile: string,
+  fixtureRoot: string,
+  options: { source?: string; temporarySource?: boolean } = {},
+): Promise<void> {
   const paths = {
     home: join(fixtureRoot, "home"),
     config: join(fixtureRoot, "xdg/config"),
@@ -38,12 +52,16 @@ export function runApply(profile: string, fixtureRoot: string): Promise<void> {
   }
 
   return new Promise((finish, reject) => {
-    const data = JSON.stringify({ agentRulesPath, dotfilesProfile: profile });
+    const data = JSON.stringify({
+      agentRulesPath,
+      dotfilesProfile: profile,
+      temporarySource: options.temporarySource ?? false,
+    });
     const child = spawn(
       "chezmoi",
       [
         "--source",
-        sourceDir,
+        options.source ?? sourceDir,
         "--destination",
         paths.home,
         "--override-data",
@@ -103,10 +121,37 @@ async function verifyProfiles(): Promise<void> {
   }
 }
 
+function filesReferencing(directory: string, needle: string): string[] {
+  return readdirSync(directory, { recursive: true, encoding: "utf8" })
+    .map((entry) => join(directory, entry))
+    .filter((path) => lstatSync(path).isFile() && readFileSync(path, "utf8").includes(needle));
+}
+
+// Scoped provisioning applies from a clone it deletes afterwards; nothing it
+// installs may point back into that clone.
+async function verifyTemporarySource(): Promise<void> {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-temporary-source-"));
+  try {
+    const checkout = join(root, "checkout");
+    cpSync(sourceDir, join(checkout, "chezmoi"), { recursive: true });
+    await runApply("devbox", join(root, "persistent"), { source: join(checkout, "chezmoi") });
+    assert.notDeepEqual(filesReferencing(join(root, "persistent/home"), checkout), []);
+    await runApply("devbox", join(root, "scoped"), {
+      source: join(checkout, "chezmoi"),
+      temporarySource: true,
+    });
+    rmSync(checkout, { recursive: true });
+    assert.deepEqual(filesReferencing(join(root, "scoped/home"), checkout), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   runMain(
-    Effect.tryPromise({ try: verifyProfiles, catch: (error) => error }).pipe(
-      Effect.tap(() => Console.log("ok all profiles apply in disposable homes")),
-    ),
+    Effect.tryPromise({
+      try: () => Promise.all([verifyProfiles(), verifyTemporarySource()]),
+      catch: (error) => error,
+    }).pipe(Effect.tap(() => Console.log("ok all profiles apply in disposable homes"))),
   );
 }
