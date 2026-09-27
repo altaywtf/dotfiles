@@ -6,6 +6,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { profileModelFile, resolveProfile } from "../profiles/current.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 // T3 owns the launchd/systemd plumbing and the service's later updates; this
 // step installs the service when absent and proves it under --check.
@@ -15,15 +17,20 @@ function t3ServiceUnit(home: string, platform: NodeJS.Platform): string {
     : join(home, ".config/systemd/user/t3code.service");
 }
 
-const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function* (devboxEnv: string) {
+const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function* (
+  devboxEnv: string,
+  byDefault: boolean,
+) {
   const fs = yield* FileSystem.FileSystem;
   const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
-  return /^T3_SERVICE=1\r?$/m.test(contents);
+  const setting = [...contents.matchAll(/^T3_SERVICE=([01])\r?$/gm)].at(-1)?.[1];
+  return setting === undefined ? byDefault : setting === "1";
 });
 
 export const installT3Service = Effect.fn("installT3Service")(function* (
   home: string,
   check: boolean,
+  byDefault: boolean,
   platform: NodeJS.Platform = process.platform,
   uid: number = process.getuid?.() ?? -1,
   baseDir: string = process.env.T3_BASE_DIR || join(home, ".t3"),
@@ -31,10 +38,10 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
   const unit = t3ServiceUnit(home, platform);
-  // The service is per user, not per profile: a devbox identity that reaches
-  // T3 through the desktop app's SSH launcher (as on a shared Mac) does not
-  // want a second server. T3_SERVICE=1 in devbox.env opts a user in.
-  if (!(yield* t3ServiceWanted(join(home, ".config/dotfiles/devbox.env")))) {
+  // Durable personal devboxes serve T3 by default; scoped devboxes are
+  // on-demand and serve it only when asked. T3_SERVICE in devbox.env
+  // overrides the profile default either way.
+  if (!(yield* t3ServiceWanted(join(home, ".config/dotfiles/devbox.env"), byDefault))) {
     return check
       ? undefined
       : yield* Console.log(
@@ -122,10 +129,19 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
 });
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  runMain(
-    installT3Service(process.env.HOME || "", process.argv.includes("--check")).pipe(
-      Effect.provide(CommandRunner.layer),
-      Effect.provide(NodeServices.layer),
-    ),
-  );
+  const program = Effect.gen(function* () {
+    let check = false;
+    let requested: string | undefined;
+    const args = process.argv.slice(2);
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] === "--check") check = true;
+      else if (args[index] === "--profile" && args[index + 1]) requested = args[++index];
+      else return yield* fail("usage: install-t3-service.ts [--profile PROFILE] [--check]", 2);
+    }
+    const profile = yield* resolveProfile(requested);
+    const model = yield* readProfileModelEffect(profileModelFile());
+    const { capabilities } = requireProfile(model, profile);
+    return yield* installT3Service(process.env.HOME || "", check, capabilities.personal);
+  });
+  runMain(program.pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 }

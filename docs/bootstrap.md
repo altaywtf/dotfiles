@@ -38,7 +38,8 @@ probed by `./dotfiles check devbox`:
 - Tailscale installed and joined.
 - systemd lingering for the user: `sudo loginctl enable-linger <user>`. The
   [maintenance timer](software-updates.md) and the
-  [T3 Code service](devbox.md#system-services) stop at logout without it.
+  [T3 Code service](devbox.md#system-services), on by default for
+  `personal-devbox`, stop at logout without it.
 
 Tool pins live in the [mise configuration](mise.md#runtime-pins).
 `age` and `sops` stay host packages on both platforms because the
