@@ -100,7 +100,8 @@ git config --local --unset dotfiles.hygiene # include it again
   belongs to its prefix owner.
 - The sweep permanently deletes aged Codex session history under `CODEX_HOME`
   when set; preview before applying. Codex config, skills, memories, plugins,
-  worktrees, and databases are never swept.
+  worktrees, and databases are never swept. A pruned session can still be
+  listed without opening; remove it with `codex delete`.
 - Private state: `~/.local/state/dotfiles/hygiene.json`. A live/ambiguous hygiene
   lock fails for inspection; stale process locks recover automatically.
 
