@@ -5,3 +5,11 @@ useDefault = true
 description = "Synthetic credentials from a retired configurator test that remain in history"
 regexTarget = "secret"
 regexes = ['''^opencode_test_key_1234567890$''', '''^zen_test_key_1234567890$''']
+
+[[allowlists]]
+description = "Public upstream commit and tarball SHA-256 pinned by a removed gh-app-auth installer"
+regexTarget = "secret"
+regexes = [
+  '''^620f73d8e27a81ea5736acbf5643b461da61c0f4$''',
+  '''^c4d80ff42526308bd27fc8b458e2c256bfced14cf6d90c4ce28afa3aa5ccbae3$''',
+]

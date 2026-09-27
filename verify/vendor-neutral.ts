@@ -19,25 +19,11 @@ function allowed(file: string, content: string): boolean {
       return content.startsWith('"github:uinaf/ffss" =');
     case "chezmoi/private_dot_config/mise/config.toml.tmpl":
       return content.trim() === '"github:uinaf/ffss",';
-    case "AGENTS.md":
-      return content.includes("Do not add `uinaf` or another owner");
-    case "homebrew/Brewfile":
     case "homebrew/Brewfile.personal":
     case "homebrew/Brewfile.personal-workstation":
-    case "homebrew/Brewfile.devbox":
-    case "CONTRIBUTING.md":
+      return content.includes("uinaf/tap");
     case "LICENSE":
-    case "README.md":
-    case "docs/bootstrap.md":
-    case "docs/profiles.md":
-      return containsAny(content, [
-        "uinaf/tap",
-        "github.com/uinaf/sops-vault-template",
-        "dev@uinaf.dev",
-        "Copyright (c) 2026 uinaf",
-      ]);
-    case ".github/zizmor.yml":
-      return content.includes("uinaf/.github");
+      return content.includes("Copyright (c) 2026 uinaf");
     case "renovate.json":
       return containsAny(content, [
         "github>uinaf/renovate-config",
@@ -53,47 +39,20 @@ function allowed(file: string, content: string): boolean {
       ]);
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
-    case "docs/agents.md":
-      return containsAny(content, [
-        "github.com/uinaf/agent-skills",
-        "github.com/uinaf/design",
-        "uinaf-design",
-      ]);
     case "agents/skills/developer.json":
-    case "agents/skills/workstation.json":
-    case "agents/skills/devbox.json":
     case "agents/skills/personal.json":
       return containsAny(content, [
-        '"name": "uinaf-design"',
         '"name": "uinaf-intake"',
         '"name": "uinaf-notion"',
         '"source": "uinaf/agent-skills"',
-        '"source": "uinaf/design"',
       ]);
     case "agents/plugins/developer.json":
-    case "agents/plugins/workstation.json":
-    case "agents/plugins/devbox.json":
-    case "agents/plugins/personal.json":
-    case "agents/plugins.test.ts":
       return content.includes("uinaf/ffss");
     case "agents/rules.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
-    case "agents/mcps/developer.json":
-    case "agents/mcps/workstation.json":
-    case "agents/mcps/devbox.json":
     case "agents/mcps/personal.json":
-    case "agents/mcps.test.ts":
       return content.includes("uinaf-executor");
-    case "agents/sync.test.ts":
-      return containsAny(content, [
-        "uinaf/agents",
-        "uinaf/skills",
-        "uinaf/agent-skills",
-        "uinaf/design",
-        "uinaf-design",
-      ]);
     case "verify/profiles.ts":
-    case "homebrew/verify/layers.test.ts":
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
     case "chezmoi/.chezmoidata/profiles.json":

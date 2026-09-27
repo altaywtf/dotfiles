@@ -10,6 +10,13 @@ zstyle ':omz:update' mode disabled
 DISABLE_AUTO_TITLE="true"
 {{ end -}}
 
+# oh-my-zsh runs compinit and rebuilds its dump whenever fpath differs from the
+# last shell's, so Homebrew completions join fpath first in every shell kind.
+typeset -U fpath FPATH
+if [ -d /opt/homebrew/share/zsh/site-functions ]; then
+  fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
+fi
+
 if [ -f "$ZSH/oh-my-zsh.sh" ]; then
   source "$ZSH/oh-my-zsh.sh"
 fi
@@ -56,13 +63,14 @@ if [ -n "$TERM" ] && [ -z "$COLORTERM" ]; then
   esac
 fi
 
-if [ -x /opt/homebrew/bin/brew ]; then
+# Login shells already ran brew shellenv in .zprofile.
+if [[ ! -o login ]] && [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv zsh)"
 fi
 
 typeset -U path PATH
 
-# brew shellenv above re-fronts Homebrew ahead of the login-shell mise shims,
+# brew shellenv re-fronts Homebrew ahead of the login-shell mise shims,
 # and interactive command shells (zsh -ic) never fire the activation hook that
 # would repair PATH. Keep the shims ahead of Homebrew.
 if command -v mise >/dev/null 2>&1; then

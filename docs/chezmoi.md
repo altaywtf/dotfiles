@@ -42,13 +42,13 @@ node verify/home-fixture.ts
 
 ## Local Overrides
 
-| Path                                                  | Use                                                                                        |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `~/.ssh/config.local`                                 | Host-specific SSH directives                                                               |
-| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                                                           |
-| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                                                 |
-| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                                                        |
-| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service opt-in |
+| Path                                                  | Use                                                                                          |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `~/.ssh/config.local`                                 | Host-specific SSH directives                                                                 |
+| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                                                             |
+| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                                                   |
+| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                                                          |
+| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service override |
 
 - SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
   their own fragments rather than modifying `~/.ssh/config`.

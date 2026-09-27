@@ -3,7 +3,8 @@
 Topgrade updates installed software and applies the enrolled dotfiles profile.
 A launchd agent schedules it on macOS; a systemd user timer does on Linux.
 [schedule.ts](../maintenance/schedule.ts) routes the commands below to
-the platform implementation.
+the platform implementation. The reasoning behind these limits and caveats
+lives in the maintainer's Notion notes.
 
 ## Enable And Use
 
@@ -97,18 +98,9 @@ git config --local --unset dotfiles.hygiene # include it again
   and age thresholds. It preserves project sources and persistent container
   data; review the preview for the current targets. Shared Homebrew cleanup
   belongs to its prefix owner.
-- The sweep deletes Codex conversation history, which Codex itself never
-  reclaims. Archived sessions go after 30 days, live sessions after 90,
-  visualizations after 30, and `.tmp` scratch after 7, under `CODEX_HOME` when
-  set. Deletion is permanent and has no Codex-side undo, so preview before
-  applying. Config, skills, memories, plugins, worktrees, and the sqlite
-  databases sit at the Codex root and are never swept.
-- Two consequences follow from deleting rollout files directly. Codex keeps
-  thread rows in `state_*.sqlite` and `session_index.jsonl`, so a pruned session
-  can still be listed while no longer opening, and the databases do not shrink;
-  reclaim those with Codex's own `codex delete`. Archiving also preserves the
-  original mtime, so a session archived long after its last activity is eligible
-  immediately rather than 30 days later.
+- The sweep permanently deletes aged Codex session history under `CODEX_HOME`
+  when set; preview before applying. Codex config, skills, memories, plugins,
+  worktrees, and databases are never swept.
 - Private state: `~/.local/state/dotfiles/hygiene.json`. A live/ambiguous hygiene
   lock fails for inspection; stale process locks recover automatically.
 
@@ -138,10 +130,6 @@ logs live under `~/.local/state/dotfiles/logs/`.
   logging remains best-effort; missing executables remain retryable after repair.
 - The latest timeout report lives at
   `~/.local/state/dotfiles/updates/diagnostics/software-update-timeout.json`.
-  It is owner-only, survives reboot, and is replaced on the next timeout.
-  Reports include process identities and bounded macOS stack samples, excluding
-  command arguments and environment values. Linux reports process metadata.
-  Diagnostic failure does not prevent process cleanup or failure reporting.
 - On macOS, `maintenance:status` inspects the GUI updater or, when absent, the
   system updater under the stored host namespace. It reports the selected domain
   and compares that job’s plist and the user’s receipt without changing enrollment.
@@ -280,19 +268,9 @@ On macOS, run as the development user from the prepared checkout:
 node maintenance/workloads.ts
 ```
 
-This read-only process snapshot reports adopted Gradle test workers, temporary
-Bun/Node test or daemon arguments, and test-like PostgreSQL data directories as
-candidates for manual inspection. It also reports observed Colima VM helpers,
-ADB servers, and Watchman. Age is context, never proof of abandonment.
-
-Only the current user's processes are inspected. Output contains fixed service
-names, PIDs, ages, and evidence; arguments and paths are not printed. No daemon
-clients are contacted, so the command cannot prove a VM is empty, a database has
-no clients, ADB has no devices, or Watchman has unused roots. Legitimate services
-can match the candidate rules. Confirm ownership and current use before stopping
-anything. Other users' workloads and unrecognized process layouts are outside
-this snapshot. Missing/failed process inspection or malformed rows produce an
-incomplete result and nonzero exit; Linux is unsupported.
+This read-only snapshot of the current user's processes lists candidate test
+workers, daemons, and VM helpers for manual inspection. Confirm ownership and
+current use before stopping anything. Linux is unsupported.
 
 ## CLI Release Policy
 

@@ -44,8 +44,9 @@ mise run bootstrap:trust-agent-worktrees
 ```
 
 Bootstrap runs this helper for existing configs near `~/.codex/worktrees`,
-`~/.claude/worktrees`, and `~/.t3/worktrees`; new worktrees may need another
-run.
+`~/.claude/worktrees`, and `~/.t3/worktrees`. The global
+[mise settings](../chezmoi/private_dot_config/mise/config.toml.tmpl) trust new
+configs under the same roots through `trusted_config_paths`.
 
 ## Runtime Pins
 

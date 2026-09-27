@@ -3,7 +3,7 @@
 ## Prepare
 
 - Install the [platform prerequisites](docs/bootstrap.md) (`git` and `mise`) and clone the repo.
-- In a new checkout or worktree, install the verification tools at the template pins and prepare:
+- In a new checkout or worktree, install the verification tools at the template pins and prepare. CI omits `trufflehog`, which only the `verify:history` scan uses:
 
 ```zsh
 mise --no-config use --global $(sed -nE 's/^(chezmoi|shellcheck|actionlint|gitleaks|trufflehog) = "([^"]+)"$/\1@\2/p' chezmoi/.chezmoitemplates/mise.toml)
