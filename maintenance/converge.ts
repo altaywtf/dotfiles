@@ -84,8 +84,12 @@ export function syncCheckout(repo: string, label = "dotfiles checkout"): string 
     throw new LocalWork(`${label} is not on its default branch ${branch}`);
   if (git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote)
     throw new UpdateFailure(`${label} updates require the default branch tracking origin`);
-  if (probe("merge-base", "--is-ancestor", "HEAD", remote).status !== 0)
+  const ancestry = probe("merge-base", "--is-ancestor", "HEAD", remote);
+  if (ancestry.error) throw ancestry.error;
+  if (ancestry.status === 1)
     throw new LocalWork(`${label} has commits that are not on origin/${branch}`);
+  if (ancestry.status !== 0)
+    throw new UpdateFailure(`${label} ancestry check failed with git status ${ancestry.status}`);
   git("merge", "--ff-only", "--no-autostash", "--no-edit", remote);
   clean();
   return git("rev-parse", "HEAD");

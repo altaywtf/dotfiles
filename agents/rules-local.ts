@@ -4,6 +4,7 @@ import { CliFailure, fail } from "../lib/program.ts";
 
 export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function* (
   configDir: string,
+  dryRun = false,
 ) {
   const fs = yield* FileSystem.FileSystem;
   for (const path of [join(configDir, "agents.start.md"), join(configDir, "agents.end.md")]) {
@@ -31,6 +32,10 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
     // A Git checkout updated under umask 022 widens a linked fragment to 0644;
     // write access by others would be an integrity problem, read access is not yet.
     if ((info.mode & 0o077) !== 0) {
+      if (dryRun) {
+        yield* Console.warn(`would restrict local agent rules to owner-only access: ${path}`);
+        continue;
+      }
       yield* fs.chmod(path, info.mode & 0o700).pipe(
         Effect.mapError(
           () =>

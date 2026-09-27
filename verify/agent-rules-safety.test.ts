@@ -32,6 +32,23 @@ test("restricts linked local Markdown that a checkout update left group and othe
   }
 });
 
+test("a preview reports a readable local Markdown target without changing it", () => {
+  const { home, root } = createFixture();
+  const target = join(root, "rules-checkout/templates/agents.end.md");
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, "### Shared checkout fixture rule\n");
+  chmodSync(target, 0o644);
+  const privateRules = join(home, ".config/dotfiles/agents.end.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  symlinkSync(target, privateRules);
+
+  const result = runWrapperResult(home, "workstation", ["--dry-run"]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /would restrict local agent rules to owner-only access/);
+  assert.equal(statSync(target).mode & 0o777, 0o644);
+});
+
 test("rejects local Markdown granting group or other write access", () => {
   for (const [name, mode] of [
     ["agents.start.md", 0o660],
