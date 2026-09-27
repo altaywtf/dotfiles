@@ -41,6 +41,12 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["env -u FOO git worktree add ~/projects/x", home],
     ["cd -P ~/projects/owner/repo && git worktree add .wt/x", home],
     ['git work"tree" add ~/projects/x', home],
+    ["env -C ~/projects/owner/repo git worktree add ../x", home],
+    ["sudo -u root git worktree add ~/projects/x", home],
+    ["2>&1 git worktree add ~/projects/x", home],
+    ["cat <<\\EOF\nbody\nEOF\ngit worktree add ~/projects/x", home],
+    ['git "work\\\ntree" add ~/projects/x', home],
+    ["/usr/bin/env git worktree add ~/projects/x", home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 2, command);
@@ -60,6 +66,7 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["cat <<-EOF\n\tgit worktree add ~/projects/x\n\tEOF\necho done", home],
     ["git worktree add -fb fix ~/.claude/worktrees/x", repo],
     ["echo ok # ignored; git worktree add ~/projects/x", home],
+    ["git worktree add ~/.claude/worktrees/x 2>&1 && echo done", repo],
     ["(cd ~/projects/owner/repo && pwd); cd /tmp && git worktree add x", home],
   ]) {
     const result = run(home, command, cwd);

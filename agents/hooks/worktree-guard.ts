@@ -60,7 +60,7 @@ function simpleCommands(source: string): Word[][] {
       index += 1;
       while (index < source.length && source[index] !== '"') {
         if (source[index] === "\\" && index + 1 < source.length) {
-          word += source[index + 1];
+          if (source[index + 1] !== "\n") word += source[index + 1];
           index += 2;
         } else if (source[index] === "$" || source[index] === "`") {
           const [value, next] = source[index] === "$" ? variable(index) : [undefined, index + 1];
@@ -85,12 +85,19 @@ function simpleCommands(source: string): Word[][] {
         source.slice(index),
       );
       if (match) {
-        heredocs.push({ delimiter: match[2] ?? match[3] ?? match[4], stripTabs: match[1] === "-" });
+        heredocs.push({
+          delimiter: match[2] ?? match[3] ?? match[4].replaceAll("\\", ""),
+          stripTabs: match[1] === "-",
+        });
         index += match[0].length;
       } else index += 2;
     } else if (char === "(" || char === ")") {
       endCommand();
       commands.push([char]);
+      index += 1;
+    } else if (char === "&" && (source[index + 1] === ">" || /^\d*[<>]$/.test(word))) {
+      word += char;
+      started = true;
       index += 1;
     } else if (/[;&|\n]/.test(char)) {
       endCommand();
@@ -142,10 +149,12 @@ const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const redirection = /^\d*(?:[<>]&?|>>|&>>?)(.*)$/;
 const launchers = new Set(["builtin", "command", "exec", "nohup", "sudo", "time"]);
 const shells = new Set(["bash", "dash", "sh", "zsh"]);
+const launcherValues: Record<string, string> = { exec: "a", sudo: "CDghprtuU" };
 
 // Drops leading assignments and launchers such as `env` or `command`.
-function unwrap(words: Word[]): Word[] {
+function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
   let index = 0;
+  let chdir: Word | undefined;
   const skip = (test: (word: string) => boolean) => {
     while (typeof words[index] === "string" && test(words[index] as string)) index += 1;
   };
@@ -157,19 +166,30 @@ function unwrap(words: Word[]): Word[] {
       index += operator[1] ? 1 : 2;
       continue;
     }
-    const name = words[index];
+    const name = typeof words[index] === "string" ? basename(words[index] as string) : undefined;
     if (name === "env") {
       index += 1;
       while (typeof words[index] === "string") {
         const word = words[index] as string;
-        if (/^-[uCS]$|^--(?:unset|chdir|split-string)$/.test(word)) index += 2;
+        if (/^-C$|^--chdir$/.test(word)) {
+          chdir = words[index + 1];
+          index += 2;
+        } else if (word.startsWith("--chdir=")) {
+          chdir = word.slice("--chdir=".length);
+          index += 1;
+        } else if (/^-[uS]$|^--(?:unset|split-string)$/.test(word)) index += 2;
         else if (word.startsWith("-") || assignment.test(word)) index += 1;
         else break;
       }
-    } else if (typeof name === "string" && launchers.has(name)) {
+    } else if (name !== undefined && launchers.has(name)) {
       index += 1;
-      skip((word) => word.startsWith("-"));
-    } else return words.slice(index);
+      const valued = launcherValues[name] ?? "";
+      while (typeof words[index] === "string" && (words[index] as string).startsWith("-")) {
+        const word = words[index] as string;
+        if (name === "sudo" && word === "-D") chdir = words[index + 1];
+        index += word.length === 2 && valued.includes(word[1]) ? 2 : 1;
+      }
+    } else return { words: words.slice(index), chdir };
   }
 }
 
@@ -186,7 +206,9 @@ function worktreeTargets(command: string, startCwd: string): string[] {
       cwd = scopes.pop() ?? cwd;
       continue;
     }
-    const [name, ...rest] = unwrap(words);
+    const unwrapped = unwrap(words);
+    const [name, ...rest] = unwrapped.words;
+    const here = unwrapped.chdir === undefined ? cwd : under(cwd, unwrapped.chdir);
     if (name === "cd" || name === "pushd") {
       let at = 0;
       while (typeof rest[at] === "string" && /^-[LPe@]+$/.test(rest[at] as string)) at += 1;
@@ -199,12 +221,12 @@ function worktreeTargets(command: string, startCwd: string): string[] {
         (word) => typeof word === "string" && /^-[a-z]*c[a-z]*$/.test(word),
       );
       const script = flag === -1 ? undefined : rest[flag + 1];
-      if (typeof script === "string" && cwd !== unresolved)
-        targets.push(...worktreeTargets(script, cwd));
+      if (typeof script === "string" && here !== unresolved)
+        targets.push(...worktreeTargets(script, here));
       continue;
     }
     if (typeof name !== "string" || basename(name) !== "git") continue;
-    let base: Word = cwd;
+    let base: Word = here;
     let at = 0;
     for (; at < rest.length; at += 1) {
       const word = rest[at];
