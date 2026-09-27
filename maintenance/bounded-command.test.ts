@@ -240,6 +240,43 @@ test("unavailable process inventory reports incomplete cleanup", async (t) => {
   assert.equal(result.diagnosticPath, undefined);
 });
 
+test("a transient inventory failure does not void cleanup proof", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dotfiles-transient-inventory-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const runner = yield* CommandRunner;
+      let first = true;
+      return yield* Effect.gen(function* () {
+        const command = yield* BoundedCommand;
+        return yield* command.run(process.execPath, ["-e", "process.exit(0)"], {
+          diagnosticDirectory: join(directory, "diagnostics"),
+          timeoutMs: 2_000,
+        });
+      }).pipe(
+        Effect.provide(BoundedCommand.layer),
+        Effect.provideService(
+          CommandRunner,
+          CommandRunner.of({
+            run: (command, args, options) =>
+              Effect.suspend(() => {
+                if (command !== "/bin/ps" || !first) return runner.run(command, args, options);
+                first = false;
+                return Effect.succeed({ status: 0, stdout: "invalid process row", stderr: "" });
+              }),
+          }),
+        ),
+      );
+    }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+  );
+  assert.deepEqual(result, {
+    status: 0,
+    timedOut: false,
+    diagnosticPath: undefined,
+    cleanupComplete: true,
+  });
+});
+
 test("a missed root identity cannot certify cleanup even when the command exits normally", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "dotfiles-missed-root-"));
   t.onTestFinished(() => rm(directory, { recursive: true, force: true }));

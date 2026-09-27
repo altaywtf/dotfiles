@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Schedule, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import {
   constants,
@@ -96,6 +96,8 @@ export class BoundedCommand extends Context.Service<
               ? Effect.try(() => parseProcesses(result.stdout))
               : Effect.fail(new Error("Process inventory failed")),
           ),
+          // One inventory can catch a process mid-exit; only a persistent failure voids cleanup proof.
+          Effect.retry({ times: 2, schedule: Schedule.spaced("50 millis") }),
         );
       const run = Effect.fn("BoundedCommand.run")(function* (
         command: string,

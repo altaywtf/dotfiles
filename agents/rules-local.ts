@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Option } from "effect";
+import { Console, Effect, FileSystem, Option } from "effect";
 import { join } from "node:path";
 import { CliFailure, fail } from "../lib/program.ts";
 
@@ -25,8 +25,22 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
     if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
       return yield* fail(`local agent rules must be owned by the current user: ${path}`);
     }
+    if ((info.mode & 0o022) !== 0) {
+      return yield* fail(`local agent rules must not grant group or other write access: ${path}`);
+    }
+    // A Git checkout updated under umask 022 widens a linked fragment to 0644;
+    // write access by others would be an integrity problem, read access is not yet.
     if ((info.mode & 0o077) !== 0) {
-      return yield* fail(`local agent rules must not grant group or other access: ${path}`);
+      yield* fs.chmod(path, info.mode & 0o700).pipe(
+        Effect.mapError(
+          () =>
+            new CliFailure({
+              exitCode: 1,
+              message: `cannot restrict local agent rules: ${path}`,
+            }),
+        ),
+      );
+      yield* Console.warn(`restricted local agent rules to owner-only access: ${path}`);
     }
   }
 });

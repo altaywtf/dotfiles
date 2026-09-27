@@ -43,14 +43,30 @@ function run(repo: string, command: string, args: string[], capture = false): st
   return result.stdout?.trim() ?? "";
 }
 
+// Local work blocks a fast-forward without making the checkout unusable.
+class LocalWork extends UpdateFailure {}
+
 export function syncCheckout(repo: string, label = "dotfiles checkout"): string {
   const git = (...args: string[]) => run(repo, "git", args, true);
+  const probe = (...args: string[]) =>
+    spawnSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   if (realpathSync(git("rev-parse", "--show-toplevel")) !== realpathSync(repo)) {
     throw new UpdateFailure(`use the root of the ${label}`);
   }
+  const remote = git("symbolic-ref", "refs/remotes/origin/HEAD");
+  const branch = defaultBranchFromRemoteHead(remote);
+  if (!branch) throw new UpdateFailure(`${label} has no default branch on origin`);
+  const head = () => probe("symbolic-ref", "-q", "HEAD").stdout.trim();
+  const before = { revision: git("rev-parse", "HEAD"), head: head() };
+  git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
+  if (git("rev-parse", "HEAD") !== before.revision || head() !== before.head) {
+    throw new UpdateFailure(
+      `${label} HEAD or branch changed during fetch; retry when the checkout is idle`,
+    );
+  }
   const clean = () => {
     if (git("status", "--porcelain", "--untracked-files=all"))
-      throw new UpdateFailure(`${label} has local changes; commit or resolve them before retrying`);
+      throw new LocalWork(`${label} has local changes; commit or resolve them before retrying`);
     for (const state of [
       "MERGE_HEAD",
       "CHERRY_PICK_HEAD",
@@ -60,31 +76,16 @@ export function syncCheckout(repo: string, label = "dotfiles checkout"): string 
       "sequencer",
     ]) {
       if (existsSync(resolve(repo, git("rev-parse", "--git-path", state))))
-        throw new UpdateFailure(`finish the current Git operation in the ${label}`);
+        throw new LocalWork(`finish the current Git operation in the ${label}`);
     }
   };
   clean();
-  const remote = git("symbolic-ref", "refs/remotes/origin/HEAD");
-  const branch = defaultBranchFromRemoteHead(remote);
-  if (
-    !branch ||
-    git("symbolic-ref", "HEAD") !== `refs/heads/${branch}` ||
-    git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote
-  ) {
+  if (before.head !== `refs/heads/${branch}`)
+    throw new LocalWork(`${label} is not on its default branch ${branch}`);
+  if (git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote)
     throw new UpdateFailure(`${label} updates require the default branch tracking origin`);
-  }
-  const before = git("rev-parse", "HEAD");
-  git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
-  clean();
-  if (
-    git("rev-parse", "HEAD") !== before ||
-    git("symbolic-ref", "HEAD") !== `refs/heads/${branch}`
-  ) {
-    throw new UpdateFailure(
-      `${label} HEAD or branch changed during fetch; retry when the checkout is idle`,
-    );
-  }
-  git("merge-base", "--is-ancestor", "HEAD", remote);
+  if (probe("merge-base", "--is-ancestor", "HEAD", remote).status !== 0)
+    throw new LocalWork(`${label} has commits that are not on origin/${branch}`);
   git("merge", "--ff-only", "--no-autostash", "--no-edit", remote);
   clean();
   return git("rev-parse", "HEAD");
@@ -141,14 +142,15 @@ export function converge(repo: string, lockOptions: LockOptions = {}, home = hom
   const release = acquireCheckoutLock(repo, lockOptions);
   try {
     const revision = syncCheckout(repo);
-    const skipped: string[] = [];
+    const failed: string[] = [];
     for (const checkout of ruleSourceCheckouts(home, repo)) {
       try {
         const advanced = privately(() => syncCheckout(checkout, "agent rule checkout"));
         console.log(`Agent rule checkout ${checkout} at ${advanced}`);
       } catch (error) {
-        if (!(error instanceof UpdateFailure)) throw error;
-        skipped.push(`${checkout}: ${error.message}`);
+        if (error instanceof LocalWork) console.warn(`Kept ${checkout}: ${error.message}`);
+        else if (error instanceof UpdateFailure) failed.push(`${checkout}: ${error.message}`);
+        else throw error;
       }
     }
     console.log(`Converging dotfiles ${revision}`);
@@ -156,8 +158,8 @@ export function converge(repo: string, lockOptions: LockOptions = {}, home = hom
     // The shell bootstrap selects the new repository Node pin before loading dependencies.
     run(repo, join(repo, "dotfiles"), ["maintain"]);
     console.log(`Dotfiles converged at ${revision}`);
-    if (skipped.length > 0)
-      throw new UpdateFailure(`agent rule checkouts not updated:\n${skipped.join("\n")}`);
+    if (failed.length > 0)
+      throw new UpdateFailure(`agent rule checkouts not updated:\n${failed.join("\n")}`);
   } finally {
     release();
   }
