@@ -52,6 +52,9 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["sudo --user root git worktree add ~/projects/x", home],
     ["pushd /tmp; popd; git worktree add ../x", repo],
     ["FOO=$BAR git worktree add ~/projects/x", home],
+    ["if true; then git worktree add ~/projects/x; fi", home],
+    ['sudo --chdir="$HOME/projects/owner/repo" git worktree add ../x', home],
+    ["pushd /tmp; pushd; git worktree add ../x", repo],
     ['env -C"$HOME/projects/owner/repo" git worktree add ../x', home],
   ]) {
     const result = run(home, command, cwd);

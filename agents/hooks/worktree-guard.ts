@@ -150,6 +150,7 @@ const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const redirection = /^\d*(?:[<>]&?|>>|&>>?)(.*)$/;
 const launchers = new Set(["builtin", "command", "exec", "nohup", "sudo", "time"]);
 const shells = new Set(["bash", "dash", "sh", "zsh"]);
+const controlWords = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{"]);
 const launcherValues: Record<string, string> = { exec: "a", sudo: "CDghprtuU" };
 
 // Drops leading assignments and launchers such as `env` or `command`.
@@ -160,7 +161,7 @@ function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
     while (typeof words[index] === "string" && test(words[index] as string)) index += 1;
   };
   for (;;) {
-    skip((word) => assignment.test(word));
+    skip((word) => assignment.test(word) || controlWords.has(word));
     const operator =
       typeof words[index] === "string" ? redirection.exec(words[index] as string) : null;
     if (operator) {
@@ -188,6 +189,7 @@ function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
       while (typeof words[index] === "string" && (words[index] as string).startsWith("-")) {
         const word = words[index] as string;
         if (name === "sudo" && (word === "-D" || word === "--chdir")) chdir = words[index + 1];
+        if (name === "sudo" && word.startsWith("--chdir=")) chdir = word.slice("--chdir=".length);
         const long = /^--(?:user|group|chdir|close-from|host|prompt|role|type|other-user)$/;
         index +=
           (word.length === 2 && valued.includes(word[1])) || (name === "sudo" && long.test(word))
@@ -222,6 +224,13 @@ function worktreeTargets(command: string, startCwd: string): string[] {
       continue;
     }
     if (name === "cd" || name === "pushd") {
+      if (name === "pushd" && rest.length === 0) {
+        const top = pushed.pop() ?? unresolved;
+        pushed.push(cwd);
+        previous = cwd;
+        cwd = top;
+        continue;
+      }
       if (name === "pushd") pushed.push(cwd);
       let at = 0;
       while (typeof rest[at] === "string" && /^-[LPe@]+$/.test(rest[at] as string)) at += 1;
