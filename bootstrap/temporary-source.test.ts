@@ -11,7 +11,7 @@ function fixture(t: TestContext, checkoutExists: boolean) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-temporary-source-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, "home");
-  const checkout = join(root, "my checkout & co");
+  const checkout = join(root, "my checkout & co's");
   if (checkoutExists) mkdirSync(checkout);
   const units = join(home, ".config/systemd/user");
   mkdirSync(units, { recursive: true });
@@ -25,7 +25,7 @@ function fixture(t: TestContext, checkoutExists: boolean) {
   const plist = join(agents, "local.dotfiles.software-update.plist");
   writeFileSync(
     plist,
-    `<string>${checkout.replaceAll("&", "&amp;")}/maintenance/run.ts</string>\n`,
+    `<string>${checkout.replaceAll("&", "&amp;").replaceAll("'", "&#39;")}/maintenance/run.ts</string>\n`,
   );
   return { home, service, plist };
 }

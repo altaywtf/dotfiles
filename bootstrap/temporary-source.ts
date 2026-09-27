@@ -20,7 +20,17 @@ const updaterUnits = (home: string) => [
     checkout: (content: string) =>
       /<string>([^<]+)\/maintenance\/run\.ts<\/string>/
         .exec(content)?.[1]
-        ?.replaceAll(/&(?:amp|lt|gt|quot|apos);/g, (entity) => xmlEntities[entity] ?? entity),
+        ?.replaceAll(/&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/gi, (entity) =>
+          entity.startsWith("&#")
+            ? String.fromCodePoint(
+                Number(
+                  entity[2]?.toLowerCase() === "x"
+                    ? `0${entity.slice(2, -1)}`
+                    : entity.slice(2, -1),
+                ),
+              )
+            : (xmlEntities[entity] ?? entity),
+        ),
   },
 ];
 

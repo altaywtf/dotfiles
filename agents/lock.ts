@@ -55,7 +55,7 @@ type LockKind = "skills" | "plugins" | "mcps";
 
 // A checkout's main worktree holds the lock older syncs wrote there, so the
 // first sync from a linked worktree still imports that ownership.
-function legacyCheckouts(repoDir: string): string[] {
+export function legacyCheckouts(repoDir: string): string[] {
   const common = spawnSync(
     "git",
     ["-C", repoDir, "rev-parse", "--path-format=absolute", "--git-common-dir"],
