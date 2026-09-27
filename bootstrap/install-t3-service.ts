@@ -57,7 +57,10 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
       return yield* fail(`t3 service uninstall finished but ${unit} remains`);
     return;
   }
-  if (setting === "0" || (setting === undefined && !byDefault)) {
+  if (setting === "0") {
+    return check ? undefined : yield* Console.log("T3 Code service opted out (T3_SERVICE=0)");
+  }
+  if (setting === undefined && !byDefault) {
     return check
       ? undefined
       : yield* Console.log(

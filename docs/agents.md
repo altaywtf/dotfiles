@@ -87,8 +87,8 @@ unavailable, setup needs a valid cache to continue. Set
 Keep React, TanStack, shadcn, and Swift skills in the consuming repository. Use `slopskills` from
 the [configured workflow plugin](../agents/plugins/developer.json) to select
 and install them from repository evidence and the current task.
-Global manifests retain shared workflows, codebase design and domain modeling
-references, plus `effect-ts`.
+The [developer manifest](../agents/skills/developer.json) lists the skills every
+profile installs.
 The plugin catalog supplies stack recommendations; explicit global selections
 do not need duplicate repo-local installs.
 

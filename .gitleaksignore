@@ -1,4 +1,2 @@
 78f8cea2f0e82e079d1cec9afa76f3887679d04e:scripts/verify/audit-contracts.sh:private-key:105
 78f8cea2f0e82e079d1cec9afa76f3887679d04e:scripts/verify/audit-contracts.sh:private-key:110
-33af81084cab4068ec1646d252ee9c046c89c597:scripts/bootstrap/install-gh-app-auth.ts:generic-api-key:9
-33af81084cab4068ec1646d252ee9c046c89c597:scripts/bootstrap/install-gh-app-auth.ts:generic-api-key:11

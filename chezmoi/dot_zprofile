@@ -10,9 +10,9 @@ typeset -U path PATH
 # interactive .zshrc sessions. Agent harnesses inherit this login-shell PATH.
 path+=("$HOME/.local/bin")
 
-# Add mise shims for login/non-interactive shells. Full interactive activation
-# runs near the end of .zshrc after PATH edits.
-if command -v mise >/dev/null 2>&1; then
+# Add mise shims for non-interactive login shells. Interactive shells activate
+# fully near the end of .zshrc after PATH edits, which also fronts the shims.
+if [[ ! -o interactive ]] && command -v mise >/dev/null 2>&1; then
   eval "$(mise activate zsh --shims)"
   # A nested login shell from a mise-active parent inherits the shim directory
   # in PATH, so activate emits no update while brew shellenv has moved ahead of
