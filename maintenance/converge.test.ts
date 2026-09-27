@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test, type TestContext } from "vite-plus/test";
@@ -137,6 +145,55 @@ test("bootstrap failure preserves exit status and releases the lock", (t) => {
   assert.throws(() => converge(repo), { exitCode: 23 });
   assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
 });
+
+for (const dirty of [false, true]) {
+  test(`agent rule checkout ${dirty ? "with local work is kept and reported after maintenance" : "advances before maintenance"}`, (t) => {
+    const { root, repo, upstream } = fixture(t);
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "mise"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    writeFileSync(join(repo, "dotfiles"), `#!/bin/sh\ncat "$RULES" > "$RENDERED"\n`, {
+      mode: 0o755,
+    });
+    git(repo, "add", "dotfiles");
+    git(repo, "commit", "-m", "bootstrap");
+    git(upstream, "config", "receive.denyCurrentBranch", "updateInstead");
+    git(repo, "push", "origin", "main");
+    const rules = fixture(t);
+    const home = join(root, "home");
+    mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
+    symlinkSync(join(rules.repo, "policy"), join(home, ".config/dotfiles/agents.end.md"));
+    const next = rules.advance();
+    if (dirty) writeFileSync(join(rules.repo, "notes"), "keep\n");
+    const before = git(rules.repo, "rev-parse", "HEAD");
+    const rendered = join(root, "AGENTS.md");
+    const previous = {
+      PATH: process.env.PATH,
+      RULES: process.env.RULES,
+      RENDERED: process.env.RENDERED,
+    };
+    Object.assign(process.env, {
+      PATH: `${bin}:${previous.PATH}`,
+      RULES: join(home, ".config/dotfiles/agents.end.md"),
+      RENDERED: rendered,
+    });
+    t.onTestFinished(() => {
+      for (const [key, value] of Object.entries(previous))
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+    });
+    if (dirty) {
+      assert.throws(() => converge(repo, {}, home), /agent rule checkouts not updated/);
+      assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
+      assert.equal(readFileSync(join(rules.repo, "notes"), "utf8"), "keep\n");
+      assert.equal(readFileSync(rendered, "utf8"), "first\n");
+    } else {
+      converge(repo, {}, home);
+      assert.equal(git(rules.repo, "rev-parse", "HEAD"), next);
+      assert.equal(readFileSync(rendered, "utf8"), "second\n");
+    }
+  });
+}
 
 for (const failure of [false, true]) {
   test(`maintenance reuses profile setup with saved logins preserved${failure ? " and stops on failure" : ""}`, (t) => {

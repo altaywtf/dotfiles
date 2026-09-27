@@ -104,3 +104,11 @@ if command -v direnv >/dev/null 2>&1; then
 else
   echo "direnv not found; run ./dotfiles apply" >&2
 fi
+
+# The updater rewrites this receipt whenever a run starts or finishes, so an old
+# receipt means scheduled runs stopped before they could report anything.
+dotfiles_update_receipt=("$HOME"/.local/state/dotfiles/updates/software-update.json(N.mm+780))
+if (( $#dotfiles_update_receipt )); then
+  echo "dotfiles: no software update has run for 13 hours; see mise run maintenance:status" >&2
+fi
+unset dotfiles_update_receipt

@@ -50,6 +50,10 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 - [Convergence](../maintenance/converge.ts) requires a clean default
   branch tracking `origin`, with no local commits or unfinished Git operations.
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
+- [Local rule fragments](agents.md#global-rules) that link into another Git
+  checkout advance under the same rules before profile setup renders them. A
+  checkout that cannot advance keeps its work: the rest of convergence still
+  runs, then the step fails and names the checkout and the reason.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
   Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
@@ -171,6 +175,9 @@ For always-on hosts, provision an owner-only regular file at
 - Alerts only report runs that finish. A scheduler that never starts, a
   sleeping laptop, or a powered-off host sends nothing; check
   `maintenance:status` for freshness.
+- Interactive zsh warns when the receipt is older than 13 hours, which catches
+  a job that fails before its wrapper runs, such as one still loaded from a
+  moved checkout.
 
 ## Disable, Reload, And Recover
 

@@ -67,6 +67,9 @@ Edit shared rules at their configured source and private instructions in:
 - Fragments are optional, literal Markdown. Each file or resolved symlink target
   must be a regular file owned by the current user with no group or other access.
 - Generated rule files are replaced without backups. Keep private edits in fragments.
+- When a fragment links into a Git checkout, the
+  [scheduled updater](software-updates.md#dotfiles-convergence) fast-forwards that
+  checkout before rendering. It skips and reports a checkout with local work.
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
