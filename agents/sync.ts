@@ -10,7 +10,14 @@ import { Effect } from "effect";
 import { readLayeredSkills, readSkillLock, type Skill } from "./skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { writeLockFile } from "./lock.ts";
+import {
+  guardOverlay,
+  managedLockPath,
+  withManagedLock,
+  readOverlayOwnership,
+  writeLockFile,
+  type OverlayOwnership,
+} from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -34,10 +41,15 @@ type SkillFailure = {
 type SkillLock = {
   version: 1;
   skills: Skill[];
+  overlays?: OverlayOwnership;
 };
 
-function writeSkillLock(lockPath: string, skills: readonly Skill[]): void {
-  const lock: SkillLock = { version: 1, skills: [...skills] };
+function writeSkillLock(
+  lockPath: string,
+  skills: readonly Skill[],
+  overlays: OverlayOwnership | undefined,
+): void {
+  const lock: SkillLock = { version: 1, skills: [...skills], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
 }
 
@@ -284,13 +296,14 @@ function sync(runtime: Runtime, options: SyncOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, skills, localPath } = readLayeredSkills(
+  const { layers, skills, localPath, localNames } = readLayeredSkills(
     repoDir,
     profileName,
     profile.agentLayers,
   );
-  const skillLockPath = join(repoDir, "agents", "skills.lock.json");
+  const skillLockPath = managedLockPath(runtime.env, repoDir, "skills");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
+  const overlay = guardOverlay(readOverlayOwnership(skillLockPath), repoDir, localNames);
   const agents = findInstalledAgents(runtime);
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
@@ -317,18 +330,24 @@ function sync(runtime: Runtime, options: SyncOptions): number {
     }
     writeLine(runtime.stdout, "Initializing managed skills lock without removing existing skills");
   } else {
-    const staleSkills = previouslyManagedSkills.filter((skill) => !currentNames.has(skill.name));
+    const staleSkills = previouslyManagedSkills.filter(
+      (skill) => !currentNames.has(skill.name) && !overlay.kept.has(skill.name),
+    );
     const removalStatus = removeSkills(runtime, staleSkills, cliVersion, home);
     if (removalStatus !== 0) {
       return removalStatus;
     }
   }
 
-  const managedSkills =
-    agents.length === 0 && previouslyManagedSkills !== undefined
+  const managedSkills = [
+    ...(agents.length === 0 && previouslyManagedSkills !== undefined
       ? previouslyManagedSkills.filter((skill) => currentNames.has(skill.name))
-      : skills;
-  writeSkillLock(skillLockPath, managedSkills);
+      : skills),
+    ...(previouslyManagedSkills ?? []).filter(
+      (skill) => !currentNames.has(skill.name) && overlay.kept.has(skill.name),
+    ),
+  ];
+  writeSkillLock(skillLockPath, managedSkills, overlay.next);
 
   return finishSync(runtime, options, cliVersion);
 }
@@ -345,7 +364,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return sync(runtime, parsed.options);
+    return withManagedLock(runtime.env, "skills", () => sync(runtime, parsed.options));
   } catch (error) {
     writeLine(runtime.stderr, `Sync failed: ${errorMessage(error)}`);
     return 1;

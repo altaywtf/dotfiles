@@ -24,7 +24,7 @@ import {
   withoutRetiredHarnesses,
 } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile } from "./lock.ts";
+import { readLockFile, writeLockFile, managedLockPath, withManagedLock } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -587,7 +587,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);
 
-  const pluginLockPath = join(repoDir, "agents", "plugins.lock.json");
+  const pluginLockPath = managedLockPath(runtime.env, repoDir, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],
@@ -646,7 +646,9 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return apply(runtime, { profile: parsed.profile, update: parsed.update });
+    return withManagedLock(runtime.env, "plugins", () =>
+      apply(runtime, { profile: parsed.profile, update: parsed.update }),
+    );
   } catch (error) {
     writeLine(runtime.stderr, `Plugin sync failed: ${errorMessage(error)}`);
     return 1;

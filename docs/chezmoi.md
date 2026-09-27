@@ -25,7 +25,9 @@ mise run dotfiles:apply workstation
 - Both preview and apply refresh [agent rules](agents.md#global-rules),
   including during a dry run.
 - The wrapper backs up conflicting files and links before force-applying,
-  keeping only the newest backup per target.
+  keeping only the newest backup per target. The Claude settings template
+  returns the file unchanged when every managed value already matches, so
+  Claude's own key order is neither rewritten nor backed up.
 - Global agent rule files are replaced without backups; private text belongs
   in [rule fragments](agents.md#global-rules).
 

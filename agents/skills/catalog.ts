@@ -49,7 +49,7 @@ export function readLayeredSkills(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
-): { layers: readonly SkillLayer[]; skills: Skill[]; localPath?: string } {
+): { layers: readonly SkillLayer[]; skills: Skill[]; localPath?: string; localNames?: string[] } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
@@ -84,7 +84,12 @@ export function readLayeredSkills(
   );
 
   return selected.includes("local") && local
-    ? { layers: selected, skills, localPath: local.path }
+    ? {
+        layers: selected,
+        skills,
+        localPath: local.path,
+        localNames: (manifests.get("local") ?? []).map((skill) => skill.name),
+      }
     : { layers: selected, skills };
 }
 

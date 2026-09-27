@@ -6,6 +6,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { legacyCheckouts, managedLockLocation } from "../agents/lock.ts";
 import { readLayeredSkills, readSkillLock } from "../agents/skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 
@@ -234,8 +235,14 @@ function skillFacts(context: MaintenanceContext) {
     context.profile,
     context.profileConfig.agentLayers,
   );
-  const lockPath = join(context.repoRoot, "agents/skills.lock.json");
-  const locked = readSkillLock(lockPath)?.length ?? 0;
+  const stateLock = managedLockLocation({ ...process.env, HOME: context.home }, "skills");
+  const lockPath = [
+    stateLock,
+    ...legacyCheckouts(context.repoRoot).map((checkout) =>
+      join(checkout, "agents/skills.lock.json"),
+    ),
+  ].find((candidate) => existsSync(candidate));
+  const locked = (lockPath && readSkillLock(lockPath)?.length) ?? 0;
   const installedRoot = join(context.home, ".agents/skills");
   const installed = existsSync(installedRoot)
     ? readdirSync(installedRoot, { withFileTypes: true }).filter(

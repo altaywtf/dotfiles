@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
@@ -177,8 +186,9 @@ function createFixture(): { repoDir: string; home: string } {
       JSON.stringify({ skills: [] }, null, 2),
     );
   }
+  mkdirSync(dirname(skillLockPath(home)), { recursive: true });
   writeFileSync(
-    join(repoDir, "agents", "skills.lock.json"),
+    skillLockPath(home),
     JSON.stringify({ version: 1, skills: fixtureSkills }, null, 2),
   );
 
@@ -218,8 +228,8 @@ function updateCalls(runtime: FixtureRuntime): CommandCall[] {
   );
 }
 
-function skillLockPath(repoDir: string): string {
-  return join(repoDir, "agents", "skills.lock.json");
+function skillLockPath(home: string): string {
+  return join(home, ".local/state/dotfiles/agents", "skills.lock.json");
 }
 
 test("reports every installer failure after attempting the full manifest", () => {
@@ -335,7 +345,7 @@ test("refuses an unknown profile before managing skills", () => {
 
 test("initializes a missing ownership lock without removing unowned skills", () => {
   const { repoDir, home } = createFixture();
-  rmSync(skillLockPath(repoDir));
+  rmSync(skillLockPath(home));
   const unownedSkill = join(home, ".agents", "skills", "manual-skill");
   mkdirSync(unownedSkill, { recursive: true });
   writeFileSync(join(unownedSkill, "SKILL.md"), "manual skill\n");
@@ -344,7 +354,7 @@ test("initializes a missing ownership lock without removing unowned skills", () 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(removedSkillNames(runtime), []);
   assert.equal(existsSync(unownedSkill), true);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), {
     version: 1,
     skills: fixtureSkills,
   });
@@ -358,7 +368,7 @@ test("removes only skills dropped from the previous managed lock", () => {
   const { repoDir, home } = createFixture();
   const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
   writeFileSync(
-    skillLockPath(repoDir),
+    skillLockPath(home),
     JSON.stringify({ version: 1, skills: [...fixtureSkills, retiredSkill] }, null, 2),
   );
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
@@ -382,7 +392,7 @@ test("removes only skills dropped from the previous managed lock", () => {
   ]);
   assert.equal(existsSync(retiredDirectory), false);
   assert.equal(existsSync(unownedDirectory), true);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), {
     version: 1,
     skills: fixtureSkills,
   });
@@ -392,7 +402,7 @@ test("removes stale managed skills when no supported agent is installed", () => 
   const { repoDir, home } = createFixture();
   const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
   writeFileSync(
-    skillLockPath(repoDir),
+    skillLockPath(home),
     JSON.stringify({ version: 1, skills: [...fixtureSkills, retiredSkill] }, null, 2),
   );
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
@@ -407,7 +417,7 @@ test("removes stale managed skills when no supported agent is installed", () => 
   assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
   assert.equal(existsSync(retiredDirectory), false);
   assert.equal(existsSync(unownedDirectory), true);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), {
     version: 1,
     skills: fixtureSkills,
   });
@@ -418,7 +428,7 @@ test("does not prune or advance ownership when installation fails", () => {
   const { repoDir, home } = createFixture();
   const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
   const previousLock = { version: 1, skills: [...fixtureSkills, retiredSkill] };
-  writeFileSync(skillLockPath(repoDir), JSON.stringify(previousLock, null, 2));
+  writeFileSync(skillLockPath(home), JSON.stringify(previousLock, null, 2));
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
   mkdirSync(retiredDirectory, { recursive: true });
   const runtime = new FixtureRuntime(repoDir, home, {
@@ -428,14 +438,14 @@ test("does not prune or advance ownership when installation fails", () => {
   assert.equal(main([], runtime), 1);
   assert.deepEqual(removedSkillNames(runtime), []);
   assert.equal(existsSync(retiredDirectory), true);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), previousLock);
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), previousLock);
 });
 
 test("does not advance ownership when a managed removal fails", () => {
   const { repoDir, home } = createFixture();
   const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
   const previousLock = { version: 1, skills: [...fixtureSkills, retiredSkill] };
-  writeFileSync(skillLockPath(repoDir), JSON.stringify(previousLock, null, 2));
+  writeFileSync(skillLockPath(home), JSON.stringify(previousLock, null, 2));
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
   mkdirSync(retiredDirectory, { recursive: true });
   const runtime = new FixtureRuntime(repoDir, home, {
@@ -445,14 +455,14 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.equal(main([], runtime), 1);
   assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
   assert.equal(existsSync(retiredDirectory), true);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), previousLock);
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), previousLock);
   assert.match(runtime.stderr.value, /Managed skill removal failed for 1 skill/);
 });
 
 test("rejects unsafe ownership lock names before changing skills", () => {
   const { repoDir, home } = createFixture();
   writeFileSync(
-    skillLockPath(repoDir),
+    skillLockPath(home),
     JSON.stringify({ version: 1, skills: [{ name: "../manual-skill", source: "fixture/unsafe" }] }),
   );
   const manualDirectory = join(home, ".agents", "manual-skill");
@@ -536,7 +546,7 @@ test("reports updater failure after the managed sync already completed", () => {
 
   assert.equal(main(["--update"], runtime), 1);
   assert.equal(updateCalls(runtime).length, 1);
-  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(home), "utf8")), {
     version: 1,
     skills: fixtureSkills,
   });
@@ -607,3 +617,120 @@ test("the executable TypeScript entrypoint runs the CLI", () => {
   assert.match(result.stderr, /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.match(result.stderr, /Unknown argument: unexpected/);
 });
+
+test("ownership survives the deletion of the checkout that provisioned it", () => {
+  const { repoDir, home } = createFixture();
+  rmSync(skillLockPath(home));
+  const manualSkill = join(home, ".agents", "skills", "manual-skill");
+  mkdirSync(manualSkill, { recursive: true });
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  rmSync(repoDir, { recursive: true });
+
+  const fresh = createFixture().repoDir;
+  writeFileSync(
+    join(fresh, "agents", "skills", "developer.json"),
+    JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
+  );
+  const runtime = new FixtureRuntime(fresh, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
+  assert.ok(existsSync(manualSkill));
+});
+
+test("a lock left in the checkout moves to user state and keeps ownership", () => {
+  const { repoDir, home } = createFixture();
+  const legacy = join(repoDir, "agents", "skills.lock.json");
+  renameSync(skillLockPath(home), legacy);
+  writeFileSync(
+    join(repoDir, "agents", "skills", "developer.json"),
+    JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
+  );
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
+  assert.equal(existsSync(legacy), false);
+  assert.equal(statSync(skillLockPath(home)).mode & 0o777, 0o600);
+});
+
+test("another checkout without the overlay keeps overlay-owned skills", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({ skills: [{ name: "machine-only", source: "fixture/machine" }] }),
+    { mode: 0o600 },
+  );
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  const other = new FixtureRuntime(createFixture().repoDir, home);
+  assert.equal(main([], other), 0);
+  assert.deepEqual(removedSkillNames(other), []);
+
+  rmSync(join(repoDir, "agents", "local.json"));
+  const owner = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], owner), 0);
+  assert.deepEqual(removedSkillNames(owner), ["machine-only"]);
+});
+
+test("checkouts with their own overlays keep each other's skills", () => {
+  const first = createFixture();
+  const second = createFixture().repoDir;
+  const overlay = (repoDir: string, name: string) =>
+    writeFileSync(
+      join(repoDir, "agents", "local.json"),
+      JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
+      { mode: 0o600 },
+    );
+  overlay(first.repoDir, "first-only");
+  overlay(second, "second-only");
+  assert.equal(main([], new FixtureRuntime(first.repoDir, first.home)), 0);
+
+  const runtime = new FixtureRuntime(second, first.home);
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), []);
+});
+
+for (const overlay of [false, true])
+  test(`a linked worktree imports the lock its main checkout wrote${overlay ? " and keeps that checkout's overlay skills" : ""}`, () => {
+    const { repoDir, home } = createFixture();
+    if (overlay) {
+      writeFileSync(
+        join(repoDir, "agents", "local.json"),
+        JSON.stringify({ skills: [{ name: "machine-only", source: "fixture/machine" }] }),
+        { mode: 0o600 },
+      );
+      const lock = JSON.parse(readFileSync(skillLockPath(home), "utf8"));
+      lock.skills.push({ name: "machine-only", source: "fixture/machine" });
+      writeFileSync(skillLockPath(home), JSON.stringify(lock));
+    }
+    const git = (...args: string[]) =>
+      assert.equal(
+        spawnSync("git", ["-C", repoDir, "-c", "commit.gpgsign=false", ...args], {
+          env: {
+            ...process.env,
+            GIT_AUTHOR_NAME: "F",
+            GIT_AUTHOR_EMAIL: "f@example.com",
+            GIT_COMMITTER_NAME: "F",
+            GIT_COMMITTER_EMAIL: "f@example.com",
+          },
+        }).status,
+        0,
+      );
+    writeFileSync(join(repoDir, ".gitignore"), "agents/skills.lock.json\nagents/local.json\n");
+    git("init", "-q", "-b", "main");
+    git("add", ".");
+    git("commit", "-q", "-m", "fixture");
+    const worktree = join(dirname(repoDir), "worktree");
+    git("worktree", "add", "-q", worktree);
+    renameSync(skillLockPath(home), join(repoDir, "agents", "skills.lock.json"));
+    writeFileSync(
+      join(worktree, "agents", "skills", "developer.json"),
+      JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
+    );
+    const runtime = new FixtureRuntime(worktree, home);
+
+    assert.equal(main([], runtime), 0);
+    assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
+    assert.equal(existsSync(join(repoDir, "agents", "skills.lock.json")), false);
+  });

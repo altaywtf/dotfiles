@@ -95,7 +95,12 @@ export function readLayeredServers(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
-): { layers: readonly McpLayer[]; servers: McpServer[]; localPath?: string } {
+): {
+  layers: readonly McpLayer[];
+  servers: McpServer[];
+  localPath?: string;
+  localNames?: string[];
+} {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage MCP servers`);
   }
@@ -119,6 +124,11 @@ export function readLayeredServers(
     (name) => `Invalid layered MCP servers: ${name} is defined more than once`,
   );
   return selected.includes("local") && local
-    ? { layers: selected, servers, localPath: local.path }
+    ? {
+        layers: selected,
+        servers,
+        localPath: local.path,
+        localNames: (manifests.get("local") ?? []).map((server) => server.name),
+      }
     : { layers: selected, servers };
 }

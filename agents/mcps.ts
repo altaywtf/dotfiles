@@ -2,7 +2,7 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
@@ -23,7 +23,15 @@ import {
 } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile } from "./lock.ts";
+import {
+  guardOverlay,
+  managedLockPath,
+  withManagedLock,
+  readLockFile,
+  readOverlayOwnership,
+  writeLockFile,
+  type OverlayOwnership,
+} from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -42,6 +50,7 @@ type LockedServer = {
 type McpLock = {
   version: 1;
   servers: LockedServer[];
+  overlays?: OverlayOwnership;
 };
 
 function readServerLock(lockPath: string): LockedServer[] | undefined {
@@ -94,12 +103,31 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
   return servers;
 }
 
-function writeServerLock(lockPath: string, servers: readonly LockedServer[]): void {
-  const lock: McpLock = { version: 1, servers: [...servers] };
+function writeServerLock(
+  lockPath: string,
+  servers: readonly LockedServer[],
+  overlays?: OverlayOwnership,
+): void {
+  const lock: McpLock = { version: 1, servers: [...servers], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
 }
 
 const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
+
+// Another checkout's overlay keeps its harnesses even when this checkout selects the same name.
+function withKept(next: readonly LockedServer[], kept: readonly LockedServer[]): LockedServer[] {
+  const merged = new Map(next.map((server) => [server.name, server]));
+  for (const server of kept) {
+    const current = merged.get(server.name);
+    merged.set(server.name, {
+      name: server.name,
+      harnesses: HARNESSES.filter(
+        (harness) => server.harnesses.includes(harness) || current?.harnesses.includes(harness),
+      ),
+    });
+  }
+  return [...merged.values()];
+}
 
 function mcpRemoveArgs(harness: Harness, name: string): string[] {
   switch (harness) {
@@ -322,7 +350,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, servers, localPath } = readLayeredServers(
+  const { layers, servers, localPath, localNames } = readLayeredServers(
     repoDir,
     profileName,
     profile.agentLayers,
@@ -332,10 +360,12 @@ function apply(runtime: Runtime, options: McpOptions): number {
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
   if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
 
-  const mcpLockPath = join(repoDir, "agents", "mcps.lock.json");
+  const mcpLockPath = managedLockPath(runtime.env, repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
+  const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
+  const keptOverlay = (previouslyManaged ?? []).filter((server) => overlay.kept.has(server.name));
   const ownership = planOwnership({
-    previous: previouslyManaged ?? [],
+    previous: (previouslyManaged ?? []).filter((server) => !keptOverlay.includes(server)),
     selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
     available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
     keyOf: serverName,
@@ -363,7 +393,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
       return 0;
     }
     writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing servers");
-    writeServerLock(mcpLockPath, ownership.nextLock([]));
+    writeServerLock(mcpLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
@@ -373,7 +403,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(mcpLockPath, ownership.nextLock(deferred));
+  writeServerLock(mcpLockPath, withKept(ownership.nextLock(deferred), keptOverlay), overlay.next);
   writeLine(runtime.stdout, "Done.");
   return 0;
 }
@@ -394,7 +424,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return apply(runtime, { profile: parsed.profile });
+    return withManagedLock(runtime.env, "mcps", () => apply(runtime, { profile: parsed.profile }));
   } catch (error) {
     writeLine(runtime.stderr, `MCP sync failed: ${errorMessage(error)}`);
     return 1;

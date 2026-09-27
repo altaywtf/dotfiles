@@ -12,6 +12,7 @@ import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { disableDevboxPhotoAnalysis } from "./darwin/photo-analysis.ts";
+import { checkTemporarySource } from "./temporary-source.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(repoRoot, "chezmoi");
@@ -139,6 +140,8 @@ const program = Effect.gen(function* () {
   if (configExists && (yield* fs.stat(configDir)).type !== "Directory") {
     return yield* fail(`canonical config path must be a directory: ${configDir}`);
   }
+  const temporarySource = process.env.DOTFILES_TEMPORARY_SOURCE === "1";
+  if (temporarySource) yield* checkTemporarySource(home);
   const context: ChezmoiContext = {
     repoRoot,
     home,
@@ -148,7 +151,11 @@ const program = Effect.gen(function* () {
       "--destination",
       home,
       "--override-data",
-      JSON.stringify({ agentRulesPath, dotfilesProfile: profile }),
+      JSON.stringify({
+        agentRulesPath,
+        dotfilesProfile: profile,
+        temporarySource,
+      }),
     ],
     dryRun: args.dryRun,
   };
