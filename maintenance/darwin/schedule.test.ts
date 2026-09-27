@@ -167,8 +167,9 @@ for (const loaded of [false, true]) {
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
+        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
         return Effect.succeed({
-          status: args[0] === "print" && !loaded ? 113 : 0,
+          status: args[0] === "print" && (!loaded || args[1] === systemService) ? 113 : 0,
           stdout: "",
           stderr: "",
         });
@@ -185,9 +186,24 @@ for (const loaded of [false, true]) {
       ["launchctl", "print", service],
       ["launchctl", "disable", service],
       ...(loaded ? [["launchctl", "bootout", service]] : []),
+      ["id", "-un", "501"],
+      ["launchctl", "print", systemService],
     ]);
   });
 }
+
+test("disabling fails while the system updater stays enrolled", async () => {
+  const calls: string[][] = [];
+  const failure = await Effect.runPromise(
+    manageSchedule("disable", "/fixture/home", 501).pipe(
+      Effect.provideService(CommandRunner, systemRunner(calls)),
+      Effect.provide(NodeServices.layer),
+      Effect.flip,
+    ),
+  );
+  assert.ok(failure instanceof CliFailure);
+  assert.match(failure.message, /system updater still enrolled/);
+});
 
 for (const kind of ["regular", "writable", "symlink", "system"] as const) {
   test(`enrollment checks the ${kind} plist before enabling a job`, async (t) => {

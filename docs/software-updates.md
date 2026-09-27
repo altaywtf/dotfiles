@@ -223,6 +223,8 @@ sudo node bootstrap/darwin/install-devbox-service-daemons.ts \
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
   reject duplicates. [Devbox scheduling](../maintenance/darwin/devbox.ts)
   owns the schedule.
+- `mise run maintenance:disable` fails while the system updater is loaded;
+  only an administrator can stop it.
 - `mise run maintenance:update` falls back to the system updater when no GUI
   job is loaded. Starting it needs root: owners with a
   [devbox sudo](devbox.md#sudo-without-a-plaintext-password-file) config use

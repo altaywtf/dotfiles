@@ -250,6 +250,13 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
   if (action === "disable") {
     yield* runChecked("launchctl", ["disable", service]);
     if (current.status === 0) yield* runChecked("launchctl", ["bootout", service]);
+    // Only an administrator can stop the system updater, and a success here
+    // tells shells to stop watching for stalled runs.
+    const system = yield* systemUpdater(home, uid);
+    if ((yield* runner.run("launchctl", ["print", system.service])).status === 0)
+      return yield* fail(
+        `system updater still enrolled: ${system.service}; have an administrator disable it`,
+      );
     yield* Console.log("Software maintenance disabled; any running update was stopped.");
     return;
   }
