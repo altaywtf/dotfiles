@@ -53,9 +53,9 @@ function fixture(
       return Effect.succeed({ status, stdout, stderr: "" });
     },
   });
-  const run = (check = false, platform: NodeJS.Platform = "linux") =>
+  const run = (check = false, platform: NodeJS.Platform = "linux", byDefault = false) =>
     Effect.runPromise(
-      installT3Service(home, check, platform, 1000, `${home}/.t3`).pipe(
+      installT3Service(home, check, byDefault, platform, 1000, `${home}/.t3`).pipe(
         Effect.provideService(CommandRunner, runner),
         Effect.provideService(FileSystem.FileSystem, fs),
       ),
@@ -68,13 +68,26 @@ for (const options of [
   { optIn: "# T3_SERVICE=1\nT3_SERVICE=0\n" },
   { unreadable: true },
 ]) {
-  test(`absent opt-in skips T3 operations (${JSON.stringify(options)})`, async () => {
+  test(`opt-in profile without T3_SERVICE=1 skips T3 operations (${JSON.stringify(options)})`, async () => {
     const f = fixture(options);
     await f.run();
     await f.run(true);
     assert.deepEqual(f.calls, []);
   });
 }
+
+test("default-on profile installs without a devbox.env", async () => {
+  const f = fixture({ unreadable: true });
+  await f.run(false, "linux", true);
+  assert.deepEqual(f.calls.at(-1), ["t3", "service", "install", "--base-dir", `${home}/.t3`]);
+});
+
+test("T3_SERVICE=0 opts a default-on profile out", async () => {
+  const f = fixture({ optIn: "T3_SERVICE=1\nT3_SERVICE=0\n" });
+  await f.run(false, "linux", true);
+  await f.run(true, "linux", true);
+  assert.deepEqual(f.calls, []);
+});
 
 test("opt-in tolerates unrelated lines and CRLF", async () => {
   const f = fixture({ optIn: "OTHER=value\r\nT3_SERVICE=1\r\n", present: true });

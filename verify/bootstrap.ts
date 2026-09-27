@@ -188,6 +188,8 @@ const program = Effect.gen(function* () {
       ]);
       yield* command(process.execPath, [
         join(repoRoot, "bootstrap/install-t3-service.ts"),
+        "--profile",
+        profile,
         "--check",
       ]);
     }

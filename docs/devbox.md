@@ -28,9 +28,9 @@ DEVBOX_USER=example
 T3_SERVICE=1
 ```
 
-`T3_SERVICE=1` opts the user into the
-[T3 Code background service](#system-services); a devbox identity reached only
-through the desktop app's SSH launcher leaves it out.
+`T3_SERVICE` overrides the profile's
+[T3 Code background service](#system-services) default: `T3_SERVICE=0` opts a
+`personal-devbox` user out, and `T3_SERVICE=1` opts a `devbox` user in.
 
 - Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
   of shell startup, plists, and supervisor configuration.
@@ -133,18 +133,21 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
   `colima start` with the host's sizing.
 - Reference owner-only wrappers or files; never embed secrets.
 
-Set `T3_SERVICE=1` in [local configuration](#local-configuration), then run
-`./dotfiles apply` with the devbox profile to install the T3 Code service.
-Unattended maintenance does not enroll new services. T3 owns later updates;
-the [installation step](../bootstrap/install-t3-service.ts) preserves existing
+`personal-devbox` hosts are durable home machines, so `./dotfiles apply`
+installs the T3 Code service there by default. `devbox` hosts are scoped,
+on-demand boxes and install it only with `T3_SERVICE=1` in
+[local configuration](#local-configuration). Workstations run no service; the
+T3 desktop app is the server there. Unattended maintenance does not enroll new
+services. T3 owns later updates; the
+[installation step](../bootstrap/install-t3-service.ts) preserves existing
 units. Inspect it with:
 
 ```zsh
 t3 service status
 ```
 
-`./dotfiles check` proves the unit exists for opted-in users. On Linux it
-also checks lingering and the running service's `PATH`. The systemd user
+`./dotfiles check` proves the unit exists wherever the service is wanted. On
+Linux it also checks lingering and the running service's `PATH`. The systemd user
 manager does not read shell startup files; for missing tools, follow
 [bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering
 as an administrator: `sudo loginctl enable-linger <user>`.

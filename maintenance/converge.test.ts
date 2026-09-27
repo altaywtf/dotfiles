@@ -195,61 +195,65 @@ for (const dirty of [false, true]) {
   });
 }
 
+function runInstall(t: TestContext, args: string[], failure = false) {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-install."));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+  const source = resolve(import.meta.dirname, "..");
+  const log = join(root, "steps");
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  mkdirSync(join(root, ".config/dotfiles"), { recursive: true });
+  writeFileSync(join(root, ".config/dotfiles/llm-gateway.json"), "{}", { mode: 0o600 });
+  mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
+  writeFileSync(
+    join(root, "chezmoi/.chezmoidata/profiles.json"),
+    readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")),
+  );
+  function stub(path: string, name: string) {
+    mkdirSync(resolve(path, ".."), { recursive: true });
+    writeFileSync(
+      path,
+      `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`,
+      { mode: 0o755 },
+    );
+  }
+  stub(join(root, "homebrew/brew-bundle.ts"), "brew-bundle.ts");
+  for (const name of [
+    "apply-dotfiles.ts",
+    "install-oh-my-zsh.ts",
+    "install-t3-service.ts",
+    "trust-agent-worktrees.ts",
+    "install-gh-extensions.ts",
+    "configure-codex.ts",
+    "configure-grok.ts",
+    "configure-llm-gateway.ts",
+    "configure-hindsight.ts",
+  ])
+    stub(join(root, "bootstrap", name), name);
+  for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
+  stub(join(bin, "mise"), "mise");
+  const result = spawnSync(process.execPath, [join(source, "bootstrap/install.ts"), ...args], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: root,
+      DOTFILES_INSTALL_REPO_ROOT: root,
+      LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"),
+      TEST_LOG: log,
+      PATH: `${bin}:${process.env.PATH}`,
+    },
+  });
+  return { status: result.status, stderr: result.stderr, steps: readFileSync(log, "utf8") };
+}
+
 for (const failure of [false, true]) {
   test(`maintenance reuses profile setup with saved logins preserved${failure ? " and stops on failure" : ""}`, (t) => {
-    const root = mkdtempSync(join(tmpdir(), "dotfiles-install-maintenance."));
-    t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
-    const source = resolve(import.meta.dirname, "..");
-    const log = join(root, "steps");
-    const bin = join(root, "bin");
-    mkdirSync(bin);
-    mkdirSync(join(root, ".config/dotfiles"), { recursive: true });
-    writeFileSync(join(root, ".config/dotfiles/llm-gateway.json"), "{}", { mode: 0o600 });
-    mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
-    writeFileSync(
-      join(root, "chezmoi/.chezmoidata/profiles.json"),
-      readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")),
+    const { status, stderr, steps } = runInstall(
+      t,
+      ["--profile", "personal-devbox", "--maintenance"],
+      failure,
     );
-    function stub(path: string, name: string) {
-      mkdirSync(resolve(path, ".."), { recursive: true });
-      writeFileSync(
-        path,
-        `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`,
-        { mode: 0o755 },
-      );
-    }
-    stub(join(root, "homebrew/brew-bundle.ts"), "brew-bundle.ts");
-    for (const name of [
-      "apply-dotfiles.ts",
-      "install-oh-my-zsh.ts",
-      "install-t3-service.ts",
-      "trust-agent-worktrees.ts",
-      "install-gh-extensions.ts",
-      "configure-codex.ts",
-      "configure-grok.ts",
-      "configure-llm-gateway.ts",
-      "configure-hindsight.ts",
-    ])
-      stub(join(root, "bootstrap", name), name);
-    for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
-    stub(join(bin, "mise"), "mise");
-    const result = spawnSync(
-      process.execPath,
-      [join(source, "bootstrap/install.ts"), "--profile", "personal-devbox", "--maintenance"],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          HOME: root,
-          DOTFILES_INSTALL_REPO_ROOT: root,
-          LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"),
-          TEST_LOG: log,
-          PATH: `${bin}:${process.env.PATH}`,
-        },
-      },
-    );
-    assert.equal(result.status, failure ? 19 : 0, result.stderr);
-    const steps = readFileSync(log, "utf8");
+    assert.equal(status, failure ? 19 : 0, stderr);
     if (process.platform === "darwin")
       assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
     else assert.doesNotMatch(steps, /brew-bundle/);
@@ -272,3 +276,9 @@ for (const failure of [false, true]) {
     }
   });
 }
+
+test("setup hands the profile to the T3 service step", (t) => {
+  const { status, stderr, steps } = runInstall(t, ["--profile", "personal-devbox"]);
+  assert.equal(status, 0, stderr);
+  assert.match(steps, /^install-t3-service.ts --profile personal-devbox$/m);
+});
