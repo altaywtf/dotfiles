@@ -84,8 +84,23 @@ const program = Effect.scoped(
       { HOME: home, PATH: inheritedPath },
       ["-dfc"],
     );
+    const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
+    yield* fs.makeDirectory(join(home, ".local/state/dotfiles/updates"), { recursive: true });
+    yield* fs.writeFileString(receipt, "{}");
+    const warning = '"$(source "$1" 2>&1 >/dev/null)"';
+    yield* check(
+      `[[ ${warning} != *"no software update"* ]]`,
+      { HOME: home, PATH: "/usr/bin:/bin" },
+      ["-dfc"],
+    );
+    yield* runner.run("touch", ["-t", "202001010000", receipt]);
+    yield* check(
+      `[[ ${warning} == *"no software update"* ]]`,
+      { HOME: home, PATH: "/usr/bin:/bin" },
+      ["-dfc"],
+    );
     yield* Console.log(
-      "ok login PATH, mise shim precedence, devbox zsh prompt substitution, and Android SDK environment",
+      "ok login PATH, mise shim precedence, devbox zsh prompt substitution, Android SDK environment, and stale updater warning",
     );
   }).pipe(
     Effect.catchCause((cause) => fail(Cause.pretty(cause))),
