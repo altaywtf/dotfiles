@@ -4,10 +4,11 @@
 // into ~/projects. Installed standalone, so it imports only node: builtins.
 
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const home = process.env.HOME || homedir();
+const user = process.env.USER || userInfo().username;
 const projects = join(home, "projects");
 const allowed = [join(projects, "openclaw/openclaw/.worktrees")];
 const harnessFolders = ["~/.claude/worktrees", "~/.codex/worktrees", "~/.t3/worktrees"];
@@ -87,7 +88,11 @@ function simpleCommands(source: string): Word[][] {
         heredocs.push({ delimiter: match[2] ?? match[3] ?? match[4], stripTabs: match[1] === "-" });
         index += match[0].length;
       } else index += 2;
-    } else if (/[;&|\n()]/.test(char)) {
+    } else if (char === "(" || char === ")") {
+      endCommand();
+      commands.push([char]);
+      index += 1;
+    } else if (/[;&|\n]/.test(char)) {
       endCommand();
       index += 1;
       if (char === "\n") {
@@ -104,10 +109,18 @@ function simpleCommands(source: string): Word[][] {
       endWord();
       index += 1;
     } else {
-      if (char === "~" && !started && (source[index + 1] ?? "/").match(/[/\s;&|]/)) word += home;
-      else word += char;
+      const tilde =
+        char === "~" && !started
+          ? /^~([A-Za-z0-9._-]*)(?=[/\s;&|)]|$)/.exec(source.slice(index))
+          : null;
+      if (tilde && (tilde[1] === "" || tilde[1] === user)) {
+        word += home;
+        index += tilde[0].length;
+      } else {
+        word += char;
+        index += 1;
+      }
       started = true;
-      index += 1;
     }
   }
   endCommand();
@@ -123,6 +136,7 @@ function under(base: Word, path: Word | undefined): Word {
 }
 
 const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const redirection = /^\d*(?:[<>]&?|>>|&>>?)(.*)$/;
 const launchers = new Set(["builtin", "command", "exec", "nohup", "sudo", "time"]);
 const shells = new Set(["bash", "dash", "sh", "zsh"]);
 
@@ -134,6 +148,12 @@ function unwrap(words: Word[]): Word[] {
   };
   for (;;) {
     skip((word) => assignment.test(word));
+    const operator =
+      typeof words[index] === "string" ? redirection.exec(words[index] as string) : null;
+    if (operator) {
+      index += operator[1] ? 1 : 2;
+      continue;
+    }
     const name = words[index];
     if (name === "env") {
       index += 1;
@@ -148,7 +168,16 @@ function unwrap(words: Word[]): Word[] {
 function worktreeTargets(command: string, startCwd: string): string[] {
   const targets: string[] = [];
   let cwd: Word = startCwd;
+  const scopes: Word[] = [];
   for (const words of simpleCommands(command)) {
+    if (words.length === 1 && words[0] === "(") {
+      scopes.push(cwd);
+      continue;
+    }
+    if (words.length === 1 && words[0] === ")") {
+      cwd = scopes.pop() ?? cwd;
+      continue;
+    }
     const [name, ...rest] = unwrap(words);
     if (name === "cd" || name === "pushd") {
       cwd = rest[0] === undefined ? home : under(cwd, rest[0]);
@@ -185,7 +214,7 @@ function worktreeTargets(command: string, startCwd: string): string[] {
         break;
       }
       if (typeof word === "string" && word.startsWith("-")) {
-        if (addValueOptions.has(word)) next += 1;
+        if (addValueOptions.has(word) || /^-[a-zA-Z]*[bB]$/.test(word)) next += 1;
         continue;
       }
       positional.push(word);

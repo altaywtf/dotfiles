@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
 
@@ -34,6 +34,10 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["env GIT_DIR=x git worktree add ~/projects/x", home],
     ["bash -lc 'cd ~/projects/owner/repo && git worktree add ../x'", home],
     ["cat <<'EOF' > notes.md\nexample\nEOF\ngit worktree add ~/projects/x", home],
+    ["(cd /tmp); git worktree add ../x", repo],
+    ["2>/tmp/log git worktree add ~/projects/x", home],
+    ["> /tmp/log git worktree add ~/projects/x", home],
+    [`git worktree add ~${userInfo().username}/projects/x`, home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 2, command);
@@ -51,6 +55,8 @@ test("worktree guard blocks targets under ~/projects except the OpenClaw review 
     ["ls", repo],
     ["cat <<'EOF' > notes.md\ngit worktree add ~/projects/x\nEOF", home],
     ["cat <<-EOF\n\tgit worktree add ~/projects/x\n\tEOF\necho done", home],
+    ["git worktree add -fb fix ~/.claude/worktrees/x", repo],
+    ["(cd ~/projects/owner/repo && pwd); cd /tmp && git worktree add x", home],
   ]) {
     const result = run(home, command, cwd);
     assert.equal(result.status, 0, `${command}: ${result.stderr}`);
