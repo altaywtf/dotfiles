@@ -155,6 +155,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             ...actual,
             env: unmanagedEnv(actual.env),
             model: undefined,
+            advisorModel: undefined,
             modelSettings: {
               ...actual.modelSettings,
               "claude-opus-5-5": {
@@ -171,6 +172,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             ...expected,
             env: expected.env,
             model: undefined,
+            advisorModel: undefined,
             modelSettings: {
               ...expected.modelSettings,
               "claude-opus-5-5": {
@@ -186,6 +188,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           },
         );
         assert.equal(actual.model, "claude-opus-5-5[1m]");
+        assert.equal(actual.advisorModel, "claude-fable-5-1");
         assert.equal(actual.modelSettings?.["claude-opus-5-5"]?.effortLevel, "medium");
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
