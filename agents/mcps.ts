@@ -23,7 +23,14 @@ import {
 } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile, managedLockPath } from "./lock.ts";
+import {
+  guardOverlay,
+  managedLockPath,
+  readLockFile,
+  readOverlayOwnership,
+  writeLockFile,
+  type OverlayOwnership,
+} from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -42,6 +49,7 @@ type LockedServer = {
 type McpLock = {
   version: 1;
   servers: LockedServer[];
+  overlay?: OverlayOwnership;
 };
 
 function readServerLock(lockPath: string): LockedServer[] | undefined {
@@ -94,8 +102,12 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
   return servers;
 }
 
-function writeServerLock(lockPath: string, servers: readonly LockedServer[]): void {
-  const lock: McpLock = { version: 1, servers: [...servers] };
+function writeServerLock(
+  lockPath: string,
+  servers: readonly LockedServer[],
+  overlay?: OverlayOwnership,
+): void {
+  const lock: McpLock = { version: 1, servers: [...servers], ...(overlay ? { overlay } : {}) };
   writeLockFile(lockPath, lock);
 }
 
@@ -322,7 +334,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, servers, localPath } = readLayeredServers(
+  const { layers, servers, localPath, localNames } = readLayeredServers(
     repoDir,
     profileName,
     profile.agentLayers,
@@ -334,8 +346,13 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const mcpLockPath = managedLockPath(runtime.env, repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
+  const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
+  const selectedNames = new Set(servers.map((server) => server.name));
+  const keptOverlay = (previouslyManaged ?? []).filter(
+    (server) => !selectedNames.has(server.name) && overlay.kept.has(server.name),
+  );
   const ownership = planOwnership({
-    previous: previouslyManaged ?? [],
+    previous: (previouslyManaged ?? []).filter((server) => !keptOverlay.includes(server)),
     selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
     available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
     keyOf: serverName,
@@ -363,7 +380,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
       return 0;
     }
     writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing servers");
-    writeServerLock(mcpLockPath, ownership.nextLock([]));
+    writeServerLock(mcpLockPath, ownership.nextLock([]), overlay.next);
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
@@ -373,7 +390,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(mcpLockPath, ownership.nextLock(deferred));
+  writeServerLock(mcpLockPath, [...ownership.nextLock(deferred), ...keptOverlay], overlay.next);
   writeLine(runtime.stdout, "Done.");
   return 0;
 }

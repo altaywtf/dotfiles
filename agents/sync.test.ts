@@ -653,3 +653,22 @@ test("a lock left in the checkout moves to user state and keeps ownership", () =
   assert.equal(existsSync(legacy), false);
   assert.equal(statSync(skillLockPath(home)).mode & 0o777, 0o600);
 });
+
+test("another checkout without the overlay keeps overlay-owned skills", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({ skills: [{ name: "machine-only", source: "fixture/machine" }] }),
+    { mode: 0o600 },
+  );
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  const other = new FixtureRuntime(createFixture().repoDir, home);
+  assert.equal(main([], other), 0);
+  assert.deepEqual(removedSkillNames(other), []);
+
+  rmSync(join(repoDir, "agents", "local.json"));
+  const owner = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], owner), 0);
+  assert.deepEqual(removedSkillNames(owner), ["machine-only"]);
+});

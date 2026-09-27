@@ -522,3 +522,25 @@ test("the executable TypeScript entrypoint runs the CLI", () => {
   assert.match(result.stderr, /Usage: \.\/agents\/mcps\.ts \[--profile PROFILE\]/);
   assert.match(result.stderr, /Unknown argument: unexpected/);
 });
+
+test("another checkout without the overlay keeps overlay-owned servers", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({ servers: [{ name: "machine-mcp", url: "https://machine.fixture.test/mcp" }] }),
+    { mode: 0o600 },
+  );
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  const other = new FixtureRuntime(createFixture().repoDir, home);
+  assert.equal(main([], other), 0);
+  assert.equal(
+    harnessCalls(other, "claude").some((call) => call.includes("remove -s user machine-mcp")),
+    false,
+  );
+  assert.ok(
+    (
+      JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as { servers: { name: string }[] }
+    ).servers.some((server) => server.name === "machine-mcp"),
+  );
+});
