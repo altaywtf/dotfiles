@@ -27,4 +27,4 @@ The [repository layout](AGENTS.md#layout) maps each domain to its source owner.
 | Install mobile and TV tooling          | [Mobile and TV development](docs/mobile-and-tv-development.md) |
 | Change this repository                 | [Contributing](CONTRIBUTING.md)                                |
 
-[Security reporting](SECURITY.md) · [MIT license](LICENSE)
+[Security reporting](https://github.com/altaywtf/dotfiles/security/policy) · [MIT license](LICENSE)

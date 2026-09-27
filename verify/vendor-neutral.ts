@@ -28,7 +28,6 @@ function allowed(file: string, content: string): boolean {
     case "CONTRIBUTING.md":
     case "LICENSE":
     case "README.md":
-    case "SECURITY.md":
     case "docs/bootstrap.md":
     case "docs/profiles.md":
       return containsAny(content, [
