@@ -30,7 +30,8 @@ T3_SERVICE=1
 
 `T3_SERVICE` overrides the profile's
 [T3 Code background service](#system-services) default: `T3_SERVICE=0` opts a
-`personal-devbox` user out, and `T3_SERVICE=1` opts a `devbox` user in.
+`personal-devbox` user out and removes an installed service on the next apply,
+and `T3_SERVICE=1` opts a `devbox` user in.
 
 - Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
   of shell startup, plists, and supervisor configuration.
@@ -140,13 +141,14 @@ on-demand boxes and install it only with `T3_SERVICE=1` in
 T3 desktop app is the server there. Unattended maintenance does not enroll new
 services. T3 owns later updates; the
 [installation step](../bootstrap/install-t3-service.ts) preserves existing
-units. Inspect it with:
+units unless `T3_SERVICE=0` asks for removal through `t3 service uninstall`. Inspect it with:
 
 ```zsh
 t3 service status
 ```
 
-`./dotfiles check` proves the unit exists wherever the service is wanted. On
+`./dotfiles check` proves the unit exists wherever the service is wanted and
+is gone after `T3_SERVICE=0`. On
 Linux it also checks lingering and the running service's `PATH`. The systemd user
 manager does not read shell startup files; for missing tools, follow
 [bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering

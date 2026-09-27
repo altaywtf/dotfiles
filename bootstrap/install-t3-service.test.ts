@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "vite-plus/test";
 import { Effect, FileSystem } from "effect";
 import { CommandRunner } from "../lib/command.ts";
@@ -16,6 +20,8 @@ function fixture(
     installStatus?: number;
     writesUnit?: boolean;
     reportedStatus?: string;
+    uninstallStatus?: number;
+    keepsUnit?: boolean;
   } = {},
 ) {
   let present = options.present ?? false;
@@ -47,6 +53,10 @@ function fixture(
       if (command === "t3" && args[1] === "install") {
         present = options.writesUnit ?? true;
         status = options.installStatus ?? 0;
+      }
+      if (command === "t3" && args[1] === "uninstall") {
+        present = options.keepsUnit ?? false;
+        status = options.uninstallStatus ?? 0;
       }
       if (command === "t3" && args[1] === "status")
         stdout = options.reportedStatus ?? "Status: installed\n";
@@ -87,6 +97,46 @@ test("T3_SERVICE=0 opts a default-on profile out", async () => {
   await f.run(false, "linux", true);
   await f.run(true, "linux", true);
   assert.deepEqual(f.calls, []);
+});
+
+test("T3_SERVICE=0 removes a service installed by an earlier apply", async () => {
+  const f = fixture({ optIn: "T3_SERVICE=0\n", present: true });
+  await assert.rejects(f.run(true, "linux", true), /T3_SERVICE=0 but/);
+  await f.run(false, "linux", true);
+  await f.run(true, "linux", true);
+  assert.deepEqual(f.calls, [["t3", "service", "uninstall", "--base-dir", `${home}/.t3`]]);
+});
+
+test("a failed or incomplete removal is reported", async () => {
+  await assert.rejects(
+    fixture({ optIn: "T3_SERVICE=0\n", present: true, uninstallStatus: 5 }).run(),
+    /uninstall exited 5/,
+  );
+  await assert.rejects(
+    fixture({ optIn: "T3_SERVICE=0\n", present: true, keepsUnit: true }).run(),
+    /remains/,
+  );
+});
+
+test("without an explicit opt-out an off-by-default profile keeps a manual install", async () => {
+  const f = fixture({ optIn: "", present: true });
+  await f.run(false, "darwin");
+  await f.run(true, "darwin");
+  assert.deepEqual(f.calls, []);
+});
+
+test("personal workstations neither install nor require the service", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-t3."));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+  const run = (profile: string) =>
+    spawnSync(
+      process.execPath,
+      [join(import.meta.dirname, "install-t3-service.ts"), "--profile", profile, "--check"],
+      { encoding: "utf8", env: { HOME: root, PATH: "/usr/bin:/bin" } },
+    );
+  const workstation = run("personal-workstation");
+  assert.equal(workstation.status, 0, workstation.stderr);
+  assert.match(run("personal-devbox").stderr, /not installed/);
 });
 
 test("opt-in tolerates unrelated lines and CRLF", async () => {

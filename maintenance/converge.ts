@@ -126,6 +126,17 @@ function ruleSourceCheckouts(home: string, repo: string): string[] {
   return [...checkouts];
 }
 
+// Git writes changed files under the process umask; a shell's 022 would widen
+// an owner-only fragment, even briefly, and profile setup then rejects it.
+function privately<T>(update: () => T): T {
+  const previous = process.umask(0o077);
+  try {
+    return update();
+  } finally {
+    process.umask(previous);
+  }
+}
+
 export function converge(repo: string, lockOptions: LockOptions = {}, home = homedir()): void {
   const release = acquireCheckoutLock(repo, lockOptions);
   try {
@@ -133,9 +144,8 @@ export function converge(repo: string, lockOptions: LockOptions = {}, home = hom
     const skipped: string[] = [];
     for (const checkout of ruleSourceCheckouts(home, repo)) {
       try {
-        console.log(
-          `Agent rule checkout ${checkout} at ${syncCheckout(checkout, "agent rule checkout")}`,
-        );
+        const advanced = privately(() => syncCheckout(checkout, "agent rule checkout"));
+        console.log(`Agent rule checkout ${checkout} at ${advanced}`);
       } catch (error) {
         if (!(error instanceof UpdateFailure)) throw error;
         skipped.push(`${checkout}: ${error.message}`);

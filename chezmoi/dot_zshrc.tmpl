@@ -106,9 +106,10 @@ else
 fi
 
 # The updater rewrites this receipt whenever a run starts or finishes, so an old
-# receipt means scheduled runs stopped before they could report anything.
+# receipt means scheduled runs stopped before they could report anything, unless
+# maintenance:disable stopped them on purpose.
 dotfiles_update_receipt=("$HOME"/.local/state/dotfiles/updates/software-update.json(N.mm+780))
-if (( $#dotfiles_update_receipt )); then
+if (( $#dotfiles_update_receipt )) && [[ ! -e "$HOME/.local/state/dotfiles/updates/software-update.disabled" ]]; then
   echo "dotfiles: no software update has run for 13 hours; see mise run maintenance:status" >&2
 fi
 unset dotfiles_update_receipt

@@ -99,6 +99,13 @@ const program = Effect.scoped(
       { HOME: home, PATH: "/usr/bin:/bin" },
       ["-dfc"],
     );
+    const disabled = join(home, ".local/state/dotfiles/updates/software-update.disabled");
+    yield* fs.writeFileString(disabled, "");
+    yield* check(
+      `[[ ${warning} != *"no software update"* ]]`,
+      { HOME: home, PATH: "/usr/bin:/bin" },
+      ["-dfc"],
+    );
     yield* Console.log(
       "ok login PATH, mise shim precedence, devbox zsh prompt substitution, Android SDK environment, and stale updater warning",
     );
