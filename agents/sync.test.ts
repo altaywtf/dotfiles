@@ -672,3 +672,54 @@ test("another checkout without the overlay keeps overlay-owned skills", () => {
   assert.equal(main([], owner), 0);
   assert.deepEqual(removedSkillNames(owner), ["machine-only"]);
 });
+
+test("checkouts with their own overlays keep each other's skills", () => {
+  const first = createFixture();
+  const second = createFixture().repoDir;
+  const overlay = (repoDir: string, name: string) =>
+    writeFileSync(
+      join(repoDir, "agents", "local.json"),
+      JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
+      { mode: 0o600 },
+    );
+  overlay(first.repoDir, "first-only");
+  overlay(second, "second-only");
+  assert.equal(main([], new FixtureRuntime(first.repoDir, first.home)), 0);
+
+  const runtime = new FixtureRuntime(second, first.home);
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), []);
+});
+
+test("a linked worktree imports the lock its main checkout wrote", () => {
+  const { repoDir, home } = createFixture();
+  const git = (...args: string[]) =>
+    assert.equal(
+      spawnSync("git", ["-C", repoDir, "-c", "commit.gpgsign=false", ...args], {
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: "F",
+          GIT_AUTHOR_EMAIL: "f@example.com",
+          GIT_COMMITTER_NAME: "F",
+          GIT_COMMITTER_EMAIL: "f@example.com",
+        },
+      }).status,
+      0,
+    );
+  writeFileSync(join(repoDir, ".gitignore"), "agents/skills.lock.json\n");
+  git("init", "-q", "-b", "main");
+  git("add", ".");
+  git("commit", "-q", "-m", "fixture");
+  const worktree = join(dirname(repoDir), "worktree");
+  git("worktree", "add", "-q", worktree);
+  renameSync(skillLockPath(home), join(repoDir, "agents", "skills.lock.json"));
+  writeFileSync(
+    join(worktree, "agents", "skills", "developer.json"),
+    JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
+  );
+  const runtime = new FixtureRuntime(worktree, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
+  assert.equal(existsSync(join(repoDir, "agents", "skills.lock.json")), false);
+});

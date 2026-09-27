@@ -143,14 +143,15 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
   changes a shared selection. Remove an entry by deleting it from the file.
 - Overlay entries enter the same ownership lock, so dropping one removes it on
   the next sync like any dropped manifest entry. The lock records which
-  checkout's overlay installed them; a sync from another checkout without an
-  overlay keeps them. Sync, doctor, and the maintenance inventory all read the
+  checkout's overlay installed them; a sync from another checkout keeps them
+  while the owning checkout exists. Sync, doctor, and the maintenance inventory all read the
   overlay; sync prints its path when used.
 - Keep credentials out of it. OAuth state stays in each harness's own store.
 
 Each sync keeps its ownership lock in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
 outside the checkout, so applying from a temporary clone keeps ownership. A lock
-left at the old `agents/*.lock.json` checkout path moves there on the next sync:
+left at the old `agents/*.lock.json` path of the checkout, or of its main
+worktree, moves there on the next sync:
 
 - Missing locks initialize ownership without removing existing installations.
 - Subsequent runs remove dropped selections while preserving never-owned extras.

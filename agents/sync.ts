@@ -40,15 +40,15 @@ type SkillFailure = {
 type SkillLock = {
   version: 1;
   skills: Skill[];
-  overlay?: OverlayOwnership;
+  overlays?: OverlayOwnership;
 };
 
 function writeSkillLock(
   lockPath: string,
   skills: readonly Skill[],
-  overlay: OverlayOwnership | undefined,
+  overlays: OverlayOwnership | undefined,
 ): void {
-  const lock: SkillLock = { version: 1, skills: [...skills], ...(overlay ? { overlay } : {}) };
+  const lock: SkillLock = { version: 1, skills: [...skills], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
 }
 

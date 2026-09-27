@@ -49,7 +49,7 @@ type LockedServer = {
 type McpLock = {
   version: 1;
   servers: LockedServer[];
-  overlay?: OverlayOwnership;
+  overlays?: OverlayOwnership;
 };
 
 function readServerLock(lockPath: string): LockedServer[] | undefined {
@@ -105,9 +105,9 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
 function writeServerLock(
   lockPath: string,
   servers: readonly LockedServer[],
-  overlay?: OverlayOwnership,
+  overlays?: OverlayOwnership,
 ): void {
-  const lock: McpLock = { version: 1, servers: [...servers], ...(overlay ? { overlay } : {}) };
+  const lock: McpLock = { version: 1, servers: [...servers], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
 }
 
