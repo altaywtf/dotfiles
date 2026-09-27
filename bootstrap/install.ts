@@ -6,18 +6,19 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
-import { profileModelFile, resolveProfile } from "../profiles/current.ts";
+import { guardProfileSwitch, profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile, type InstallStep } from "../profiles/model.ts";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
-  bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation
+  bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation [--switch-profile]
   bootstrap/install.ts --print-steps --profile PROFILE
   bootstrap/install.ts --maintenance [--profile PROFILE]
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
-role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.
+role. An existing ~/.config/dotfiles/profile is used when --profile is omitted;
+a different --profile needs --switch-profile to replace it.
 --maintenance also installs declared packages and updates agent assets, preserving
 Codex, Claude, and Grok logins. Bifrost enrollment preserves unrelated credentials.`;
 
@@ -109,6 +110,7 @@ const program = Effect.gen(function* () {
   let profileInput: string | undefined;
   let printSteps = false;
   let maintenance = false;
+  let switchProfile = false;
   const args = process.argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -124,6 +126,8 @@ const program = Effect.gen(function* () {
       printSteps = true;
     } else if (argument === "--maintenance") {
       maintenance = true;
+    } else if (argument === "--switch-profile") {
+      switchProfile = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
@@ -149,6 +153,10 @@ const program = Effect.gen(function* () {
     yield* Console.log(steps.join("\n"));
     return;
   }
+  if (!switchProfile)
+    yield* guardProfileSwitch(profile).pipe(
+      Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
+    );
   if (selected.capabilities.workstation && process.platform !== "darwin") {
     return yield* fail(
       `${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`,

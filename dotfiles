@@ -12,7 +12,7 @@ fi
 if [ "$#" -eq 1 ]; then
   case "$1" in
     -h|--help)
-      printf '%s\n' 'Usage: ./dotfiles prepare | maintain | diff|apply|check PROFILE' \
+      printf '%s\n' 'Usage: ./dotfiles prepare | maintain | diff|check PROFILE | apply PROFILE [--switch-profile]' \
         'prepare installs repository dependencies; maintain converges the stored profile without retiring logins.'
       exit 0
       ;;

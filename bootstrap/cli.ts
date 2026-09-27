@@ -12,13 +12,15 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
 const defaultProfile = "developer";
-const usage = `Usage: ./dotfiles diff|apply|check [PROFILE]
+const usage = `Usage: ./dotfiles diff|check [PROFILE]
+       ./dotfiles apply [PROFILE] [--switch-profile]
 
   diff   Preview per-user convergence
   apply  Converge the selected per-user profile
   check  Check the live per-user profile
 
 PROFILE defaults to the stored ~/.config/dotfiles/profile, then ${defaultProfile}.
+apply refuses a PROFILE other than the stored one unless --switch-profile is given.
 Homebrew packages, identities, secrets, and host-wide settings remain separate.`;
 
 const delegate = Effect.fn("delegateDotfilesCommand")(function* (
@@ -42,12 +44,19 @@ const delegate = Effect.fn("delegateDotfilesCommand")(function* (
 });
 
 const program = Effect.gen(function* () {
-  const args = process.argv.slice(2);
-  if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
+  const argv = process.argv.slice(2);
+  if (argv.length === 1 && (argv[0] === "-h" || argv[0] === "--help")) {
     yield* Console.log(usage);
     return;
   }
-  if (args.length < 1 || args.length > 2) {
+  const switchProfile = argv.includes("--switch-profile");
+  const args = argv.filter((argument) => argument !== "--switch-profile");
+  if (
+    args.length < 1 ||
+    args.length > 2 ||
+    argv.length - args.length > 1 ||
+    (switchProfile && args[0] !== "apply")
+  ) {
     yield* Console.error(usage);
     return yield* fail("invalid operator arguments", 2);
   }
@@ -93,7 +102,12 @@ const program = Effect.gen(function* () {
         profile,
       );
     case "apply":
-      return yield* delegate("bootstrap/install.ts", ["--profile", profile], commandName, profile);
+      return yield* delegate(
+        "bootstrap/install.ts",
+        ["--profile", profile, ...(switchProfile ? ["--switch-profile"] : [])],
+        commandName,
+        profile,
+      );
     case "check":
       return yield* delegate("verify/bootstrap.ts", ["--profile", profile], commandName, profile);
     default:

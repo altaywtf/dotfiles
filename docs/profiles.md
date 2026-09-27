@@ -16,6 +16,8 @@ Profiles configure one Unix user; host permissions provide isolation.
   `~/.config/dotfiles/profile`, or `developer` on a fresh user. Apply writes
   that marker as `0600` under any umask; commands refuse a marker that is a
   symlink, owned by another user, or group- or world-writable.
+- `./dotfiles apply <profile>` refuses a profile other than the stored one;
+  pass `--switch-profile` to change a user's role on purpose.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
   Homebrew layers, agent selections, and install steps. The referenced
   Brewfiles own macOS packages; [mise templates](mise.md) own runtime and tool pins.

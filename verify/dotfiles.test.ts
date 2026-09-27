@@ -130,6 +130,11 @@ test("operator command validates and delegates every profile", async () => {
     assert.equal((await run(["apply"], log)).status, 3);
     assert.equal(readFileSync(log, "utf8"), "");
     rmSync(join(home, ".config/dotfiles/profile"));
+    writeFileSync(log, "");
+    const switched = await run(["apply", "workstation", "--switch-profile"], log);
+    assert.equal(switched.status, 0, switched.stderr);
+    assert.equal(readFileSync(log, "utf8"), "install.ts --profile workstation --switch-profile\n");
+    assert.equal((await run(["diff", "workstation", "--switch-profile"], log)).status, 2);
     const failed = await run(["apply", "workstation"], log, 29);
     assert.equal(failed.status, 29);
     assert.match(failed.stderr, /bootstrap\/install\.ts failed/);
