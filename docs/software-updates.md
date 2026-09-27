@@ -53,8 +53,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 - [Local rule fragments](agents.md#global-rules) that link into another Git
   checkout advance under the same rules before profile setup renders them. A
   checkout that cannot advance keeps its work: the rest of convergence still
-  runs, then the step fails and names the checkout and the reason. Linked
-  fragments keep their permissions across the update.
+  runs, then the step fails and names the checkout and the reason. Rule
+  checkouts advance under umask `077`, so files Git rewrites stay owner-only.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
   Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
