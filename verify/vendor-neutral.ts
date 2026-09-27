@@ -34,7 +34,6 @@ function allowed(file: string, content: string): boolean {
       return containsAny(content, [
         "uinaf/tap",
         "github.com/uinaf/sops-vault-template",
-        "https://uinaf.dev/og/banner/dotfiles.png",
         "dev@uinaf.dev",
         "Copyright (c) 2026 uinaf",
       ]);
