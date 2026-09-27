@@ -201,6 +201,7 @@ function worktreeTargets(command: string, startCwd: string): string[] {
   const targets: string[] = [];
   let cwd: Word = startCwd;
   let previous: Word = unresolved;
+  const pushed: Word[] = [];
   const scopes: Word[] = [];
   for (const words of simpleCommands(command)) {
     if (words.length === 1 && words[0] === "(") {
@@ -214,7 +215,13 @@ function worktreeTargets(command: string, startCwd: string): string[] {
     const unwrapped = unwrap(words);
     const [name, ...rest] = unwrapped.words;
     const here = unwrapped.chdir === undefined ? cwd : under(cwd, unwrapped.chdir);
+    if (name === "popd") {
+      previous = cwd;
+      cwd = pushed.pop() ?? unresolved;
+      continue;
+    }
     if (name === "cd" || name === "pushd") {
+      if (name === "pushd") pushed.push(cwd);
       let at = 0;
       while (typeof rest[at] === "string" && /^-[LPe@]+$/.test(rest[at] as string)) at += 1;
       if (rest[at] === "--") at += 1;
