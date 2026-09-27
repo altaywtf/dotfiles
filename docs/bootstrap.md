@@ -23,7 +23,7 @@ curl https://mise.run | sh   # installs ~/.local/bin/mise
 export PATH="$HOME/.local/bin:$PATH"
 sudo chsh -s /usr/bin/zsh "$USER"
 mkdir -p ~/projects
-git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
+git clone https://github.com/altaywtf/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./dotfiles prepare
 ```
@@ -60,7 +60,7 @@ first apply, which installs `gh` through mise:
 ```zsh
 brew install git mise
 mkdir -p ~/projects
-git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
+git clone https://github.com/altaywtf/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./dotfiles prepare
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
@@ -82,7 +82,7 @@ If Git is unavailable, fetch an archive to inspect and bootstrap:
 
 ```zsh
 mkdir -p ~/projects
-curl -fL https://github.com/uinaf/dotfiles/archive/refs/heads/main.zip \
+curl -fL https://github.com/altaywtf/dotfiles/archive/refs/heads/main.zip \
   -o /tmp/dotfiles-main.zip
 ditto -x -k /tmp/dotfiles-main.zip ~/projects
 mv ~/projects/dotfiles-main ~/projects/dotfiles

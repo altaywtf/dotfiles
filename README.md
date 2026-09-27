@@ -1,6 +1,6 @@
 ![dotfiles — macOS and Linux bootstrap for workstations and remote coding users.](https://uinaf.dev/og/banner/dotfiles.png)
 
-# uinaf/dotfiles
+# altaywtf/dotfiles
 
 macOS and Ubuntu setup for one Unix user: packages, shell and Git defaults,
 runtimes, coding agents, and maintenance. Private identities and secrets stay

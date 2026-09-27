@@ -15,8 +15,6 @@ function containsAny(content: string, values: readonly string[]): boolean {
 
 function allowed(file: string, content: string): boolean {
   switch (file) {
-    case "package.json":
-      return content.trim() === '"name": "@uinaf/dotfiles",';
     case "chezmoi/.chezmoitemplates/linux/mise.toml":
       return content.startsWith('"github:uinaf/ffss" =');
     case "chezmoi/private_dot_config/mise/config.toml.tmpl":
@@ -34,7 +32,6 @@ function allowed(file: string, content: string): boolean {
     case "docs/bootstrap.md":
     case "docs/profiles.md":
       return containsAny(content, [
-        "uinaf/dotfiles",
         "uinaf/tap",
         "github.com/uinaf/sops-vault-template",
         "https://uinaf.dev/og/banner/dotfiles.png",
@@ -53,6 +50,8 @@ function allowed(file: string, content: string): boolean {
       return containsAny(content, [
         "mise exec github:uinaf/ffss -- slopguard version",
         "uses: uinaf/.github/.github/actions/scan@",
+        "client-id: ${{ vars.UINAF_CI_APP_CLIENT_ID }}",
+        "private-key: ${{ secrets.UINAF_CI_APP_PRIVATE_KEY }}",
       ]);
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
