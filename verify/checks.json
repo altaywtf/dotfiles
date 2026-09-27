@@ -114,6 +114,7 @@
         "bootstrap/apply-dotfiles.test.ts",
         "bootstrap/darwin/photo-analysis.test.ts",
         "bootstrap/managed-files.test.ts",
+        "bootstrap/temporary-source.test.ts",
         "bootstrap/linux/user-manager.test.ts"
       ],
       "output": "Bootstrap tool provisioning errors, home backups, Linux user-manager PATH convergence, and macOS devbox Photos policy drift"

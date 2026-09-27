@@ -124,7 +124,9 @@ mise trust
 Provisioning that applies from a clone and then deletes it sets
 `DOTFILES_TEMPORARY_SOURCE=1` for `./dotfiles apply`. The profile then renders
 no updater schedule and no Topgrade commands that would point into the deleted
-clone; [software updates](software-updates.md) need a persistent checkout.
+clone; [software updates](software-updates.md) need a persistent checkout. Such
+an apply refuses a home whose updater runs from an existing checkout, and
+removes updater units left by an earlier deleted clone.
 
 On macOS, run these host-wide steps once from the administrator account:
 

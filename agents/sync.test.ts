@@ -691,35 +691,46 @@ test("checkouts with their own overlays keep each other's skills", () => {
   assert.deepEqual(removedSkillNames(runtime), []);
 });
 
-test("a linked worktree imports the lock its main checkout wrote", () => {
-  const { repoDir, home } = createFixture();
-  const git = (...args: string[]) =>
-    assert.equal(
-      spawnSync("git", ["-C", repoDir, "-c", "commit.gpgsign=false", ...args], {
-        env: {
-          ...process.env,
-          GIT_AUTHOR_NAME: "F",
-          GIT_AUTHOR_EMAIL: "f@example.com",
-          GIT_COMMITTER_NAME: "F",
-          GIT_COMMITTER_EMAIL: "f@example.com",
-        },
-      }).status,
-      0,
+for (const overlay of [false, true])
+  test(`a linked worktree imports the lock its main checkout wrote${overlay ? " and keeps that checkout's overlay skills" : ""}`, () => {
+    const { repoDir, home } = createFixture();
+    if (overlay) {
+      writeFileSync(
+        join(repoDir, "agents", "local.json"),
+        JSON.stringify({ skills: [{ name: "machine-only", source: "fixture/machine" }] }),
+        { mode: 0o600 },
+      );
+      const lock = JSON.parse(readFileSync(skillLockPath(home), "utf8"));
+      lock.skills.push({ name: "machine-only", source: "fixture/machine" });
+      writeFileSync(skillLockPath(home), JSON.stringify(lock));
+    }
+    const git = (...args: string[]) =>
+      assert.equal(
+        spawnSync("git", ["-C", repoDir, "-c", "commit.gpgsign=false", ...args], {
+          env: {
+            ...process.env,
+            GIT_AUTHOR_NAME: "F",
+            GIT_AUTHOR_EMAIL: "f@example.com",
+            GIT_COMMITTER_NAME: "F",
+            GIT_COMMITTER_EMAIL: "f@example.com",
+          },
+        }).status,
+        0,
+      );
+    writeFileSync(join(repoDir, ".gitignore"), "agents/skills.lock.json\nagents/local.json\n");
+    git("init", "-q", "-b", "main");
+    git("add", ".");
+    git("commit", "-q", "-m", "fixture");
+    const worktree = join(dirname(repoDir), "worktree");
+    git("worktree", "add", "-q", worktree);
+    renameSync(skillLockPath(home), join(repoDir, "agents", "skills.lock.json"));
+    writeFileSync(
+      join(worktree, "agents", "skills", "developer.json"),
+      JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
     );
-  writeFileSync(join(repoDir, ".gitignore"), "agents/skills.lock.json\n");
-  git("init", "-q", "-b", "main");
-  git("add", ".");
-  git("commit", "-q", "-m", "fixture");
-  const worktree = join(dirname(repoDir), "worktree");
-  git("worktree", "add", "-q", worktree);
-  renameSync(skillLockPath(home), join(repoDir, "agents", "skills.lock.json"));
-  writeFileSync(
-    join(worktree, "agents", "skills", "developer.json"),
-    JSON.stringify({ skills: fixtureSkills.filter((skill) => skill.name !== "ok-after") }),
-  );
-  const runtime = new FixtureRuntime(worktree, home);
+    const runtime = new FixtureRuntime(worktree, home);
 
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
-  assert.equal(existsSync(join(repoDir, "agents", "skills.lock.json")), false);
-});
+    assert.equal(main([], runtime), 0);
+    assert.deepEqual(removedSkillNames(runtime), ["ok-after"]);
+    assert.equal(existsSync(join(repoDir, "agents", "skills.lock.json")), false);
+  });

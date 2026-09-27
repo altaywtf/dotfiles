@@ -9,6 +9,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { acquireDirectoryLock } from "../lib/lock.ts";
+import { readLocalOverlay } from "./local.ts";
 import { dirname, join } from "node:path";
 
 import { errorMessage } from "./runtime.ts";
@@ -69,11 +71,46 @@ export function managedLockPath(env: NodeJS.ProcessEnv, repoDir: string, kind: L
     .map((checkout) => join(checkout, "agents", `${kind}.lock.json`))
     .find((candidate) => existsSync(candidate));
   if (!existsSync(path) && legacy !== undefined) {
+    const lock = JSON.parse(readFileSync(legacy, "utf8")) as Record<string, unknown>;
+    const owner = dirname(dirname(legacy));
+    const names = overlayNamesOf(owner, kind);
+    if (names.length > 0) lock.overlays = { [realpathSync(owner)]: names };
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    writeFileSync(path, readFileSync(legacy), { mode: 0o600, flag: "wx" });
+    writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o600, flag: "wx" });
     rmSync(legacy, { force: true });
   }
   return path;
+}
+
+// Older locks carry no provenance, so the checkout's overlay at migration time seeds it.
+function overlayNamesOf(checkout: string, kind: LockKind): string[] {
+  if (kind === "plugins") return [];
+  const entries = readLocalOverlay(checkout)?.document[kind === "skills" ? "skills" : "servers"];
+  return Array.isArray(entries)
+    ? entries.flatMap((entry: unknown) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        "name" in entry &&
+        typeof entry.name === "string"
+          ? [entry.name]
+          : [],
+      )
+    : [];
+}
+
+// Syncs from different checkouts share the per-user lock, so each holds it for
+// the whole read, host change, and write.
+export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync: () => T): T {
+  const directory = dirname(managedLockLocation(env, kind));
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const release = acquireDirectoryLock(join(directory, `${kind}.sync.lock`), {
+    waitMs: 15 * 60_000,
+  });
+  try {
+    return sync();
+  } finally {
+    release();
+  }
 }
 
 // Overlay-owned names per checkout that installed them.

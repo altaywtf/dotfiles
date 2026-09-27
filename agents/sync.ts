@@ -13,6 +13,7 @@ import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import {
   guardOverlay,
   managedLockPath,
+  withManagedLock,
   readOverlayOwnership,
   writeLockFile,
   type OverlayOwnership,
@@ -363,7 +364,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return sync(runtime, parsed.options);
+    return withManagedLock(runtime.env, "skills", () => sync(runtime, parsed.options));
   } catch (error) {
     writeLine(runtime.stderr, `Sync failed: ${errorMessage(error)}`);
     return 1;

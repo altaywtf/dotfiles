@@ -151,7 +151,8 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
 Each sync keeps its ownership lock in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
 outside the checkout, so applying from a temporary clone keeps ownership. A lock
 left at the old `agents/*.lock.json` path of the checkout, or of its main
-worktree, moves there on the next sync:
+worktree, moves there on the next sync. Syncs hold a per-user lock beside it, so
+syncs from different checkouts run one at a time:
 
 - Missing locks initialize ownership without removing existing installations.
 - Subsequent runs remove dropped selections while preserving never-owned extras.

@@ -26,6 +26,7 @@ import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
   managedLockPath,
+  withManagedLock,
   readLockFile,
   readOverlayOwnership,
   writeLockFile,
@@ -411,7 +412,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return apply(runtime, { profile: parsed.profile });
+    return withManagedLock(runtime.env, "mcps", () => apply(runtime, { profile: parsed.profile }));
   } catch (error) {
     writeLine(runtime.stderr, `MCP sync failed: ${errorMessage(error)}`);
     return 1;
