@@ -63,26 +63,54 @@ export const readPersistedProfile = Effect.fn("readPersistedProfile")(function* 
   return yield* normalizeProfile(contents).pipe(Effect.mapError(unsafe));
 });
 
+function profileMarkerPath(env: NodeJS.ProcessEnv): string {
+  return env.DOTFILES_PROFILE_FILE || join(env.HOME || "", ".config/dotfiles/profile");
+}
+
+// None only when no marker exists; an unsafe marker fails.
+const readRecordedProfile = Effect.fn("readRecordedProfile")(function* (
+  env: NodeJS.ProcessEnv,
+  expectedUid: number | undefined,
+) {
+  const profileFile = profileMarkerPath(env);
+  const fs = yield* FileSystem.FileSystem;
+  const exists = yield* fs
+    .exists(profileFile)
+    .pipe(
+      Effect.mapError(() =>
+        resolutionFailure(`profile marker is missing or unsafe: ${profileFile}`, 3),
+      ),
+    );
+  const link = yield* fs.readLink(profileFile).pipe(Effect.option);
+  if (!exists && Option.isNone(link) && env.DOTFILES_PROFILE_FILE === undefined) {
+    return Option.none<string>();
+  }
+  return Option.some(yield* readPersistedProfile(profileFile, expectedUid));
+});
+
+export const guardProfileSwitch = Effect.fn("guardProfileSwitch")(function* (
+  requested: string,
+  env: NodeJS.ProcessEnv = process.env,
+  expectedUid: number | undefined = process.getuid?.(),
+) {
+  const recorded = yield* readRecordedProfile(env, expectedUid);
+  if (Option.isSome(recorded) && recorded.value !== requested) {
+    return yield* resolutionFailure(
+      `this user is recorded as ${recorded.value} in ${profileMarkerPath(env)}; rerun with --switch-profile to replace it with ${requested}`,
+      2,
+    );
+  }
+});
+
 export const resolveProfile = Effect.fn("resolveProfile")(function* (
   requested: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
   expectedUid: number | undefined = process.getuid?.(),
 ) {
-  const profileFile = env.DOTFILES_PROFILE_FILE || join(env.HOME || "", ".config/dotfiles/profile");
   let candidate = requested;
   if (!candidate) {
-    const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs
-      .exists(profileFile)
-      .pipe(
-        Effect.mapError(() =>
-          resolutionFailure(`profile marker is missing or unsafe: ${profileFile}`, 3),
-        ),
-      );
-    const link = yield* fs.readLink(profileFile).pipe(Effect.option);
-    if (exists || Option.isSome(link) || env.DOTFILES_PROFILE_FILE !== undefined) {
-      return yield* readPersistedProfile(profileFile, expectedUid);
-    }
+    const recorded = yield* readRecordedProfile(env, expectedUid);
+    if (Option.isSome(recorded)) return recorded.value;
     candidate = env.DOTFILES_PROFILE;
   }
   if (!candidate?.trim()) {
