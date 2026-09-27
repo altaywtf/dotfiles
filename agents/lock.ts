@@ -44,11 +44,9 @@ export function writeLockFile(lockPath: string, value: unknown): void {
 // that is deleted afterwards, and a lost lock would strand retired assets.
 export function managedLockLocation(env: NodeJS.ProcessEnv, kind: LockKind): string {
   if (!env.HOME) throw new Error(`HOME is required to locate the managed ${kind} lock`);
-  return join(
-    env.XDG_STATE_HOME || join(env.HOME, ".local/state"),
-    "dotfiles/agents",
-    `${kind}.lock.json`,
-  );
+  // Fixed under HOME like update receipts: the scheduled updater does not inherit
+  // a shell-only XDG_STATE_HOME, and both must read the same ownership.
+  return join(env.HOME, ".local/state/dotfiles/agents", `${kind}.lock.json`);
 }
 
 type LockKind = "skills" | "plugins" | "mcps";

@@ -148,7 +148,7 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
   overlay; sync prints its path when used.
 - Keep credentials out of it. OAuth state stays in each harness's own store.
 
-Each sync keeps its ownership lock in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
+Each sync keeps its ownership lock in `~/.local/state/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
 outside the checkout, so applying from a temporary clone keeps ownership. A lock
 left at the old `agents/*.lock.json` path of the checkout, or of its main
 worktree, moves there on the next sync. Syncs hold a per-user lock beside it, so
