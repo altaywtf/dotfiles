@@ -156,18 +156,16 @@ the result, even with this flag set.
   the unused bundled App Store apps; uninstall may prompt for a password.
 - Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
   Lens policies and the vertical-tabs setting.
-- Workstation setup enables vertical tabs in every existing Helium user profile,
-  or seeds `Default` before first launch. Quit Helium before setup or run
-  `./bootstrap/darwin/configure-helium.ts` afterward. Scheduled maintenance defers
-  this step while Helium is running and retries at its next run. New profiles
-  receive the setting on the next setup or maintenance run with Helium closed.
+- Quit Helium before running `./bootstrap/darwin/configure-helium.ts` to enable
+  vertical tabs in every existing Helium user profile, or seed `Default` before
+  first launch. Setup and maintenance never run it; rerun it for new profiles.
   Other preferences, including the sidebar side, stay unchanged. The setting uses
   [Helium's profile layout preference](https://github.com/imputnet/helium/blob/main/patches/helium/ui/layout/core.patch).
   The same step disables the `helium-noise-canvas` and `helium-noise-audio`
   flags in `Local State`. Together they make Stytch device fingerprinting
   return a block verdict, which sends magic-link sign-ins to
   `stytch.com/redirect-error`; each flag alone is not enough. Other flags stay.
-- The Helium step also writes `External Extensions/<id>.json` files so every
+- The same script also writes `External Extensions/<id>.json` files so every
   Helium profile installs 1Password. New installs stay disabled until you accept
   Helium's "extension added" prompt; an existing Web Store install stays
   enabled. The files point at Helium's extension proxy because Helium ignores

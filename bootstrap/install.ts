@@ -73,12 +73,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
       return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
     case "configure-grok":
       return yield* execute(step, bootstrap("configure-grok.ts"), ["--profile", profile]);
-    case "configure-helium":
-      return yield* execute(
-        step,
-        bootstrap("darwin/configure-helium.ts"),
-        maintenance ? ["--skip-running"] : [],
-      );
     case "configure-llm-gateway":
       return yield* execute(step, bootstrap("configure-llm-gateway.ts"), [
         maintenance ? "--maintenance" : "--setup",

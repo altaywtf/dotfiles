@@ -19,7 +19,6 @@ const InstallStep = Schema.Literals([
   "install-repository-dependencies",
   "configure-codex",
   "configure-grok",
-  "configure-helium",
   "configure-llm-gateway",
   "configure-hindsight",
   "sync-agents",

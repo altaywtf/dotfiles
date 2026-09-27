@@ -50,7 +50,6 @@
           "install-oh-my-zsh",
           "trust-agent-worktrees",
           "install-gh-extensions",
-          "configure-helium",
           "configure-codex",
           "configure-llm-gateway",
           "configure-grok",
@@ -102,7 +101,6 @@
           "install-oh-my-zsh",
           "trust-agent-worktrees",
           "install-gh-extensions",
-          "configure-helium",
           "configure-codex",
           "configure-grok",
           "sync-agents"
