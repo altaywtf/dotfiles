@@ -76,7 +76,7 @@ export function managedLockPath(env: NodeJS.ProcessEnv, repoDir: string, kind: L
     const names = overlayNamesOf(owner, kind);
     if (names.length > 0) lock.overlays = { [realpathSync(owner)]: names };
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    writeLockFile(path, lock);
     rmSync(legacy, { force: true });
   }
   return path;

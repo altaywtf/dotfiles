@@ -544,3 +544,37 @@ test("another checkout without the overlay keeps overlay-owned servers", () => {
     ).servers.some((server) => server.name === "machine-mcp"),
   );
 });
+
+test("a checkout selecting another checkout's overlay server keeps both harness sets", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({
+      servers: [
+        { name: "machine-mcp", url: "https://machine.fixture.test/mcp", harnesses: ["claude"] },
+      ],
+    }),
+    { mode: 0o600 },
+  );
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  const other = createFixture().repoDir;
+  writeFileSync(
+    join(other, "agents", "local.json"),
+    JSON.stringify({
+      servers: [
+        { name: "machine-mcp", url: "https://machine.fixture.test/mcp", harnesses: ["grok"] },
+      ],
+    }),
+    { mode: 0o600 },
+  );
+  const runtime = new FixtureRuntime(other, home);
+  assert.equal(main([], runtime), 0);
+  assert.equal(harnessCalls(runtime, "claude").includes("mcp remove -s user machine-mcp"), false);
+  const locked = (
+    JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as {
+      servers: { name: string; harnesses: string[] }[];
+    }
+  ).servers.find((server) => server.name === "machine-mcp");
+  assert.deepEqual(locked?.harnesses, ["claude", "grok"]);
+});

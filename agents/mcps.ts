@@ -114,6 +114,21 @@ function writeServerLock(
 
 const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
 
+// Another checkout's overlay keeps its harnesses even when this checkout selects the same name.
+function withKept(next: readonly LockedServer[], kept: readonly LockedServer[]): LockedServer[] {
+  const merged = new Map(next.map((server) => [server.name, server]));
+  for (const server of kept) {
+    const current = merged.get(server.name);
+    merged.set(server.name, {
+      name: server.name,
+      harnesses: HARNESSES.filter(
+        (harness) => server.harnesses.includes(harness) || current?.harnesses.includes(harness),
+      ),
+    });
+  }
+  return [...merged.values()];
+}
+
 function mcpRemoveArgs(harness: Harness, name: string): string[] {
   switch (harness) {
     case "claude":
@@ -348,10 +363,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
   const mcpLockPath = managedLockPath(runtime.env, repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
   const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
-  const selectedNames = new Set(servers.map((server) => server.name));
-  const keptOverlay = (previouslyManaged ?? []).filter(
-    (server) => !selectedNames.has(server.name) && overlay.kept.has(server.name),
-  );
+  const keptOverlay = (previouslyManaged ?? []).filter((server) => overlay.kept.has(server.name));
   const ownership = planOwnership({
     previous: (previouslyManaged ?? []).filter((server) => !keptOverlay.includes(server)),
     selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
@@ -381,7 +393,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
       return 0;
     }
     writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing servers");
-    writeServerLock(mcpLockPath, ownership.nextLock([]), overlay.next);
+    writeServerLock(mcpLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
@@ -391,7 +403,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(mcpLockPath, [...ownership.nextLock(deferred), ...keptOverlay], overlay.next);
+  writeServerLock(mcpLockPath, withKept(ownership.nextLock(deferred), keptOverlay), overlay.next);
   writeLine(runtime.stdout, "Done.");
   return 0;
 }

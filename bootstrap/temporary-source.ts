@@ -2,38 +2,42 @@ import { Console, Effect, FileSystem } from "effect";
 import { join } from "node:path";
 import { fail } from "../lib/program.ts";
 
+const xmlEntities: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&apos;": "'",
+};
+
 const updaterUnits = (home: string) => [
   {
     path: join(home, ".config/systemd/user/dotfiles-software-update.service"),
-    companions: [join(home, ".config/systemd/user/dotfiles-software-update.timer")],
+    checkout: (content: string) => /"([^"]+)\/maintenance\/run\.ts"/.exec(content)?.[1],
   },
-  { path: join(home, "Library/LaunchAgents/local.dotfiles.software-update.plist"), companions: [] },
+  {
+    path: join(home, "Library/LaunchAgents/local.dotfiles.software-update.plist"),
+    checkout: (content: string) =>
+      /<string>([^<]+)\/maintenance\/run\.ts<\/string>/
+        .exec(content)?.[1]
+        ?.replaceAll(/&(?:amp|lt|gt|quot|apos);/g, (entity) => xmlEntities[entity] ?? entity),
+  },
 ];
 
-// A temporary source renders no updater. A unit from a persistent checkout that
-// still exists means this home is maintained from there; one whose checkout is
-// gone is a leftover of an earlier temporary apply.
-export const reconcileTemporarySource = Effect.fn("reconcileTemporarySource")(function* (
-  home: string,
-  dryRun: boolean,
-) {
+// A temporary source renders no updater, so it must not take over a home whose
+// updater still runs from an existing persistent checkout.
+export const checkTemporarySource = Effect.fn("checkTemporarySource")(function* (home: string) {
   const fs = yield* FileSystem.FileSystem;
   for (const unit of updaterUnits(home)) {
     if (!(yield* fs.exists(unit.path))) continue;
-    const checkout = /([^"<>\s]+)\/maintenance\/run\.ts/.exec(
-      yield* fs.readFileString(unit.path),
-    )?.[1];
+    const checkout = unit.checkout(yield* fs.readFileString(unit.path));
     if (checkout !== undefined && (yield* fs.exists(checkout))) {
       return yield* fail(
         `${unit.path} runs updates from ${checkout}; apply from that checkout, not a temporary source`,
       );
     }
-    for (const path of [unit.path, ...unit.companions]) {
-      if (dryRun) yield* Console.log(`would remove stale updater unit ${path}`);
-      else {
-        yield* fs.remove(path, { force: true });
-        yield* Console.log(`removed stale updater unit ${path}`);
-      }
-    }
+    yield* Console.warn(
+      `${unit.path} points at a checkout that no longer exists; disable and remove it if it is still scheduled`,
+    );
   }
 });
