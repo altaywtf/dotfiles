@@ -22,8 +22,9 @@
       "schedule": ["at any time"]
     },
     {
-      "description": "Mise toolchain pins can follow patch and minor after one day; majors stay on the shared gate",
+      "description": "Mise toolchain pins can follow patch and minor after one day; majors stay on the shared gate. pnpm keeps the shared gate so the profile pin and packageManager land in one push",
       "matchManagers": ["mise"],
+      "matchDepNames": ["!pnpm"],
       "matchUpdateTypes": ["patch", "minor", "pin"],
       "minimumReleaseAge": "1 day",
       "schedule": ["at any time"]

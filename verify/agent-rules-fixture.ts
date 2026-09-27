@@ -89,19 +89,27 @@ export function runChezmoi(
   return result.stdout;
 }
 
-export function runWrapperResult(home: string, profile = "workstation") {
-  return spawnSync(join(repoRoot, "bootstrap/apply-dotfiles.ts"), ["--profile", profile], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      HOME: home,
-      DOTFILES_AGENT_RULES_OFFLINE: "1",
-      XDG_CACHE_HOME: join(home, ".cache"),
-      XDG_CONFIG_HOME: join(home, ".config"),
-      XDG_DATA_HOME: join(home, ".local/share"),
-      XDG_STATE_HOME: join(home, ".local/state"),
+export function runWrapperResult(
+  home: string,
+  profile = "workstation",
+  extraArgs: readonly string[] = [],
+) {
+  return spawnSync(
+    join(repoRoot, "bootstrap/apply-dotfiles.ts"),
+    ["--profile", profile, ...extraArgs],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: home,
+        DOTFILES_AGENT_RULES_OFFLINE: "1",
+        XDG_CACHE_HOME: join(home, ".cache"),
+        XDG_CONFIG_HOME: join(home, ".config"),
+        XDG_DATA_HOME: join(home, ".local/share"),
+        XDG_STATE_HOME: join(home, ".local/state"),
+      },
     },
-  });
+  );
 }
 
 export function runWrapper(home: string, profile = "workstation"): string {

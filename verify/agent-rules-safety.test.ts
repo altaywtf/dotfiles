@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
@@ -12,10 +12,47 @@ import {
 
 afterEach(cleanupFixtures);
 
-test("rejects local Markdown granting group or other access", () => {
+test("restricts linked local Markdown that a checkout update left group and other readable", () => {
+  for (const name of ["agents.start.md", "agents.end.md"]) {
+    const { home, root } = createFixture();
+    const target = join(root, "rules-checkout/templates", name);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, "### Shared checkout fixture rule\n");
+    chmodSync(target, 0o644);
+    const privateRules = join(home, ".config/dotfiles", name);
+    mkdirSync(dirname(privateRules), { recursive: true });
+    symlinkSync(target, privateRules);
+
+    const result = runWrapperResult(home);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /restricted local agent rules to owner-only access/);
+    assert.equal(statSync(target).mode & 0o777, 0o600);
+    assert.match(readFileSync(join(home, "AGENTS.md"), "utf8"), /Shared checkout fixture rule/);
+  }
+});
+
+test("a preview reports a readable local Markdown target without changing it", () => {
+  const { home, root } = createFixture();
+  const target = join(root, "rules-checkout/templates/agents.end.md");
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, "### Shared checkout fixture rule\n");
+  chmodSync(target, 0o644);
+  const privateRules = join(home, ".config/dotfiles/agents.end.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  symlinkSync(target, privateRules);
+
+  const result = runWrapperResult(home, "workstation", ["--dry-run"]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /would restrict local agent rules to owner-only access/);
+  assert.equal(statSync(target).mode & 0o777, 0o644);
+});
+
+test("rejects local Markdown granting group or other write access", () => {
   for (const [name, mode] of [
-    ["agents.start.md", 0o640],
-    ["agents.end.md", 0o604],
+    ["agents.start.md", 0o660],
+    ["agents.end.md", 0o602],
   ] as const) {
     const { home } = createFixture();
     const privateRules = join(home, ".config/dotfiles", name);
@@ -26,7 +63,7 @@ test("rejects local Markdown granting group or other access", () => {
     const result = runWrapperResult(home);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /local agent rules must not grant group or other access/);
+    assert.match(result.stderr, /local agent rules must not grant group or other write access/);
   }
 });
 

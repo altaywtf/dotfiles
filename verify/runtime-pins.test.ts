@@ -103,3 +103,35 @@ test("mise and Renovate agree on CLI age exemptions without exempting runtimes o
     assert.ok(!mise.minimum_release_age_excludes.includes(tool), `${tool} retains its age gate`);
   }
 });
+
+test("both pnpm pins share one Renovate release gate and schedule", () => {
+  type Rule = Record<string, unknown> & {
+    matchManagers?: string[];
+    matchDepNames?: string[];
+    matchPackageNames?: string[];
+  };
+  const matches = (names: string[] | undefined, name: string) =>
+    names === undefined ||
+    ((names.some((pattern) => pattern === name) ||
+      names.every((pattern) => pattern.startsWith("!"))) &&
+      !names.includes(`!${name}`));
+  const settle = (manager: string) =>
+    (JSON.parse(read("renovate.json")).packageRules as Rule[])
+      .filter(
+        (rule) =>
+          (rule.matchManagers === undefined || rule.matchManagers.includes(manager)) &&
+          matches(rule.matchDepNames, "pnpm") &&
+          matches(rule.matchPackageNames, "pnpm"),
+      )
+      .reduce<Record<string, unknown>>(
+        (merged, rule) => ({
+          ...merged,
+          ...("minimumReleaseAge" in rule ? { minimumReleaseAge: rule.minimumReleaseAge } : {}),
+          ...("schedule" in rule ? { schedule: rule.schedule } : {}),
+          ...("groupName" in rule ? { groupName: rule.groupName } : {}),
+        }),
+        {},
+      );
+  assert.deepEqual(settle("mise"), settle("npm"));
+  assert.equal(settle("mise").groupName, "pnpm");
+});

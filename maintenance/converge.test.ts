@@ -148,8 +148,8 @@ test("bootstrap failure preserves exit status and releases the lock", (t) => {
   assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
 });
 
-for (const dirty of [false, true]) {
-  test(`agent rule checkout ${dirty ? "with local work is kept and reported after maintenance" : "advances before maintenance"}`, (t) => {
+for (const state of ["clean", "dirty", "unreachable"] as const) {
+  test(`agent rule checkout ${state === "clean" ? "advances before maintenance" : state === "dirty" ? "with local work is kept with a warning and convergence succeeds" : "that cannot fetch fails after maintenance"}`, (t) => {
     const { root, repo, upstream } = fixture(t);
     const bin = join(root, "bin");
     mkdirSync(bin);
@@ -167,7 +167,8 @@ for (const dirty of [false, true]) {
     symlinkSync(join(rules.repo, "policy"), join(home, ".config/dotfiles/agents.end.md"));
     chmodSync(join(rules.repo, "policy"), 0o600);
     const next = rules.advance();
-    if (dirty) writeFileSync(join(rules.repo, "notes"), "keep\n");
+    if (state === "dirty") writeFileSync(join(rules.repo, "notes"), "keep\n");
+    if (state === "unreachable") rmSync(rules.upstream, { recursive: true });
     const before = git(rules.repo, "rev-parse", "HEAD");
     const rendered = join(root, "AGENTS.md");
     const previous = {
@@ -188,8 +189,20 @@ for (const dirty of [false, true]) {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
     });
-    if (dirty) {
+    if (state === "unreachable") {
       assert.throws(() => converge(repo, {}, home), /agent rule checkouts not updated/);
+      assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
+      assert.equal(readFileSync(rendered, "utf8"), "first\n");
+    } else if (state === "dirty") {
+      const warnings: unknown[][] = [];
+      const warn = console.warn;
+      console.warn = (...args: unknown[]) => void warnings.push(args);
+      try {
+        converge(repo, {}, home);
+      } finally {
+        console.warn = warn;
+      }
+      assert.match(String(warnings[0]?.[0]), /local changes/);
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
       assert.equal(readFileSync(join(rules.repo, "notes"), "utf8"), "keep\n");
       assert.equal(readFileSync(rendered, "utf8"), "first\n");

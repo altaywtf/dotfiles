@@ -65,11 +65,14 @@ Edit shared rules at their configured source and private instructions in:
 | `~/.config/dotfiles/agents.end.md`   | After shared rules  |
 
 - Fragments are optional, literal Markdown. Each file or resolved symlink target
-  must be a regular file owned by the current user with no group or other access.
+  must be a regular file owned by the current user with no group or other write
+  access. Apply restricts a group- or other-readable target, such as one a
+  `git pull` under umask `022` rewrote, to owner-only access and warns; a
+  preview only reports it.
 - Generated rule files are replaced without backups. Keep private edits in fragments.
 - When a fragment links into a Git checkout, the
   [scheduled updater](software-updates.md#dotfiles-convergence) fast-forwards that
-  checkout before rendering. It skips and reports a checkout with local work.
+  checkout before rendering. A checkout with local work is kept with a warning.
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 

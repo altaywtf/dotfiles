@@ -51,10 +51,11 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   branch tracking `origin`, with no local commits or unfinished Git operations.
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
 - [Local rule fragments](agents.md#global-rules) that link into another Git
-  checkout advance under the same rules before profile setup renders them. A
-  checkout that cannot advance keeps its work: the rest of convergence still
-  runs, then the step fails and names the checkout and the reason. Rule
-  checkouts advance under umask `077`, so files Git rewrites stay owner-only.
+  checkout are fetched, then fast-forwarded only when clean. Local changes,
+  another branch, local commits, or an unfinished Git operation keep the
+  checkout with a warning and do not fail the step. A fetch or tracking failure
+  fails the step after the rest of convergence runs. Rule checkouts advance
+  under umask `077`, so files Git rewrites stay owner-only.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
   Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
@@ -196,6 +197,7 @@ mise run maintenance:disable
   at `cleanupComplete: false`; inspect logs/package state before retrying. Never delete Homebrew locks during another package run.
 - Deadline cleanup tracks same-user descendants across process sessions,
   checks recorded start times before signaling, and escalates from TERM to KILL.
+  A process inventory that fails is retried twice before cleanup counts as unproven.
   A process that detaches and loses its parent before observation can escape
   tracking. If a receipt reports `cleanupComplete: false`, inspect remaining
   processes before requesting another run. Later runs refuse to start and report

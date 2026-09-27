@@ -152,7 +152,7 @@ const program = Effect.gen(function* () {
     ],
     dryRun: args.dryRun,
   };
-  yield* validateLocalAgentRules(configDir);
+  yield* validateLocalAgentRules(configDir, args.dryRun);
   yield* refreshAgentRules(repoRoot, agentRulesPath, {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
   });
