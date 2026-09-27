@@ -27,7 +27,8 @@ function simpleCommands(source: string): Word[][] {
   let started = false;
   let dynamic = false;
   const endWord = () => {
-    if (started) words.push(dynamic ? unresolved : word);
+    // A leading NAME= stays recognizable as an assignment even with a dynamic value.
+    if (started) words.push(dynamic && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) ? unresolved : word);
     word = "";
     started = false;
     dynamic = false;
@@ -174,8 +175,8 @@ function unwrap(words: Word[]): { words: Word[]; chdir: Word | undefined } {
         if (/^-C$|^--chdir$/.test(word)) {
           chdir = words[index + 1];
           index += 2;
-        } else if (word.startsWith("--chdir=")) {
-          chdir = word.slice("--chdir=".length);
+        } else if (word.startsWith("--chdir=") || /^-C./.test(word)) {
+          chdir = word.startsWith("--") ? word.slice("--chdir=".length) : word.slice(2);
           index += 1;
         } else if (/^-[uS]$|^--(?:unset|split-string)$/.test(word)) index += 2;
         else if (word.startsWith("-") || assignment.test(word)) index += 1;
