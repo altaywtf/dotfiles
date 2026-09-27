@@ -105,6 +105,9 @@ function simpleCommands(source: string): Word[][] {
           }
         }
       }
+    } else if (char === "#" && !started) {
+      const end = source.indexOf("\n", index);
+      index = end === -1 ? source.length : end;
     } else if (/\s/.test(char)) {
       endWord();
       index += 1;
@@ -157,7 +160,12 @@ function unwrap(words: Word[]): Word[] {
     const name = words[index];
     if (name === "env") {
       index += 1;
-      skip((word) => word.startsWith("-") || assignment.test(word));
+      while (typeof words[index] === "string") {
+        const word = words[index] as string;
+        if (/^-[uCS]$|^--(?:unset|chdir|split-string)$/.test(word)) index += 2;
+        else if (word.startsWith("-") || assignment.test(word)) index += 1;
+        else break;
+      }
     } else if (typeof name === "string" && launchers.has(name)) {
       index += 1;
       skip((word) => word.startsWith("-"));
@@ -180,7 +188,10 @@ function worktreeTargets(command: string, startCwd: string): string[] {
     }
     const [name, ...rest] = unwrap(words);
     if (name === "cd" || name === "pushd") {
-      cwd = rest[0] === undefined ? home : under(cwd, rest[0]);
+      let at = 0;
+      while (typeof rest[at] === "string" && /^-[LPe@]+$/.test(rest[at] as string)) at += 1;
+      if (rest[at] === "--") at += 1;
+      cwd = rest[at] === undefined ? home : under(cwd, rest[at]);
       continue;
     }
     if (typeof name === "string" && shells.has(basename(name))) {
@@ -251,7 +262,7 @@ function main(): void {
     return;
   }
   const command = input.tool_input?.command;
-  if (typeof command !== "string" || !command.includes("worktree")) return;
+  if (typeof command !== "string") return;
   const cwd = typeof input.cwd === "string" && isAbsolute(input.cwd) ? input.cwd : process.cwd();
   const folders = harnessFolders.join(", ");
   for (const target of worktreeTargets(command, cwd)) {
