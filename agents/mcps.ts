@@ -15,17 +15,15 @@ import {
   harnessPresent,
   isSafeName,
   parseSyncArgs,
-  onlyRetiredHarnesses,
   readHarnesses,
   reportSyncFailures,
   type SyncFailure,
-  withoutRetiredHarnesses,
 } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
-  managedLockPath,
+  managedLockLocation,
   withManagedLock,
   readLockFile,
   readOverlayOwnership,
@@ -72,7 +70,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     );
   }
 
-  const servers = parsed.servers.flatMap((server, index) => {
+  const servers = parsed.servers.map((server, index) => {
     if (
       typeof server !== "object" ||
       server === null ||
@@ -84,14 +82,10 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
         `Invalid managed MCP lock at ${lockPath}: servers[${index}] must have a safe name`,
       );
     }
-    const harnesses = "harnesses" in server ? server.harnesses : undefined;
-    if (onlyRetiredHarnesses(harnesses)) {
-      return [];
-    }
     return {
       name: server.name,
       harnesses: readHarnesses(
-        withoutRetiredHarnesses(harnesses),
+        "harnesses" in server ? server.harnesses : undefined,
         `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
       ),
     };
@@ -360,7 +354,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
   if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
 
-  const mcpLockPath = managedLockPath(runtime.env, repoDir, "mcps");
+  const mcpLockPath = managedLockLocation(runtime.env, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
   const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
   const keptOverlay = (previouslyManaged ?? []).filter((server) => overlay.kept.has(server.name));

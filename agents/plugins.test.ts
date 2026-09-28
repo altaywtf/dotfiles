@@ -746,26 +746,6 @@ test("rejects a lock that omits explicit harness membership", () => {
   assert.equal(harnessCalls(runtime, "claude").length, 0);
 });
 
-test("drops retired harnesses from the previous managed lock", () => {
-  const { repoDir, home } = createFixture();
-  writePluginLock(home, [
-    ...fixtureSharedPlugins.map((plugin) => ({ ...plugin, harnesses: [...HARNESSES, "opencode"] })),
-    { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["opencode"] },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(
-    runtime.calls.some((call) => call.args.includes("retired-plugin@retired-market")),
-    false,
-  );
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.deepEqual(
-    locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
-    fixtureSharedPlugins.map((plugin) => [plugin.name, [...HARNESSES]]),
-  );
-});
-
 test("records only harnesses whose CLI was present", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);

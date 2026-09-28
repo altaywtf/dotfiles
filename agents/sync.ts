@@ -12,7 +12,7 @@ import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import {
   guardOverlay,
-  managedLockPath,
+  managedLockLocation,
   withManagedLock,
   readOverlayOwnership,
   writeLockFile,
@@ -301,7 +301,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
     profileName,
     profile.agentLayers,
   );
-  const skillLockPath = managedLockPath(runtime.env, repoDir, "skills");
+  const skillLockPath = managedLockLocation(runtime.env, "skills");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
   const overlay = guardOverlay(readOverlayOwnership(skillLockPath), repoDir, localNames);
   const agents = findInstalledAgents(runtime);

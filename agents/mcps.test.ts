@@ -473,25 +473,6 @@ test("records only MCP harnesses whose CLI was present", () => {
   ]);
 });
 
-test("drops retired harnesses from the previous managed lock", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(home, [
-    { name: "shared-mcp", harnesses: [...HARNESSES, "opencode"] },
-    { name: "retired-mcp", harnesses: ["opencode"] },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(
-    runtime.calls.some((call) => call.args.includes("retired-mcp")),
-    false,
-  );
-  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")), {
-    version: 1,
-    servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
-  });
-});
-
 test("rejects an unsafe ownership lock before changing servers", () => {
   const { repoDir, home } = createFixture();
   writeMcpLock(home, [{ name: "../escape", harnesses: ["claude"] }]);

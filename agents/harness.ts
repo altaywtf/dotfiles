@@ -18,24 +18,6 @@ export function isSafeName(value: string): boolean {
   return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
 }
 
-// Locks written before a harness was retired still name it; its config is no
-// longer managed, so ownership of it is dropped rather than rejected.
-const RETIRED_HARNESSES: readonly unknown[] = ["opencode"];
-
-export function withoutRetiredHarnesses(value: unknown): unknown {
-  return Array.isArray(value)
-    ? value.filter((harness) => !RETIRED_HARNESSES.includes(harness))
-    : value;
-}
-
-export function onlyRetiredHarnesses(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    value.every((harness) => RETIRED_HARNESSES.includes(harness))
-  );
-}
-
 function isHarness(value: unknown): value is Harness {
   return typeof value === "string" && (HARNESSES as readonly string[]).includes(value);
 }
