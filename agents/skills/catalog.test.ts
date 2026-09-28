@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, test } from "vite-plus/test";
 import { readLayeredSkills, readSkillLock } from "./catalog.ts";
 
@@ -98,4 +99,9 @@ test("local overlay skills append after profile layers and reject conflicts", ()
   const skillsOnlyLayers = readLayeredSkills(root, "developer", ["developer"]);
   assert.deepEqual(skillsOnlyLayers.layers, ["developer"]);
   assert.equal(skillsOnlyLayers.localPath, undefined);
+});
+
+test("every real skill manifest composes", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  readLayeredSkills(repoRoot, "all", ["developer", "workstation", "devbox", "personal"]);
 });

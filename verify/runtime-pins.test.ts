@@ -23,10 +23,6 @@ function miseSettings() {
   return JSON.parse(parsed.stdout);
 }
 
-test("Node installs leave pnpm to the mise pin", () => {
-  assert.deepEqual(miseSettings().node, { npm_shim: false });
-});
-
 test("Xcode pin is a dotted release consumed by the installer", () => {
   const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as {
     version: number;

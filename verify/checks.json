@@ -204,7 +204,7 @@
       "id": "profiles",
       "domain": "profiles",
       "command": ["verify/profiles.ts"],
-      "output": "Profile package, install, and managed-path contracts"
+      "output": "Profile resolution, rendering, and managed-path contracts"
     },
     {
       "id": "operator-command",

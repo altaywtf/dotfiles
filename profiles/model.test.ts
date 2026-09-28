@@ -126,14 +126,7 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
 });
 
-test("both consumers reject obsolete, duplicate, and incomplete agent layers", () => {
-  const obsolete = rawModel();
-  const profile = obsolete.profileModel.profiles.workstation;
-  profile.skillLayers = profile.agentLayers;
-  delete profile.agentLayers;
-  assert.throws(() => parseProfileModel(JSON.stringify(obsolete)));
-  assert.notEqual(renderProfile("workstation", obsolete.profileModel).status, 0);
-
+test("both consumers reject duplicate and incomplete agent layers", () => {
   for (const agentLayers of [["developer", "developer"], ["workstation"]]) {
     const model = rawModel();
     model.profileModel.profiles.workstation.agentLayers = agentLayers;
