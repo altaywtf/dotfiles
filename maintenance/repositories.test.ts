@@ -179,8 +179,6 @@ test("a detached worktree is removable once merged and retained while it is not"
   }
 });
 
-// A worktree created next to its owning clone, rather than under a harness
-// root, used to fall outside every cleanup root and was never reported.
 test("a worktree beside its owning clone is evaluated, and unpushed work still retains it", () => {
   const f = fixture();
   try {

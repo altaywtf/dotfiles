@@ -3,8 +3,7 @@
 Topgrade updates installed software and applies the enrolled dotfiles profile.
 A launchd agent schedules it on macOS; a systemd user timer does on Linux.
 [schedule.ts](../maintenance/schedule.ts) routes the commands below to
-the platform implementation. The reasoning behind these limits and caveats
-lives in the maintainer's Notion notes.
+the platform implementation.
 
 ## Enable And Use
 
@@ -47,7 +46,6 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 
 ## Dotfiles Convergence
 
-- [Renovate rules](../renovate.json) own reviewed update holds and their rationale.
 - [Convergence](../maintenance/converge.ts) requires a clean default
   branch tracking `origin`, with no local commits or unfinished Git operations.
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
@@ -183,18 +181,15 @@ mise run maintenance:disable
 - Linux: `./dotfiles apply` runs `systemctl --user daemon-reload`, so changed
   units take effect without re-enrolling.
 - Disabling stops the job and children. An interrupted run leaves its receipt
-  at `cleanupComplete: false`; inspect logs/package state before retrying. Never delete Homebrew locks during another package run.
-- Deadline cleanup tracks same-user descendants across process sessions,
-  checks recorded start times before signaling, and escalates from TERM to KILL.
-  A process inventory that fails is retried twice before cleanup counts as unproven.
-  A process that detaches and loses its parent before observation can escape
-  tracking. If a receipt reports `cleanupComplete: false`, inspect remaining
-  processes before requesting another run. Later runs refuse to start and report
-  exit code `125` until the incomplete or unreadable receipt is removed, or when
-  they cannot save their own gate receipt. Remove
-  `~/.local/state/dotfiles/updates/software-update.json` only after verifying the
-  previous update and its descendants have stopped. This bounds a stuck updater;
-  it does not repair the underlying package or operating-system failure.
+  at `cleanupComplete: false`; inspect logs, package state, and remaining
+  processes before retrying. Never delete Homebrew locks during another package run.
+- Deadline cleanup stops same-user descendants, escalating from TERM to KILL.
+  A process that detaches and loses its parent before observation can escape it.
+- Later runs refuse to start and report exit code `125` until the incomplete or
+  unreadable receipt is removed, or when they cannot save their own gate receipt.
+  Remove `~/.local/state/dotfiles/updates/software-update.json` only after
+  verifying the previous update and its descendants have stopped. This bounds a
+  stuck updater; it does not repair the underlying failure.
 
 ## Headless Devbox Updates
 
@@ -245,8 +240,7 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
   On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
   inventories remain.
 - Coding-agent version probes include the user's managed `~/.local/bin` wrappers
-  and mise shims even in noninteractive SSH sessions. Gateway wrappers remain
-  the executable boundary.
+  and mise shims even in noninteractive SSH sessions.
 - Homebrew cask receipts are compared with installed bundle versions from
   `brew info --json=v2`. Exact target matches appear under `record_lag` and do
   not count toward the backlog. Mismatches remain pending; missing app versions
@@ -275,17 +269,11 @@ current use before stopping anything. Linux is unsupported.
 
 ## CLI Release Policy
 
-The [Renovate rules](../renovate.json) give the listed CLI tools a separate
-patch/minor group with no release-age or time-of-day restriction. Required CI
-still gates merges; majors retain the shared manual policy. Runtime pins keep
-their one-day gate, package-manager and release-tool holds remain separate,
-and new tools require an explicit policy choice.
-
-The [mise settings](../chezmoi/private_dot_config/mise/config.toml.tmpl) exclude
-those same CLI tools from mise's default 24-hour release-age filter. Other
-tools retain that filter. Project-specific per-tool settings and the command-line
-`--minimum-release-age` flag take precedence. Mise's `latest` command reports a
-version; it does not advance an exact template pin or install an update.
+The [Renovate rules](../renovate.json) and
+[mise settings](../chezmoi/private_dot_config/mise/config.toml.tmpl) exempt the
+same CLI tools from the 24-hour release-age gate; runtime pins keep it, and a new
+tool needs an explicit choice. Required CI still gates merges. `mise latest`
+reports a version; it does not advance an exact template pin or install an update.
 
 Renovate advances the plain TOML pins after discovering a release. Once its
 change lands, apply it from a clean default-branch checkout:
@@ -297,9 +285,8 @@ mise exec -- claude --version
 ```
 
 Convergence fast-forwards the checkout, renders the global mise configuration,
-and runs `mise install`. Claude Code uses the GitHub backend on macOS and Linux. The bot's
-own run cadence and cached release catalogs can still delay discovery. For a
-fresh diagnostic without changing pins, run
+and runs `mise install`. Renovate's cadence and cached release catalogs can
+delay discovery. For a fresh diagnostic without changing pins, run
 `mise cache clear github:anthropics/claude-code`, then repeat `mise latest`.
 
 ### GitHub Authentication

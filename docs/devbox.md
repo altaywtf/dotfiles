@@ -84,18 +84,17 @@ own optional fields and validation. Gatewai-only enrollment omits both
 configures Codex and Claude through Gatewai without adding a Bifrost provider.
 Existing unrelated provider settings are preserved.
 
-Credentials stay in owner-only configuration
-or client stores. Gateway state uses version 9; unsupported state must be migrated
-before enrollment or maintenance.
+Credentials stay in owner-only configuration or client stores. Enrollment and
+maintenance refuse gateway state other than version 9.
 
 ```zsh
 ./bootstrap/configure-llm-gateway.ts
 ./bootstrap/configure-llm-gateway.ts --check
 ```
 
-Gateway setup and maintenance preserve existing vendor logins. Grok enrollment
-backs up its previous authentication for rollback. Sign out through each client's
-own command when you no longer need its vendor login.
+Gateway setup and maintenance preserve existing vendor logins; sign out through
+each client's own command when you no longer need one. Grok enrollment backs up
+its previous authentication for rollback.
 
 ### Client Troubleshooting
 
@@ -148,8 +147,8 @@ t3 service status
 ```
 
 `./dotfiles check` proves the unit exists wherever the service is wanted and
-is gone after `T3_SERVICE=0`. On
-Linux it also checks lingering and the running service's `PATH`. The systemd user
+is gone after `T3_SERVICE=0`. On Linux it also checks lingering and the running
+service's `PATH`. The systemd user
 manager does not read shell startup files; for missing tools, follow
 [bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering
 as an administrator: `sudo loginctl enable-linger <user>`.
@@ -203,10 +202,9 @@ mise run audit devbox --format json
 Audit prose can contain secrets. Collect JSON and report detector, path, and
 line without copying matched values.
 
-`./dotfiles check` verifies that macOS devbox profiles persistently disable
-Photos analysis through launchd, even without `--desktop`. Missing or enabled
-policy fails the check; use `./dotfiles apply` to restore it. This does not
-change iCloud Photos sync. Workstation, developer, and Linux profiles are excluded.
+On macOS devbox profiles, `./dotfiles check` fails when
+[Photos analysis](#photos-analysis-on-macos) is enabled; `./dotfiles apply`
+restores the policy.
 
 For suspected leftover development services, use the read-only
 [workload diagnostic](software-updates.md#development-workload-diagnostics).
@@ -224,9 +222,8 @@ the new one passes every check below.
    owner; do not copy the old host's.
 4. On the old host, push or deliberately archive unpushed branches, stashes,
    worktrees, and ignored work. Clone repositories on the new host from their
-   remotes: each workspace's registry clone, plus every registry that route does
-   not cover (for example the put.io skill's `repos.json` clone loop). Clone in
-   full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
+   remotes, including every repository registry the workspace route does not
+   cover. Clone in full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
    SSH. Never copy coding-agent logins, sessions, caches, or browser profiles.
 5. Enroll [headless updates](software-updates.md#headless-devbox-updates) and
    any requested [system services](#system-services).

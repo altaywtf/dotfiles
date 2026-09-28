@@ -19,5 +19,5 @@ Brewfile.composed.*
 Brewfile.local
 .vitest/
 
-# Legacy ownership state remains private until agent sync migrates it.
+# Checkout ownership locks stay private until agent sync moves them.
 /scripts/agents/*.lock.json

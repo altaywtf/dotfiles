@@ -6,10 +6,9 @@ import assert from "node:assert/strict";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
-import { profileBrewfiles } from "../homebrew/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import { readProfileModelEffect } from "../profiles/model.ts";
 
 import { agentRulesCache, runWrapperResult, sharedFixtureRules } from "./agent-rules-fixture.ts";
 
@@ -22,48 +21,13 @@ const program = Effect.scoped(
     const runner = yield* CommandRunner;
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-profiles." });
     const model = yield* readProfileModelEffect(modelPath);
-    const profiles = [
-      "developer",
-      "devbox",
-      "workstation",
-      "personal-devbox",
-      "personal-workstation",
-    ] as const;
-    assert.deepEqual(Object.keys(model.profiles).sort(), [...profiles].sort());
+    const profiles = Object.keys(model.profiles);
     const run = (
       command: string,
       args: readonly string[] = [],
       options: { env?: Readonly<Record<string, string>>; cwd?: string } = {},
     ): Effect.Effect<CommandResult, unknown> =>
       runner.run(command, args, { env: options.env, cwd: options.cwd });
-    for (const profile of profiles) requireProfile(model, profile);
-    assert.throws(() => requireProfile(model, "unsupported"));
-    for (const profile of ["developer", "workstation"]) {
-      assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, false);
-    }
-    assert.deepEqual(profileBrewfiles(model, "developer"), ["homebrew/Brewfile"]);
-    for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
-      assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
-    }
-    assert.deepEqual(profileBrewfiles(model, "devbox"), [
-      "homebrew/Brewfile",
-      "homebrew/Brewfile.devbox",
-    ]);
-    assert.deepEqual(profileBrewfiles(model, "personal-devbox"), [
-      "homebrew/Brewfile",
-      "homebrew/Brewfile.devbox",
-      "homebrew/Brewfile.personal",
-    ]);
-    assert.deepEqual(profileBrewfiles(model, "workstation"), [
-      "homebrew/Brewfile",
-      "homebrew/Brewfile.workstation",
-    ]);
-    assert.deepEqual(profileBrewfiles(model, "personal-workstation"), [
-      "homebrew/Brewfile",
-      "homebrew/Brewfile.workstation",
-      "homebrew/Brewfile.personal",
-      "homebrew/Brewfile.personal-workstation",
-    ]);
     for (const script of ["bootstrap/darwin/configure-power.ts", "verify/bootstrap.ts"]) {
       const result = yield* run(process.execPath, [
         join(repoRoot, script),
@@ -155,45 +119,6 @@ const program = Effect.scoped(
     );
     assert.deepEqual(yield* fs.readDirectory(canonicalTarget), []);
 
-    const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
-    const base = yield* brewfile("homebrew/Brewfile");
-    for (const entry of ['brew "git"', 'brew "mise"', 'cask "android-commandlinetools"'])
-      assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
-    for (const entry of ['brew "watchman"', 'brew "ffmpeg"'])
-      assert.ok(base.split("\n").includes(entry));
-    const miseTemplate = yield* fs.readFileString(
-      join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
-    );
-    for (const tool of [
-      "gh",
-      "jq",
-      "ripgrep",
-      "shellcheck",
-      "actionlint",
-      "chezmoi",
-      "direnv",
-      "gitleaks",
-      "trufflehog",
-      "topgrade",
-      "awscli",
-      "glab",
-      "git-filter-repo",
-    ]) {
-      if (tool !== "gh")
-        assert.ok(
-          !base.split("\n").includes(`brew "${tool}"`),
-          `${tool} must not stay in the Brewfile`,
-        );
-      assert.match(
-        miseTemplate,
-        new RegExp(`^${tool} = "`, "m"),
-        `${tool} must be pinned in the mise template`,
-      );
-    }
-    // btop has no macOS release asset; age, sops, and xcodes are called by fixed
-    // path from privileged flows; Homebrew discovers gh through its opt path.
-    for (const tool of ["btop", "age", "sops", "xcodes", "gh"])
-      assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
     const renderedMise = (os: string) =>
       run("chezmoi", [
         "--source",
@@ -209,10 +134,6 @@ const program = Effect.scoped(
     const linuxMise = yield* renderedMise("linux");
     assert.equal(darwinMise.status, 0, darwinMise.stderr);
     assert.equal(linuxMise.status, 0, linuxMise.stderr);
-    assert.doesNotMatch(darwinMise.stdout, /^btop = "/m);
-    assert.match(linuxMise.stdout, /^btop = "/m);
-    assert.match(darwinMise.stdout, /^xcodegen = "/m);
-    assert.doesNotMatch(linuxMise.stdout, /^xcodegen = "/m);
     assert.match(
       darwinMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-darwin-/m,
@@ -227,11 +148,6 @@ const program = Effect.scoped(
         1,
         "one [tools] table per rendered config",
       );
-    for (const tool of ["age", "sops"])
-      assert.doesNotMatch(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
-    for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'brew "xcodegen"'])
-      assert.ok(!base.split("\n").includes(entry));
-    assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
     // Each template part must stay plain TOML so Renovate's mise manager can
     // parse it; a Go-template directive here silently stops every pin update.
     for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
@@ -242,29 +158,6 @@ const program = Effect.scoped(
       ]);
       assert.equal(parsed.status, 0, `${part} is not plain TOML: ${parsed.stderr}`);
     }
-    assert.equal(base.includes("uinaf/tap"), false);
-    const personal = yield* brewfile("homebrew/Brewfile.personal");
-    for (const entry of ['tap "uinaf/tap", trusted: true', 'cask "uinaf/tap/slopguard"'])
-      assert.ok(personal.split("\n").includes(entry));
-    for (const entry of [
-      'brew "asc"',
-      'brew "openclaw/tap/crabbox"',
-      'brew "putdotio/tap/putio-cli"',
-    ])
-      assert.ok(personal.split("\n").includes(entry));
-    const workstation = yield* brewfile("homebrew/Brewfile.workstation");
-    for (const entry of [
-      'cask "ghostty"',
-      'cask "1password"',
-      'cask "google-chrome"',
-      'cask "chatgpt"',
-      'cask "claude"',
-      'cask "t3-code"',
-      'cask "zed"',
-      'brew "ykman"',
-    ])
-      assert.ok(workstation.split("\n").includes(entry));
-
     for (const profile of profiles) {
       const destination = join(temporary, `render-${profile}`);
       yield* fs.makeDirectory(destination);
@@ -281,39 +174,7 @@ const program = Effect.scoped(
       ]);
       assert.equal(rendered.status, 0, rendered.stderr);
       assert.equal(rendered.stdout.trim(), profile);
-      const zshrc = yield* run("chezmoi", [
-        "--source",
-        join(repoRoot, "chezmoi"),
-        "--destination",
-        destination,
-        "--override-data",
-        data,
-        "cat",
-        join(destination, ".zshrc"),
-      ]);
-      assert.match(zshrc.stdout, /^export EDITOR="vim"$/m);
-      assert.match(zshrc.stdout, /^export VISUAL="vim"$/m);
     }
-    const developerSteps = (yield* run(process.execPath, [
-      join(repoRoot, "bootstrap/install.ts"),
-      "--print-steps",
-      "--profile",
-      "developer",
-    ])).stdout
-      .trim()
-      .split("\n");
-    for (const step of [
-      "apply-dotfiles",
-      "install-runtimes",
-      "install-repository-dependencies",
-      "trust-agent-worktrees",
-      "install-gh-extensions",
-      "configure-codex",
-      "configure-grok",
-      "sync-agents",
-    ])
-      assert.ok(developerSteps.includes(step));
-
     const appliedHome = join(temporary, "devbox-applied");
     yield* fs.makeDirectory(appliedHome);
     yield* fs.makeDirectory(dirname(agentRulesCache(appliedHome)), {

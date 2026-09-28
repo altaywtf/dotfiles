@@ -41,7 +41,7 @@ Profiles configure one Unix user; host permissions provide isolation.
 ## Apply a Profile
 
 Follow [Bootstrap](bootstrap.md#apply-a-profile), including its gateway and
-identity prerequisites. Personal apply preserves coding-client logins.
+identity prerequisites.
 The [profile validator](../profiles/model.ts) rejects unknown installation steps
 before setup or maintenance runs any commands. New steps must be declared there
 and handled by the [installer](../bootstrap/install.ts).

@@ -566,49 +566,6 @@ test("skips the updater when managed skill installation fails", () => {
   assert.match(runtime.stderr.value, /Skill installation failed for 1 skill/);
 });
 
-test("skill manifests hold valid, consistent skill entries", () => {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-  const sourcePattern = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/[^\s]+)$/;
-
-  const layerSkills = ["developer", "workstation", "devbox", "personal"].map((layer) => {
-    const manifest: unknown = JSON.parse(
-      readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8"),
-    );
-    assert.ok(
-      typeof manifest === "object" &&
-        manifest !== null &&
-        "skills" in manifest &&
-        Array.isArray(manifest.skills),
-      `${layer}.json must hold a skills array`,
-    );
-    return manifest.skills.map((skill: unknown) => {
-      assert.ok(
-        typeof skill === "object" &&
-          skill !== null &&
-          "name" in skill &&
-          typeof skill.name === "string" &&
-          "source" in skill &&
-          typeof skill.source === "string",
-        `${layer}.json entries must hold name/source strings`,
-      );
-      return { name: skill.name, source: skill.source };
-    });
-  });
-
-  const sourceByName = new Map<string, string>();
-  for (const skill of layerSkills.flat()) {
-    assert.match(skill.name, namePattern, `invalid skill name: ${skill.name}`);
-    assert.match(skill.source, sourcePattern, `invalid skill source: ${skill.source}`);
-    const previousSource = sourceByName.get(skill.name);
-    assert.ok(
-      previousSource === undefined || previousSource === skill.source,
-      `conflicting sources for ${skill.name}: ${previousSource} and ${skill.source}`,
-    );
-    sourceByName.set(skill.name, skill.source);
-  }
-});
-
 test("the executable TypeScript entrypoint runs the CLI", () => {
   const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "sync.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });

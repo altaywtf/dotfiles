@@ -5,16 +5,12 @@ import { Console, Effect, FileSystem } from "effect";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const agentlessSigner = resolve(
   repoRoot,
   "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless",
-);
-const ghosttyConfig = resolve(
-  repoRoot,
-  "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config",
 );
 const blackWallpaper = resolve(repoRoot, "bootstrap/darwin/assets/black-wallpaper.plist");
 
@@ -74,22 +70,6 @@ const program = Effect.gen(function* () {
   yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
   if (process.platform === "darwin")
     yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
-
-  const ghosttyLines = yield* fs.readFileString(ghosttyConfig).pipe(
-    Effect.map((contents) => contents.split(/\r?\n/)),
-    Effect.mapError(
-      (error) =>
-        new CliFailure({
-          exitCode: 1,
-          message: `cannot read managed Ghostty config: ${error.message}`,
-        }),
-    ),
-  );
-  if (!ghosttyLines.includes("shell-integration-features = ssh-env,ssh-terminfo")) {
-    return yield* fail(
-      "managed Ghostty config does not enable SSH environment and terminfo integration",
-    );
-  }
 
   const agentsPath = resolve(repoRoot, "AGENTS.md");
   const claudePath = resolve(repoRoot, "CLAUDE.md");

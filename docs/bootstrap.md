@@ -13,9 +13,8 @@ from its provisioning; elsewhere:
 
 ```sh
 sudo apt-get install -y git curl zsh tmux lynis age
-# sops has no Ubuntu package; the host installs the release binary for its
-# architecture on the fixed path the sudo askpass helper resolves. A managed
-# devbox gets this from its provisioning, which owns the version pin.
+# sops has no Ubuntu package; install the release binary on the fixed path the
+# sudo askpass helper resolves.
 sops_version=3.13.3
 sudo curl -fsSLo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/v${sops_version}/sops-v${sops_version}.linux.$(dpkg --print-architecture)"
 sudo chmod 0755 /usr/local/bin/sops
@@ -213,8 +212,6 @@ mise run audit devbox
 
 ## Homebrew Updates
 
-Homebrew manages packages directly for the Mac's owner.
-
 Enroll [headless updates](software-updates.md#headless-devbox-updates) for
 scheduled execution without a GUI session.
 
@@ -228,11 +225,9 @@ git pull --ff-only
 ```
 
 Follow [Apply a profile](#apply-a-profile) with the installed role, including
-its verification step. Setup preserves coding-client logins. Unattended
-[convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`,
-which preserves [gateway client logins](devbox.md#opt-in-coding-llm-gateway).
-For package-only refreshes, use
-[Software updates](software-updates.md).
+its verification step. Unattended
+[convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`.
+For package-only refreshes, use [Software updates](software-updates.md).
 
 ## Troubleshooting
 

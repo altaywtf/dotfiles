@@ -4,21 +4,16 @@ The selected [profile](profiles.md) controls global rules, skills, plugins,
 and MCP servers.
 
 [Codex configuration](../agents/codex/config.ts) owns native configuration writes
-and managed defaults. Bootstrap validates the profile and invokes it; gateway
-configuration uses the same writer for enrollment and restoration. Gateway setup
-preserves the selected Codex model and reasoning effort; model defaults belong
-to Codex configuration.
+and managed defaults, including the model and reasoning effort; gateway setup
+preserves them.
 
 [Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
 configuration, and rollback. Setup and maintenance preserve vendor logins.
 The [gateway command](../bootstrap/configure-llm-gateway.ts) exposes apply,
 check, and rollback operations.
-Grok maintenance replaces only the managed gateway block, preserving newer
-preferences. Adding or removing `grokBin` changes the client set in place, so
-Codex and Claude keep everything added since enrollment. Rollback retains its
-original enrollment snapshot semantics.
-If a native TOML rewrite drops block comments, the exact configured gateway
-sections are still recognized; conflicting values remain an error.
+Grok maintenance replaces only the managed gateway block. Adding or removing
+`grokBin` changes the client set in place, so Codex and Claude keep everything
+added since enrollment. Rollback restores the enrollment snapshot.
 
 [Codex project trust](../agents/codex/projects.ts) runs with the Codex defaults
 on setup and maintenance. Personal and devbox profiles trust each Git checkout
@@ -44,7 +39,7 @@ session. Setup replaces drifted values on each run.
 Grok's launcher runs whatever `~/.grok/bin/grok` links to, and mise installs
 the package without running the postinstall step that restages that link.
 Grok setup moves a stale link aside so the pinned launcher stages its own
-version, restoring it if staging fails; the doctor flags global npm installs.
+version, restoring it if staging fails.
 
 Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
 fetching, which auto mode, Remote Control, and cross-machine messaging need.
@@ -88,9 +83,7 @@ Keep React, TanStack, shadcn, and Swift skills in the consuming repository. Use 
 the [configured workflow plugin](../agents/plugins/developer.json) to select
 and install them from repository evidence and the current task.
 The [developer manifest](../agents/skills/developer.json) lists the skills every
-profile installs.
-The plugin catalog supplies stack recommendations; explicit global selections
-do not need duplicate repo-local installs.
+profile installs; they need no repository-local copy.
 
 Run from the checkout after bootstrap has stored the profile:
 
@@ -112,12 +105,11 @@ Edit the selected layer under each manifest directory:
 | Plugins     | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
 | MCP servers | [mcps/](../agents/mcps/)       | [mcps.ts](../agents/mcps.ts)       |
 
-The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`;
-each parser defines its manifest fields and supported harnesses.
-An agent layer groups skill, plugin, and MCP selections for reuse across profiles.
-The [MCP catalog](../agents/mcps/catalog.ts) validates and composes server
-declarations for both sync and doctor. The [skill catalog](../agents/skills/catalog.ts)
-validates declarations and ownership locks for sync and maintenance inventory.
+The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`,
+each a group of skill, plugin, and MCP selections; each parser defines its
+manifest fields and supported harnesses. The [MCP catalog](../agents/mcps/catalog.ts)
+and [skill catalog](../agents/skills/catalog.ts) are shared by sync, doctor, and
+the maintenance inventory.
 
 ### Local Overlay
 
@@ -144,15 +136,14 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
 - Overlay entries enter the same ownership lock, so dropping one removes it on
   the next sync like any dropped manifest entry. The lock records which
   checkout's overlay installed them; a sync from another checkout keeps them
-  while the owning checkout exists. Sync, doctor, and the maintenance inventory all read the
-  overlay; sync prints its path when used.
+  while the owning checkout exists. Sync prints the overlay path when it uses one.
 - Keep credentials out of it. OAuth state stays in each harness's own store.
 
 Each sync keeps its ownership lock in `~/.local/state/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
 outside the checkout, so applying from a temporary clone keeps ownership. A lock
-left at the old `agents/*.lock.json` path of the checkout, or of its main
-worktree, moves there on the next sync. Syncs hold a per-user lock beside it, so
-syncs from different checkouts run one at a time:
+at `agents/*.lock.json` in the checkout, or in its main worktree, moves there on
+the next sync. Syncs from different checkouts run one at a time.
+[Ownership planning](../agents/ownership.ts) decides removals:
 
 - Missing locks initialize ownership without removing existing installations.
 - Subsequent runs remove dropped selections while preserving never-owned extras.
@@ -160,32 +151,23 @@ syncs from different checkouts run one at a time:
 - Failed installs or removals leave that sync's lock unchanged; earlier successful
   commands may already have changed the host. Fix the reported failure and rerun.
 
-[Ownership planning](../agents/ownership.ts) computes plugin and MCP removals
-and the next lock from selected entries, previous ownership, and available
-harnesses. Syncs execute those removals and pass deferred entries back to the
-plan; the lock is written only after successful apply and removal operations.
-Plugin-specific ownership changes stay in
-[plugin sync](../agents/plugins.ts).
-
 ## MCP Sync
 
-Executor and other OAuth servers expire their sessions per harness. Check
-every installed harness at once and get the repair command per row:
+Executor and other OAuth servers expire their sessions per harness.
+[Doctor](../agents/doctor.ts) checks every installed harness and prints a repair
+command per row:
 
 ```zsh
 mise run agents:doctor
 ```
 
-Use the repair command printed by [doctor.ts](../agents/doctor.ts).
-
 Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
-The doctor also reports Grok installation drift and prints the repair command:
-any `grok` on `PATH` other than the mise pin, a mise shim that dispatches
-elsewhere, or a global npm install.
-Review it before removing a conflicting installation.
+Doctor also reports Grok installation drift: any `grok` on `PATH` other than
+the mise pin, a mise shim that dispatches elsewhere, or a global npm install.
+Review its repair command before removing a conflicting installation.
 
 ## Hindsight Memory
 

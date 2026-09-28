@@ -27,6 +27,10 @@ function parseSkills(value: unknown, label: string): Skill[] {
   return value.map(({ name, source }) => ({ name, source }));
 }
 
+// Tracked manifests name a GitHub owner/repository or an HTTPS URL; the local
+// overlay may use any source the skills CLI accepts.
+const MANIFEST_SOURCE = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/\S+)$/;
+
 function readSkills(manifestPath: string): Skill[] {
   const label = `Invalid skills manifest at ${manifestPath}`;
   let parsed: unknown;
@@ -40,7 +44,12 @@ function readSkills(manifestPath: string): Skill[] {
   if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) {
     throw new Error(`${label}: expected non-empty name/source strings`);
   }
-  return parseSkills(parsed.skills, label);
+  const skills = parseSkills(parsed.skills, label);
+  const invalid = skills.find((skill) => !MANIFEST_SOURCE.test(skill.source));
+  if (invalid !== undefined) {
+    throw new Error(`${label}: ${invalid.name} source must be owner/repository or an HTTPS URL`);
+  }
+  return skills;
 }
 
 export type SkillLayer = AgentLayer | "local";
