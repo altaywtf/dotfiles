@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,7 +101,22 @@ test("local overlay skills append after profile layers and reject conflicts", ()
   assert.equal(skillsOnlyLayers.localPath, undefined);
 });
 
-test("every real skill manifest composes", () => {
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-  readLayeredSkills(repoRoot, "all", ["developer", "workstation", "devbox", "personal"]);
+test("manifests reject a source that is neither owner/repository nor an HTTPS URL", () => {
+  for (const source of ["skills", "owner/repo name", "http://example.test/skills"]) {
+    const root = fixture();
+    manifest(root, "developer", source);
+    assert.throws(
+      () => readLayeredSkills(root, "developer", ["developer"]),
+      /source must be owner\/repository or an HTTPS URL/,
+    );
+  }
+});
+
+test("every tracked skill manifest composes", () => {
+  const manifests = resolve(dirname(fileURLToPath(import.meta.url)));
+  const root = fixture();
+  const layers = ["developer", "workstation", "devbox", "personal"] as const;
+  for (const layer of layers)
+    copyFileSync(join(manifests, `${layer}.json`), join(root, `agents/skills/${layer}.json`));
+  readLayeredSkills(root, "all", layers);
 });
