@@ -42,7 +42,7 @@ function allowed(file: string, content: string): boolean {
     case "agents/skills/developer.json":
       return content.includes('"source": "uinaf/agent-skills"');
     case "agents/skills/personal.json":
-      return containsAny(content, ['"name": "uinaf-intake"', '"name": "uinaf-notion"']);
+      return containsAny(content, ['"name": "uinaf-intake"', '"name": "uinaf-dev"']);
     case "agents/plugins/developer.json":
       return content.includes("uinaf/ffss");
     case "agents/rules.json":

@@ -13,11 +13,11 @@
       "source": "putdotio/agent-skills"
     },
     {
-      "name": "uinaf-intake",
+      "name": "uinaf-dev",
       "source": "altaywtf/agent-skills"
     },
     {
-      "name": "uinaf-notion",
+      "name": "uinaf-intake",
       "source": "altaywtf/agent-skills"
     },
     {
