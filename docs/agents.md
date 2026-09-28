@@ -69,6 +69,10 @@ Edit shared rules at their configured source and private instructions in:
   [scheduled updater](software-updates.md#dotfiles-convergence) fast-forwards that
   checkout before rendering. A checkout with local work is kept with a warning.
 
+The Claude settings modifier also sets `autoMode` from
+`~/.config/dotfiles/claude-automode.json` when that file exists, with the same
+ownership and mode checks. Without it, `autoMode` is left as it is.
+
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
 The [rule loader](../agents/rules.ts) owns remote validation and cache fallback.

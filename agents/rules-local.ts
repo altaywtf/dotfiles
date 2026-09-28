@@ -7,7 +7,11 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
   dryRun = false,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  for (const path of [join(configDir, "agents.start.md"), join(configDir, "agents.end.md")]) {
+  for (const path of [
+    join(configDir, "agents.start.md"),
+    join(configDir, "agents.end.md"),
+    join(configDir, "claude-automode.json"),
+  ]) {
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
     if (Option.isSome(link) && !exists)

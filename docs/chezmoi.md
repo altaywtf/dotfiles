@@ -45,6 +45,7 @@ node verify/home-fixture.ts
 | `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                                                             |
 | `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                                                   |
 | `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                                                          |
+| `~/.config/dotfiles/claude-automode.json`             | Private Claude [auto mode](agents.md) rules                                                  |
 | `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service override |
 
 - SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to

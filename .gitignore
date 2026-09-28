@@ -10,6 +10,7 @@ chezmoi.toml
 **/.config/chezmoi/
 **/.config/dotfiles/agents.start.md
 **/.config/dotfiles/agents.end.md
+**/.config/dotfiles/claude-automode.json
 **/.config/dotfiles/zshenv.local
 /chezmoi/*dot_config/*dotfiles/*zshenv.local*
 Brewfile.composed.*
