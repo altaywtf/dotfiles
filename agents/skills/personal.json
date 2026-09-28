@@ -1,6 +1,10 @@
 {
   "skills": [
     {
+      "name": "playbooks",
+      "source": "altaywtf/agent-skills"
+    },
+    {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
     },
@@ -18,10 +22,6 @@
     },
     {
       "name": "uinaf-intake",
-      "source": "altaywtf/agent-skills"
-    },
-    {
-      "name": "workflows",
       "source": "altaywtf/agent-skills"
     },
     {
