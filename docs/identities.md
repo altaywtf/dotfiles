@@ -55,8 +55,6 @@ An age **identity** is the private decryption key; its public address is the
 Provisioning creates a missing key and proves a SOPS round trip. `--check`
 verifies without changing the identity; `--print-recipient` prints only the
 public recipient.
-If another process creates the key during provisioning, its identity is retained
-and validated instead of replaced.
 
 The [identity helper](../identity/configure-sops-age-identity.ts) owns
 `identityPath()` and `validateIdentity()`: platform paths,

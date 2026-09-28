@@ -56,6 +56,6 @@ are shared by synchronization and read-only inventory.
 
 ## Verify and Deliver
 
-- Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery. Direct pushes require `mise run verify`.
+- Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery.
 - Run live checks only on the matching host and user. PR CI runs the deterministic checks on macOS and Ubuntu; a successful push workflow proves release evaluation, not verification.
 - Update the owning doc when behavior changes. Use proper-case headings and sentence-case prose; keep configuration facts in their source owners.

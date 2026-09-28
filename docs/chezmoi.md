@@ -20,16 +20,13 @@ mise run dotfiles:apply workstation
   [bootstrap steps](bootstrap.md). On Linux it reloads the systemd user
   manager and hands it the shim `PATH` from `environment.d`. The managed
   `99-zz-dotfiles.conf` runs after the distro import of `/etc/environment`,
-  preserving its baseline while prepending user tools. Applying removes the
-  obsolete `50-dotfiles.conf`.
-- Both preview and apply refresh [agent rules](agents.md#global-rules),
-  including during a dry run.
+  preserving its baseline while prepending user tools.
+- Both preview and apply refresh [agent rules](agents.md#global-rules).
 - The wrapper backs up conflicting files and links before force-applying,
-  keeping only the newest backup per target. The Claude settings template
-  returns the file unchanged when every managed value already matches, so
-  Claude's own key order is neither rewritten nor backed up.
-- Global agent rule files are replaced without backups; private text belongs
-  in [rule fragments](agents.md#global-rules).
+  keeping only the newest backup per target; generated agent rule files get
+  none. The Claude settings template returns the file unchanged when every
+  managed value already matches, so Claude's own key order is neither
+  rewritten nor backed up.
 
 For changes to apply behavior, run the isolated fixtures rather than applying
 to your home:

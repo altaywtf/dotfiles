@@ -25,11 +25,8 @@ pnpm exec knip
 pnpm exec vp fmt # format before committing
 ```
 
-[vite.config.ts](vite.config.ts) owns formatting, type-aware lint, and Vitest.
-[knip.ts](knip.ts) discovers CLI entrypoints and uses the adapter bundle's
-inventory to check unused files, exports, and dependencies.
-Chezmoi templates retain their native syntax and formatting. Tests import
-`vite-plus/test`; entrypoints and integration fixtures still run directly in Node.
+[vite.config.ts](vite.config.ts) owns formatting, type-aware lint, and Vitest;
+[knip.ts](knip.ts) checks unused files, exports, and dependencies.
 
 The full gate includes Vite+ plus platform and isolated-home checks:
 
@@ -40,8 +37,7 @@ mise run verify               # also scan Git history for secrets
 ```
 
 - [checks.json](verify/checks.json) owns domains, commands, and proof; focused
-  runs omit `scope: "complete"` fixtures. Use `bootstrap`, `homebrew`, or
-  `maintenance` for their respective operations; `profiles` covers profile contracts.
+  runs omit `scope: "complete"` fixtures.
 - Run live profile checks and [audits](docs/security-audits.md) only on the intended host and user.
 - The optional [pre-push hook](verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers, including merge diffs against each parent; it does not run tests.
 
