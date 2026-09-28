@@ -5,9 +5,6 @@ tizen-migration-*.tar.gz
 node_modules/
 .zcompdump*
 home/.codex/
-agents/skills.lock.json
-agents/plugins.lock.json
-agents/mcps.lock.json
 agents/local.json
 chezmoi.toml
 **/.config/chezmoi/
@@ -18,6 +15,3 @@ chezmoi.toml
 Brewfile.composed.*
 Brewfile.local
 .vitest/
-
-# Checkout ownership locks stay private until agent sync moves them.
-/scripts/agents/*.lock.json
