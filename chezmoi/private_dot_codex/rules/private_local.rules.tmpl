@@ -1,0 +1,12 @@
+{{- $path := joinPath .chezmoi.homeDir ".config/dotfiles/codex.rules" -}}
+{{- $link := lstat $path -}}
+{{- $file := stat $path -}}
+{{- if and $link (not $file) -}}
+{{- fail (printf "%s is a broken link" $path) -}}
+{{- end -}}
+{{- if $file -}}
+{{- if ne $file.type "file" -}}
+{{- fail (printf "%s must resolve to a regular file" $path) -}}
+{{- end -}}
+{{- include $path -}}
+{{- end -}}

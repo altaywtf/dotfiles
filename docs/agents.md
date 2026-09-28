@@ -72,6 +72,8 @@ Edit shared rules at their configured source and private instructions in:
 The Claude settings modifier also sets `autoMode` from
 `~/.config/dotfiles/claude-automode.json` when that file exists, with the same
 ownership and mode checks. Without it, `autoMode` is left as it is.
+`~/.config/dotfiles/codex.rules` renders to `~/.codex/rules/local.rules` the
+same way; Codex keeps rules approved in its TUI in `default.rules`.
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
