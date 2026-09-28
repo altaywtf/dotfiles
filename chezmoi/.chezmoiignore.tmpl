@@ -1,8 +1,5 @@
 {{ $profile := includeTemplate "profile" . | fromJson }}
 .config/dotfiles/zshenv.local
-{{ if not $profile.capabilities.personal }}
-.local/libexec/dotfiles/worktree-guard.ts
-{{ end }}
 {{ if not $profile.capabilities.workstation }}
 .config/zed
 Library/Application Support/com.mitchellh.ghostty
