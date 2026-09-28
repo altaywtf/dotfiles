@@ -13,10 +13,6 @@
       "source": "Effect-TS/skills"
     },
     {
-      "name": "gh-setup",
-      "source": "uinaf/agent-skills"
-    },
-    {
       "name": "gh-stack",
       "source": "github/gh-stack"
     },

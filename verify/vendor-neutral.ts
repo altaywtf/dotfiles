@@ -39,8 +39,6 @@ function allowed(file: string, content: string): boolean {
       ]);
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
-    case "agents/skills/developer.json":
-      return content.includes('"source": "uinaf/agent-skills"');
     case "agents/skills/personal.json":
       return containsAny(content, ['"name": "uinaf-intake"', '"name": "uinaf-dev"']);
     case "agents/plugins/developer.json":
