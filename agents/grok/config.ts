@@ -17,8 +17,6 @@ const MANAGED_SETTINGS: readonly Setting[] = [
   { table: "harness", key: "disable_codebase_upload", value: true },
 ];
 
-const RETIRED_PLUGINS: ReadonlySet<string> = new Set(["ffsstack"]);
-
 type Line = { text: string; open: boolean; code: string };
 
 // Marks lines that start inside a multi-line array, inline table, or string
@@ -144,37 +142,8 @@ function upsert(
 const render = (value: boolean | string) =>
   typeof value === "boolean" ? String(value) : JSON.stringify(value);
 
-function pruneRetiredPlugins(lines: Line[]): Line[] {
-  const section = sectionOf(lines, "plugins");
-  const key = section ? "enabled" : "plugins.enabled";
-  const span = keySpan(lines, section ?? rootSection(lines), key);
-  if (!span) return lines;
-  const assignment = lines
-    .slice(span[0], span[1] + 1)
-    .map((line) => line.code)
-    .join("\n");
-  const values = assignment.slice(assignment.indexOf("=") + 1);
-  const entries = [...values.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((match) => ({
-    id: match[1] ?? match[2],
-    token: match[0],
-  }));
-  if (!entries.some(({ id }) => RETIRED_PLUGINS.has(id))) return lines;
-  const kept = entries.filter(({ id }) => !RETIRED_PLUGINS.has(id));
-  const replacement =
-    kept.length === 0
-      ? [`${key} = []`]
-      : [`${key} = [`, ...kept.map(({ token }) => `    ${token},`), "]"];
-  return scan(
-    [
-      ...lines.slice(0, span[0]).map((line) => line.text),
-      ...replacement,
-      ...lines.slice(span[1] + 1).map((line) => line.text),
-    ].join("\n"),
-  );
-}
-
 export function applyManagedSettings(contents: string): string {
-  let lines = pruneRetiredPlugins(scan(contents.replace(/\n*$/, "")));
+  let lines = scan(contents.replace(/\n*$/, ""));
   const appended = new Map<string, string[]>();
   for (const { table, key, value } of MANAGED_SETTINGS) {
     const section = sectionOf(lines, table);

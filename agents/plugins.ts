@@ -17,14 +17,12 @@ import {
   harnessPresent,
   isSafeName,
   parseSyncArgs,
-  onlyRetiredHarnesses,
   readHarnesses,
   reportSyncFailures,
   type SyncFailure,
-  withoutRetiredHarnesses,
 } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile, managedLockPath, withManagedLock } from "./lock.ts";
+import { readLockFile, writeLockFile, managedLockLocation, withManagedLock } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -216,13 +214,6 @@ type PluginLock = {
   plugins: Plugin[];
 };
 
-function readLockedHarnesses(value: unknown, lockPath: string, name: string): readonly Harness[] {
-  return readHarnesses(
-    withoutRetiredHarnesses(value),
-    `Invalid managed plugins lock at ${lockPath}: ${name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
-  );
-}
-
 function readLockedPlugin(value: unknown, lockPath: string): Plugin {
   if (
     typeof value !== "object" ||
@@ -247,7 +238,10 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     marketplace: value.marketplace,
     marketplaceId: value.marketplaceId,
     name: value.name,
-    harnesses: readLockedHarnesses(value.harnesses, lockPath, value.name),
+    harnesses: readHarnesses(
+      value.harnesses,
+      `Invalid managed plugins lock at ${lockPath}: ${value.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
+    ),
   };
 }
 
@@ -270,17 +264,7 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
     );
   }
 
-  const plugins = parsed.plugins
-    .filter(
-      (plugin: unknown) =>
-        !(
-          typeof plugin === "object" &&
-          plugin !== null &&
-          "harnesses" in plugin &&
-          onlyRetiredHarnesses(plugin.harnesses)
-        ),
-    )
-    .map((plugin: unknown) => readLockedPlugin(plugin, lockPath));
+  const plugins = parsed.plugins.map((plugin: unknown) => readLockedPlugin(plugin, lockPath));
   const refs = plugins.map(pluginRef);
   if (new Set(refs).size !== refs.length) {
     throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);
@@ -587,7 +571,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);
 
-  const pluginLockPath = managedLockPath(runtime.env, repoDir, "plugins");
+  const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],

@@ -8,9 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { acquireDirectoryLock } from "../lib/lock.ts";
-import { readLocalOverlay } from "./local.ts";
 import { dirname, join } from "node:path";
 
 import { errorMessage } from "./runtime.ts";
@@ -50,51 +48,6 @@ export function managedLockLocation(env: NodeJS.ProcessEnv, kind: LockKind): str
 }
 
 type LockKind = "skills" | "plugins" | "mcps";
-
-// A checkout's main worktree holds the lock older syncs wrote there, so the
-// first sync from a linked worktree still imports that ownership.
-export function legacyCheckouts(repoDir: string): string[] {
-  const common = spawnSync(
-    "git",
-    ["-C", repoDir, "rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-  );
-  const main = common.status === 0 ? common.stdout.trim() : "";
-  return main.endsWith("/.git") ? [repoDir, dirname(main)] : [repoDir];
-}
-
-export function managedLockPath(env: NodeJS.ProcessEnv, repoDir: string, kind: LockKind): string {
-  const path = managedLockLocation(env, kind);
-  const legacy = legacyCheckouts(repoDir)
-    .map((checkout) => join(checkout, "agents", `${kind}.lock.json`))
-    .find((candidate) => existsSync(candidate));
-  if (!existsSync(path) && legacy !== undefined) {
-    const lock = JSON.parse(readFileSync(legacy, "utf8")) as Record<string, unknown>;
-    const owner = dirname(dirname(legacy));
-    const names = overlayNamesOf(owner, kind);
-    if (names.length > 0) lock.overlays = { [realpathSync(owner)]: names };
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    writeLockFile(path, lock);
-    rmSync(legacy, { force: true });
-  }
-  return path;
-}
-
-// Older locks carry no provenance, so the checkout's overlay at migration time seeds it.
-function overlayNamesOf(checkout: string, kind: LockKind): string[] {
-  if (kind === "plugins") return [];
-  const entries = readLocalOverlay(checkout)?.document[kind === "skills" ? "skills" : "servers"];
-  return Array.isArray(entries)
-    ? entries.flatMap((entry: unknown) =>
-        typeof entry === "object" &&
-        entry !== null &&
-        "name" in entry &&
-        typeof entry.name === "string"
-          ? [entry.name]
-          : [],
-      )
-    : [];
-}
 
 // Syncs from different checkouts share the per-user lock, so each holds it for
 // the whole read, host change, and write.

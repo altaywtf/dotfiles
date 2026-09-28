@@ -38,7 +38,6 @@ theme = "groknight"
 
 [plugins]
 enabled = [
-    "ffsstack",
     "ffss",
 ]
 
@@ -54,13 +53,13 @@ command = 'node "/opt/fixture/stop.js"'
 api_backend = "responses"
 `;
 
-test("managed Grok defaults replace drifted values and retired plugins in place", () => {
+test("managed Grok defaults replace drifted values in place", () => {
   const updated = applyManagedSettings(live);
   assertManaged(updated);
-  assert.deepEqual(table(updated, "plugins").slice(1, 4), ["enabled = [", '    "ffss",', "]"]);
-  assert.doesNotMatch(updated, /ffsstack|always-approve|auto_update = true/);
+  assert.doesNotMatch(updated, /always-approve|auto_update = true/);
   for (const kept of [
     'installer = "npm"',
+    '[plugins]\nenabled = [\n    "ffss",\n]',
     'theme = "groknight"',
     '[[marketplace.sources]]\nname = "Official"',
     'args = ["/opt/fixture/[server].js", "--permission_mode=ask"]',
@@ -75,11 +74,6 @@ test("managed Grok defaults create a configuration from nothing", () => {
   const created = applyManagedSettings("");
   assertManaged(created);
   assert.equal(applyManagedSettings(created), created);
-});
-
-test("an empty enabled list survives when only retired plugins were enabled", () => {
-  const updated = applyManagedSettings('[plugins]\nenabled = ["ffsstack"]\n');
-  assert.ok(table(updated, "plugins").includes("enabled = []"));
 });
 
 test("root dotted keys extend their table in place", () => {
@@ -98,26 +92,11 @@ test("inline managed tables are rejected rather than duplicated", () => {
   );
 });
 
-test("comments never become plugin ids", () => {
-  const updated = applyManagedSettings(
-    '[plugins]\nenabled = ["ffsstack", "ffss"] # replace "ffsstack" with "next"\n',
-  );
-  assert.deepEqual(table(updated, "plugins").slice(1, 4), ["enabled = [", '    "ffss",', "]"]);
-  assert.doesNotMatch(updated, /"next"/);
-});
-
 test("multi-line strings are never read as tables or keys", () => {
   const prompt = '[agents.fixture]\nprompt = """\n[ui]\npermission_mode = "ask"\n"""\n';
   const updated = applyManagedSettings(prompt);
   assert.ok(updated.startsWith(prompt));
   assertManaged(updated.slice(prompt.length));
-});
-
-test("root dotted plugin lists lose retired ids and keep escaped ids verbatim", () => {
-  const updated = applyManagedSettings('plugins.enabled = ["ffsstack", "a\\u0062"]\n');
-  const root = updated.split(/^\[/m)[0];
-  assert.ok(root.includes('plugins.enabled = [\n    "a\\u0062",\n]'), root);
-  assert.doesNotMatch(updated, /ffsstack/);
 });
 
 test("compliant assignments keep their trailing comments", () => {
@@ -144,11 +123,8 @@ test("a compliant configuration is returned byte for byte", () => {
     assert.equal(applyManagedSettings(variant), variant);
 });
 
-test("quoted table and key spellings are recognized", () => {
-  const updated = applyManagedSettings(
-    '["ui"]\ntheme = "groknight"\n\n[plugins]\n"enabled" = ["ffsstack", "ffss"]\n',
-  );
-  assert.equal(updated.match(/^\[/gm)?.length, 6);
+test("quoted table names are recognized", () => {
+  const updated = applyManagedSettings('["ui"]\ntheme = "groknight"\n');
+  assert.equal(updated.match(/^\[/gm)?.length, 5);
   assert.match(updated, /^\["ui"\]\ntheme = "groknight"\npermission_mode = "auto"$/m);
-  assert.match(updated, /^enabled = \[\n {4}"ffss",\n\]$/m);
 });

@@ -30,11 +30,11 @@ since Codex creates it with the process umask.
 Every harness starts in its auto-approval mode; switch to full access per
 session. Setup replaces drifted values on each run.
 
-| Harness     | Owner                                                                           | Managed defaults                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; no error reports, `/feedback`, or session surveys                                                                |
-| Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics          |
-| Grok        | [Grok configuration](../agents/grok/config.ts)                                  | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads; retired plugin ids pruned |
+| Harness     | Owner                                                                           | Managed defaults                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; no error reports, `/feedback`, or session surveys                                                       |
+| Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics |
+| Grok        | [Grok configuration](../agents/grok/config.ts)                                  | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads                   |
 
 Grok's launcher runs whatever `~/.grok/bin/grok` links to, and mise installs
 the package without running the postinstall step that restages that link.
@@ -140,9 +140,8 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
 - Keep credentials out of it. OAuth state stays in each harness's own store.
 
 Each sync keeps its ownership lock in `~/.local/state/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
-outside the checkout, so applying from a temporary clone keeps ownership. A lock
-at `agents/*.lock.json` in the checkout, or in its main worktree, moves there on
-the next sync. Syncs from different checkouts run one at a time.
+outside the checkout, so applying from a temporary clone keeps ownership. Syncs
+from different checkouts run one at a time.
 [Ownership planning](../agents/ownership.ts) decides removals:
 
 - Missing locks initialize ownership without removing existing installations.
