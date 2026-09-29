@@ -31,7 +31,7 @@ function assertDefaults(contents: string): void {
   const root = contents.split(/^\[/m)[0];
   const features = contents.split(/^\[features\][ \t]*$/m)[1]?.split(/^\[/m)[0];
   assert.ok(features, "native config writer must create the features table");
-  assert.match(root, /^model = "gpt-6-astra"$/m);
+  assert.match(root, /^model = "gpt-6\.1-sol"$/m);
   assert.match(root, /^model_reasoning_effort = "medium"$/m);
   assert.doesNotMatch(root, /^forced_login_method\s*=/m);
   assert.match(root, /^approval_policy = "on-request"$/m);

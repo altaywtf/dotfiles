@@ -5,7 +5,13 @@ and MCP servers.
 
 [Codex configuration](../agents/codex/config.ts) owns native configuration writes
 and managed defaults, including the model and reasoning effort; gateway setup
-preserves them.
+preserves them. These defaults also apply when Codex uses ChatGPT login;
+the ChatGPT app has its own model selection.
+
+[Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml)
+sets the reviewer engine, model, and reasoning effort for ffss workflows.
+Repository configuration, environment variables, and explicit flags can override
+these account defaults.
 
 [Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
 configuration, and rollback. Setup and maintenance preserve vendor logins.

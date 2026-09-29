@@ -51,7 +51,7 @@ function userLayer(result: unknown, configPath: string) {
 function managedEdits(): ConfigEdit[] {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
-    { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
+    { keyPath: "model", value: "gpt-6.1-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
     // Auto review needs interactive approvals and a sandbox to escalate from.
