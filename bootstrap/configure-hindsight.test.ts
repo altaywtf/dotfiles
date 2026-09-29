@@ -189,7 +189,9 @@ test("requires a machine-local server configuration and never writes one", (t) =
   const result = run(paths);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /has no server/);
-  assert.match(result.stderr, /--api-token <token>/);
+  assert.match(result.stderr, /--api-url <url>/);
+  assert.match(result.stderr, /Set apiToken .*private local editor/);
+  assert.doesNotMatch(result.stderr, /--api-token <token>/);
   assert.deepEqual(npxCalls(paths), []);
   assert.deepEqual(JSON.parse(readFileSync(configPath, "utf8")), { autoUpdate: true });
 });

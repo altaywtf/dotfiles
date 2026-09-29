@@ -213,8 +213,17 @@ with a custom `bankId` or `bankIdTemplate`.
 Provision a new machine once:
 
 ```zsh
+umask 077
 npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
-  --server self-hosted --api-url URL --api-token TOKEN
+  --server self-hosted --api-url URL
+chmod 600 ~/.hindsight/coding-agent.json
+```
+
+Set `apiToken` in that file using a private local editor, keeping the other
+settings. Passing the token through `--api-token` exposes it in process
+arguments. Then wire the managed harnesses and check the result:
+
+```zsh
 ./bootstrap/configure-hindsight.ts
 ./bootstrap/configure-hindsight.ts --check
 ```

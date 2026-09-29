@@ -60,7 +60,10 @@ const failure = (message: string) => new CliFailure({ exitCode: 1, message });
 
 const setupHint = (configPath: string) =>
   `Hindsight is not configured: ${configPath} has no server. Run once with your server, for example:\n` +
-  `  npx -y ${PACKAGE}@latest install claude-code --server self-hosted --api-url <url> --api-token <token>`;
+  `  umask 077\n` +
+  `  npx -y ${PACKAGE}@latest install claude-code --server self-hosted --api-url <url>\n` +
+  `Set apiToken in ${configPath} using a private local editor; keep the other settings and mode 0600. ` +
+  `Passing the token through --api-token exposes it in process arguments.`;
 
 const readText = Effect.fn("readText")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
