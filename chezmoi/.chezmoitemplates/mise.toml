@@ -13,10 +13,10 @@ rust = "1.98.1"
 # 0.1.19 dropped npm trusted-publisher metadata and provenance.
 "npm:@playwright/cli" = "0.1.18"
 # Coding agents share one pin on every platform. Cursor keeps its own installer.
-"npm:@openai/codex" = "0.158.0"
+"npm:@openai/codex" = "0.159.0"
 # T3 Code's CLI installs its background service; the service updates itself.
 "npm:t3" = "0.0.42"
-"npm:@xai-official/grok" = "1.0.41"
+"npm:@xai-official/grok" = "1.0.44"
 
 gh = "2.101.0"
 jq = "1.8.2"
