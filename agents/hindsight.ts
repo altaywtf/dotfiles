@@ -1,6 +1,6 @@
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
 import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
@@ -90,110 +90,6 @@ const requireServerConfig = Effect.fn("requireServerConfig")(function* (configPa
   );
 });
 
-type Credentials = { apiToken?: string; apiUrl?: string };
-export type RepoCredential = { bank: string; credentials: Credentials };
-
-function credentialsOf(value: unknown): Credentials | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const out: Credentials = {};
-  if ("apiToken" in value && typeof value.apiToken === "string") out.apiToken = value.apiToken;
-  if ("apiUrl" in value && typeof value.apiUrl === "string") out.apiUrl = value.apiUrl;
-  return out.apiToken === undefined && out.apiUrl === undefined ? undefined : out;
-}
-
-const expandHome = (home: string, dir: string) =>
-  dir === "~" || dir.startsWith("~/") ? join(home, dir.slice(1)) : dir;
-
-// The published runtime selects credentials only per bank, so every repository directly under a
-// `paths.<prefix>` entry gets that entry's credentials as `banks.coding-agent::<repo>`, the id the
-// runtime derives by default. The longest prefix wins, as it does for `mapPathToBank`.
-export function pathCredentialDrift(
-  home: string,
-  config: Record<string, unknown>,
-  repositories: (directory: string) => readonly string[],
-): RepoCredential[] {
-  const paths = config.paths;
-  if (typeof paths !== "object" || paths === null || config.bankIdTemplate || config.bankId)
-    return [];
-  const wanted = new Map<string, { depth: number; credentials: Credentials }>();
-  for (const [prefix, section] of Object.entries(paths)) {
-    const credentials = credentialsOf(section);
-    if (credentials === undefined) continue;
-    const directory = expandHome(home, prefix).replace(/\/+$/, "");
-    for (const repository of repositories(directory)) {
-      const bank = `coding-agent::${repository}`;
-      const current = wanted.get(bank);
-      if (current === undefined || directory.length > current.depth)
-        wanted.set(bank, { depth: directory.length, credentials });
-    }
-  }
-  const banks = typeof config.banks === "object" && config.banks !== null ? config.banks : {};
-  return [...wanted]
-    .filter(([bank, { credentials }]) => {
-      const section: Record<string, unknown> =
-        bank in banks ? ((banks as Record<string, unknown>)[bank] as Record<string, unknown>) : {};
-      return Object.entries(credentials).some(([key, value]) => section?.[key] !== value);
-    })
-    .map(([bank, { credentials }]) => ({ bank, credentials }))
-    .sort((a, b) => a.bank.localeCompare(b.bank));
-}
-
-const listRepositories = Effect.fn("listRepositories")(function* (directory: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const names = yield* fs.readDirectory(directory).pipe(Effect.orElseSucceed(() => []));
-  const repositories: string[] = [];
-  for (const name of names.toSorted((a, b) => a.localeCompare(b))) {
-    if (yield* fs.exists(join(directory, name, ".git")).pipe(Effect.orElseSucceed(() => false)))
-      repositories.push(name);
-  }
-  return repositories;
-});
-
-const repositoryIndex = Effect.fn("repositoryIndex")(function* (
-  home: string,
-  config: Record<string, unknown>,
-) {
-  const index = new Map<string, readonly string[]>();
-  const paths = config.paths;
-  if (typeof paths !== "object" || paths === null) return index;
-  for (const prefix of Object.keys(paths)) {
-    const directory = expandHome(home, prefix).replace(/\/+$/, "");
-    index.set(directory, yield* listRepositories(directory));
-  }
-  return index;
-});
-
-const writeBankCredentials = Effect.fn("writeBankCredentials")(function* (
-  configPath: string,
-  config: Record<string, unknown>,
-  drift: readonly RepoCredential[],
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const banks: Record<string, unknown> =
-    typeof config.banks === "object" && config.banks !== null ? { ...config.banks } : {};
-  for (const { bank, credentials } of drift) {
-    const section = banks[bank];
-    banks[bank] = {
-      ...(typeof section === "object" && section !== null ? section : {}),
-      ...credentials,
-    };
-  }
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      const directory = yield* fs.makeTempDirectoryScoped({
-        directory: dirname(configPath),
-        prefix: ".coding-agent.json.",
-      });
-      const temporary = join(directory, "coding-agent.json");
-      yield* fs.writeFileString(temporary, `${JSON.stringify({ ...config, banks }, null, 2)}\n`, {
-        mode: 0o600,
-      });
-      yield* fs.rename(temporary, configPath);
-      yield* fs.chmod(configPath, 0o600);
-    }),
-  );
-});
-
 // Every managed harness reads its own config; a missing HINDSIGHT_MCP_HARNESS
 // is the drift that leaves the MCP server dead after a runtime update.
 export function wiredInText(
@@ -259,8 +155,6 @@ type Report = {
   installed: string | undefined;
   wanted: Client;
   unwired: readonly Harness[];
-  config: Record<string, unknown>;
-  credentials: readonly RepoCredential[];
 };
 
 const inspect = Effect.fn("inspectHindsight")(function* (
@@ -268,10 +162,6 @@ const inspect = Effect.fn("inspectHindsight")(function* (
   commandExists: (binary: string) => boolean,
 ) {
   yield* requireServerConfig(paths.configPath);
-  const config =
-    (yield* readJson(paths.configPath).pipe(Effect.orElseSucceed(() => undefined))) ?? {};
-  const index = yield* repositoryIndex(paths.home, config);
-  const credentials = pathCredentialDrift(paths.home, config, (dir) => index.get(dir) ?? []);
   const harnesses = HARNESSES.filter((harness) => commandExists(HARNESS_INFO[harness].binary));
   const [installed, latest] = yield* Effect.all([
     installedVersion(paths.runtimeDir),
@@ -286,8 +176,6 @@ const inspect = Effect.fn("inspectHindsight")(function* (
     installed,
     wanted: wantedClient(latest),
     unwired,
-    config,
-    credentials,
   } satisfies Report;
 });
 
@@ -298,7 +186,6 @@ const drift = (report: Report): string[] => [
   ...report.unwired.map(
     (harness) => `${HARNESS_INFO[harness].label} is not wired with HINDSIGHT_MCP_HARNESS`,
   ),
-  ...report.credentials.map(({ bank }) => `${bank} lacks its paths credentials`),
 ];
 
 const runInstaller = Effect.fn("runInstaller")(function* (args: string[]) {
@@ -352,14 +239,7 @@ export const configureHindsight = Effect.fn("configureHindsight")(function* (
   commandExists: (binary: string) => boolean,
   check: boolean,
 ) {
-  let report = yield* inspect(paths, commandExists);
-  if (report.credentials.length > 0 && !check) {
-    yield* writeBankCredentials(paths.configPath, report.config, report.credentials);
-    yield* Console.log(
-      `hindsight: set paths credentials for ${report.credentials.map(({ bank }) => bank).join(", ")}`,
-    );
-    report = yield* inspect(paths, commandExists);
-  }
+  const report = yield* inspect(paths, commandExists);
   if (report.harnesses.length === 0) {
     yield* Console.log("hindsight: no managed coding agent installed; nothing to wire");
     return;

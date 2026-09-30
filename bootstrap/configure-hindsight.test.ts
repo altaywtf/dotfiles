@@ -6,7 +6,6 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -14,12 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
-import {
-  CLIENT_OVERRIDE,
-  pathCredentialDrift,
-  wantedClient,
-  wiredInText,
-} from "../agents/hindsight.ts";
+import { CLIENT_OVERRIDE, wantedClient, wiredInText } from "../agents/hindsight.ts";
 
 const script = resolve(import.meta.dirname, "configure-hindsight.ts");
 
@@ -245,64 +239,4 @@ test("can be imported without running the configurator", () => {
   rmSync(paths.root, { recursive: true, force: true });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npxCalls(paths), []);
-});
-
-test("gives every repository under a paths entry that entry's credentials", (t) => {
-  const paths = fixture({ published: "1.0.0", installed: "1.0.0" });
-  t.onTestFinished(() => rmSync(paths.root, { recursive: true, force: true }));
-  assert.equal(run(paths).status, 0);
-  const work = join(paths.home, "work");
-  mkdirSync(join(work, "client-a/.git"), { recursive: true });
-  mkdirSync(join(work, "notes"), { recursive: true });
-  writeFileSync(join(work, "client-b.git"), "");
-  const configPath = join(paths.home, ".hindsight/coding-agent.json");
-  writeFileSync(
-    configPath,
-    `${JSON.stringify({
-      serverMode: "self-hosted",
-      apiUrl: "https://hindsight.example",
-      apiToken: "personal",
-      paths: { "~/work": { apiToken: "work", retainSessions: false } },
-      banks: { "coding-agent::client-a": { gitIngest: "none" } },
-    })}\n`,
-    { mode: 0o600 },
-  );
-
-  const check = run(paths, ["--check"]);
-  assert.equal(check.status, 1);
-  assert.match(check.stderr, /coding-agent::client-a lacks its paths credentials/);
-
-  const result = run(paths);
-  assert.equal(result.status, 0, result.stderr);
-  const config = JSON.parse(readFileSync(configPath, "utf8"));
-  assert.deepEqual(config.banks, {
-    "coding-agent::client-a": { gitIngest: "none", apiToken: "work" },
-  });
-  assert.equal(config.apiToken, "personal");
-  assert.equal(statSync(configPath).mode & 0o777, 0o600);
-  assert.equal(run(paths, ["--check"]).status, 0);
-  assert.equal(npxCalls(paths).length, 1);
-});
-
-test("prefers the longest paths prefix and leaves custom bank naming alone", () => {
-  const repos: Record<string, string[]> = {
-    "/h/work": ["a", "b"],
-    "/h/work/b": [],
-    "/h/work/special": ["a"],
-  };
-  const list = (dir: string) => repos[dir] ?? [];
-  const config = {
-    paths: {
-      "~/work": { apiToken: "work" },
-      "/h/work/special/": { apiToken: "special", apiUrl: "https://other" },
-    },
-    banks: { "coding-agent::b": { apiToken: "work" } },
-  };
-  assert.deepEqual(pathCredentialDrift("/h", config, list), [
-    { bank: "coding-agent::a", credentials: { apiToken: "special", apiUrl: "https://other" } },
-  ]);
-  assert.deepEqual(
-    pathCredentialDrift("/h", { ...config, bankIdTemplate: "x::{gitProject}" }, list),
-    [],
-  );
 });
