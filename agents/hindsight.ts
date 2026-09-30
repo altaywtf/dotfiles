@@ -11,15 +11,7 @@ type Tarball = { url: string; sha256: string };
 type ClientOverride = Tarball & { base: string; version: string };
 export type Client = { version: string; tarball?: Tarball };
 
-// Published 0.7.0 writes Grok hooks into config.toml, where `grok inspect` flags them, and lets
-// Claude Code's hooks run a second time inside Grok (vectorize-io/hindsight#4718). While npm still
-// publishes that release, install a build of it with the fix; any newer release replaces this.
-export const CLIENT_OVERRIDE: ClientOverride | undefined = {
-  base: "0.7.0",
-  version: "0.7.1-altaywtf.0",
-  url: "https://github.com/altaywtf/hindsight/releases/download/coding-agents-v0.7.1-altaywtf.0/vectorize-io-hindsight-coding-agents-0.7.1-altaywtf.0.tgz",
-  sha256: "c3dcba013ded283a5793c672142555a4c6fe9699a5b80643c98723ecf15b1175",
-};
+export const CLIENT_OVERRIDE: ClientOverride | undefined = undefined;
 
 export function wantedClient(
   published: string,
