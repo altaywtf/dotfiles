@@ -21,7 +21,33 @@ function t3ServiceUnit(home: string, platform: NodeJS.Platform): string {
 const t3ServiceSetting = Effect.fn("t3ServiceSetting")(function* (devboxEnv: string) {
   const fs = yield* FileSystem.FileSystem;
   const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
-  return [...contents.matchAll(/^T3_SERVICE=([01])\r?$/gm)].at(-1)?.[1];
+  return [...contents.matchAll(/^[ \t]*T3_SERVICE=(["']?)([01])\1[ \t]*\r?$/gm)].at(-1)?.[2];
+});
+
+// The service inherits the user manager's environment, not the shell's: a
+// running process without the mise shims shows providers as "not found" in T3
+// while every shell finds them.
+const linuxServicePath = Effect.fn("linuxT3ServicePath")(function* (home: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const runner = yield* CommandRunner;
+  const pid = yield* runner.run(
+    "systemctl",
+    ["--user", "show", "-p", "MainPID", "--value", "t3code.service"],
+    { output: "capture" },
+  );
+  const mainPid = pid.stdout.trim();
+  if (pid.status !== 0 || !/^[1-9]\d*$/.test(mainPid)) return "stopped" as const;
+  const environ = yield* fs
+    .readFileString(`/proc/${mainPid}/environ`)
+    .pipe(Effect.catch(() => Effect.succeed("")));
+  const servicePath =
+    environ
+      .split("\0")
+      .find((entry) => entry.startsWith("PATH="))
+      ?.slice(5) ?? "";
+  return servicePath.split(":").includes(join(home, ".local/share/mise/shims"))
+    ? ("current" as const)
+    : ("stale" as const);
 });
 
 // Durable personal devboxes serve T3 by default; scoped devboxes are on-demand
@@ -37,13 +63,14 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
   platform: NodeJS.Platform = process.platform,
   uid: number = process.getuid?.() ?? -1,
   baseDir: string = process.env.T3_BASE_DIR || join(home, ".t3"),
+  devboxConfig: string = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env"),
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
   const unit = t3ServiceUnit(home, platform);
   // T3_SERVICE in devbox.env overrides the profile default either way; only an
   // explicit T3_SERVICE=0 removes a service, so a manual install survives.
-  const setting = yield* t3ServiceSetting(join(home, ".config/dotfiles/devbox.env"));
+  const setting = yield* t3ServiceSetting(devboxConfig);
   const present = yield* fs.exists(unit);
   if (setting === "0" && present) {
     if (check) return yield* fail(`T3_SERVICE=0 but the T3 Code service is installed: ${unit}`);
@@ -63,32 +90,13 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
   if (setting === undefined && !byDefault) {
     return check
       ? undefined
-      : yield* Console.log(
-          "T3 Code service not requested (set T3_SERVICE=1 in ~/.config/dotfiles/devbox.env)",
-        );
+      : yield* Console.log(`T3 Code service not requested (set T3_SERVICE=1 in ${devboxConfig})`);
   }
   if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
   if (check && present && platform === "linux") {
-    // The service inherits the user manager's environment, not the shell's:
-    // prove the running process can reach the mise shims, or providers show
-    // as "not found" in T3 while every shell finds them.
-    const pid = yield* runner.run(
-      "systemctl",
-      ["--user", "show", "-p", "MainPID", "--value", "t3code.service"],
-      { output: "capture" },
-    );
-    const mainPid = pid.stdout.trim();
-    if (pid.status !== 0 || !/^[1-9]\d*$/.test(mainPid))
-      return yield* fail("t3code.service is installed but not running");
-    const environ = yield* fs
-      .readFileString(`/proc/${mainPid}/environ`)
-      .pipe(Effect.catch(() => Effect.succeed("")));
-    const servicePath =
-      environ
-        .split("\0")
-        .find((entry) => entry.startsWith("PATH="))
-        ?.slice(5) ?? "";
-    if (!servicePath.split(":").includes(join(home, ".local/share/mise/shims"))) {
+    const state = yield* linuxServicePath(home);
+    if (state === "stopped") return yield* fail("t3code.service is installed but not running");
+    if (state === "stale") {
       return yield* fail(
         "t3code.service PATH lacks the mise shims; rerun ./dotfiles apply and restart the service",
       );
@@ -120,7 +128,17 @@ export const installT3Service = Effect.fn("installT3Service")(function* (
     }
   }
   if (check) return;
-  if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
+  if (present) {
+    yield* Console.log(`T3 Code service present: ${unit}`);
+    // Apply never restarts T3 itself: that would drop connected sessions,
+    // including one running this apply. Surface the stale environment instead.
+    if (platform === "linux" && (yield* linuxServicePath(home)) === "stale") {
+      yield* Console.warn(
+        "t3code.service still runs with the old PATH; after finishing active T3 work run: systemctl --user restart t3code.service",
+      );
+    }
+    return;
+  }
   yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
   const install = yield* runner.run("t3", ["service", "install", "--base-dir", baseDir], {
     output: "inherit",

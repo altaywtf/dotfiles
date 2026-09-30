@@ -1,7 +1,13 @@
+import { NodeServices } from "@effect/platform-node";
+import { Effect, Fiber } from "effect";
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "vite-plus/test";
+import { CommandRunner } from "../../lib/command.ts";
 
-import { applyManagedSettings } from "./config.ts";
+import { alignPinnedBinary, applyManagedSettings } from "./config.ts";
 
 function table(contents: string, name: string): string[] {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -127,4 +133,49 @@ test("quoted table names are recognized", () => {
   const updated = applyManagedSettings('["ui"]\ntheme = "groknight"\n');
   assert.equal(updated.match(/^\[/gm)?.length, 5);
   assert.match(updated, /^\["ui"\]\ntheme = "groknight"\npermission_mode = "auto"$/m);
+});
+
+test("escaped quoted table names are decoded before matching", () => {
+  const updated = applyManagedSettings('["\\u0075i"]\ntheme = "groknight"\n');
+  assert.equal(updated.match(/^\[/gm)?.length, 5);
+  assert.match(updated, /^\["\\u0075i"\]\ntheme = "groknight"\npermission_mode = "auto"$/m);
+});
+
+test("malformed configuration is refused rather than rewritten", () => {
+  assert.throws(
+    () => applyManagedSettings('[ui]\npermission_mode = [\ntheme = "groknight"\n'),
+    /Grok config is not valid TOML at line \d+/,
+  );
+});
+
+test("an interrupted restage puts the previous Grok link back", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-grok-align-"));
+  context.onTestFinished(() => rmSync(root, { force: true, recursive: true }));
+  const installDir = join(root, "pin");
+  mkdirSync(join(installDir, "node_modules/@xai-official/grok"), { recursive: true });
+  writeFileSync(
+    join(installDir, "node_modules/@xai-official/grok/package.json"),
+    JSON.stringify({ version: "2.0.0" }),
+  );
+  const grokHome = join(root, "grok");
+  mkdirSync(join(grokHome, "bin"), { recursive: true });
+  symlinkSync("grok-1.0.0", join(grokHome, "bin/grok"));
+  let launched!: () => void;
+  const launching = new Promise<void>((resolve) => (launched = resolve));
+  const runner = CommandRunner.of({
+    run: (command) => {
+      if (command === "mise")
+        return Effect.succeed({ status: 0, stdout: `${installDir}\n`, stderr: "" });
+      return Effect.sync(launched).pipe(Effect.andThen(Effect.never));
+    },
+  });
+  const fiber = Effect.runFork(
+    alignPinnedBinary(grokHome).pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
+  await launching;
+  await Effect.runPromise(Fiber.interrupt(fiber));
+  assert.equal(readlinkSync(join(grokHome, "bin/grok")), "grok-1.0.0");
 });

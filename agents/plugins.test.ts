@@ -557,6 +557,21 @@ test("rejects a conflicting plugin definition across selected layers", () => {
   assert.equal(harnessCalls(runtime, "claude").length, 0);
 });
 
+test("rejects one marketplace registered under different ids across layers", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "personal", [
+    { marketplace: "fixture/shared-market", marketplaceId: "other-id", name: "third-plugin" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-workstation" });
+
+  assert.equal(main([], runtime), 1);
+  assert.match(
+    runtime.stderr.value,
+    /fixture\/shared-market is registered as both shared-market and other-id/,
+  );
+  assert.equal(harnessCalls(runtime, "claude").length, 0);
+});
+
 test("collapses an identical plugin selected by more than one layer", () => {
   const { repoDir, home } = createFixture();
   writeManifest(repoDir, "personal", fixtureSharedPlugins);

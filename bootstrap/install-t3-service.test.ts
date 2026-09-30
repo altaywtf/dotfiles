@@ -145,6 +145,26 @@ test("opt-in tolerates unrelated lines and CRLF", async () => {
   assert.deepEqual(f.calls, []);
 });
 
+for (const optIn of ['T3_SERVICE="1"\n', "T3_SERVICE='1'\n", "  T3_SERVICE=1 \n"]) {
+  test(`opt-in accepts quoted and indented assignments (${JSON.stringify(optIn)})`, async () => {
+    const f = fixture({ optIn });
+    await assert.rejects(f.run(true, "darwin"), /not installed/);
+  });
+}
+
+test("opt-in is read from DEVBOX_CONFIG when set", async () => {
+  const original = process.env.DEVBOX_CONFIG;
+  process.env.DEVBOX_CONFIG = "/etc/alternate/devbox.env";
+  try {
+    const f = fixture();
+    await assert.rejects(f.run(true, "darwin"), /not installed/);
+    assert.deepEqual(f.reads, ["/etc/alternate/devbox.env"]);
+  } finally {
+    if (original === undefined) delete process.env.DEVBOX_CONFIG;
+    else process.env.DEVBOX_CONFIG = original;
+  }
+});
+
 test("checking a missing installation fails without installing", async () => {
   const f = fixture();
   await assert.rejects(f.run(true), /not installed/);
@@ -161,7 +181,24 @@ test("existing macOS service is accepted without starting or replacing it", asyn
 test("existing Linux service still requires lingering without reinstalling", async () => {
   const f = fixture({ present: true });
   await f.run();
-  assert.deepEqual(f.calls, [["loginctl", "show-user", "1000", "--property=Linger", "--value"]]);
+  assert.deepEqual(f.calls, [
+    ["loginctl", "show-user", "1000", "--property=Linger", "--value"],
+    ["systemctl", "--user", "show", "-p", "MainPID", "--value", "t3code.service"],
+  ]);
+});
+
+test("apply warns about a running Linux service with a stale PATH without restarting it", async () => {
+  const f = fixture({ present: true, environ: "PATH=/usr/bin\0" });
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...values: unknown[]) => warnings.push(values.map(String).join(" "));
+  try {
+    await f.run();
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.match(warnings.join("\n"), /old PATH.*systemctl --user restart t3code\.service/);
+  assert.ok(f.calls.every((call) => !call.includes("restart") && call[0] !== "t3"));
 });
 
 for (const present of [false, true]) {

@@ -206,6 +206,18 @@ export function readLayeredPlugins(
     pluginRef,
     (ref) => `Invalid layered plugins: ${ref} is defined more than once`,
   );
+  // Marketplace registration is planned once per repository, so every plugin
+  // from one repository must install against the same registered id.
+  const marketplaceIds = new Map<string, string>();
+  for (const plugin of plugins) {
+    const known = marketplaceIds.get(plugin.marketplace);
+    if (known !== undefined && known !== plugin.marketplaceId) {
+      throw new Error(
+        `Invalid layered plugins: ${plugin.marketplace} is registered as both ${known} and ${plugin.marketplaceId}`,
+      );
+    }
+    marketplaceIds.set(plugin.marketplace, plugin.marketplaceId);
+  }
   return { layers, plugins };
 }
 

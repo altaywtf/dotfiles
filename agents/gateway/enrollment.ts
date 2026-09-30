@@ -417,7 +417,12 @@ export async function configureGateway(
         env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
       });
       if (result.status !== 0 || result.stdout.trim().length === 0) {
-        const detail = result.stderr.trim() || `exit ${result.status ?? "unknown"} without output`;
+        const detail = result.error
+          ? result.error.message
+          : result.stderr.trim() ||
+            (result.signal
+              ? `killed by ${result.signal}`
+              : `exit ${result.status ?? "unknown"} without output`);
         throw new Error(`${kind} credential helper failed: ${detail}`);
       }
     }

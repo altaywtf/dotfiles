@@ -147,7 +147,7 @@ export const trustTaps = Effect.fn("trustHomebrewTaps")(function* (
   for (const file of files) {
     const contents = yield* fs.readFileString(isAbsolute(file) ? file : join(repoRoot, file));
     for (const line of contents.split("\n")) {
-      const tap = /^tap "([^"]+)"/.exec(line)?.[1];
+      const tap = /^\s*tap\s+"([^"]+)"/.exec(line)?.[1];
       if (!tap) continue;
       const trusted = yield* runRaw("brew", ["trust", "--tap", tap]);
       if (trusted.status !== 0) {

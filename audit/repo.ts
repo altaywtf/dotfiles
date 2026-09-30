@@ -117,16 +117,12 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
 // test fixtures that look like credentials. A path that does not decode as
 // UTF-8 fails the listing instead of dropping out of the scan.
 function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | undefined {
-  const listed = command("git", [
-    "-C",
-    repoRoot,
-    "ls-files",
-    "-z",
-    "--cached",
-    "--others",
-    "--exclude-standard",
-  ]);
-  if (listed.error || listed.status !== 0 || listed.stdout.includes("\uFFFD")) return undefined;
+  const listed = command(
+    "git",
+    ["-C", repoRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+    { strictUtf8: true },
+  );
+  if (listed.error || listed.status !== 0) return undefined;
   return listed.stdout
     .split("\0")
     .filter(Boolean)

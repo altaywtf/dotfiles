@@ -7,6 +7,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -279,6 +280,27 @@ test("online refresh replaces an unreadable cache", async (context) => {
     assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
     assert.equal(readFileSync(cache, "utf8"), "## General guidelines\n\nRefreshed rules.\n");
     assert.equal(statSync(cache).mode & 0o777, 0o600);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("refuses a shared-writable or symlinked cache", async () => {
+  const { cache, root } = createFixture();
+  const target = join(root, "foreign-rules.md");
+  writeFileSync(target, originalRules);
+  try {
+    chmodSync(cache, 0o666);
+    await assert.rejects(
+      run(refreshAgentRules(root, cache, { offline: true })),
+      /not an owner-only regular file/,
+    );
+    rmSync(cache);
+    symlinkSync(target, cache);
+    await assert.rejects(
+      run(refreshAgentRules(root, cache, { offline: true })),
+      /not an owner-only regular file/,
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

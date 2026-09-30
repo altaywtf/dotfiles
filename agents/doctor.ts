@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
@@ -208,12 +208,14 @@ const reinstallGrok = "mise install npm:@xai-official/grok; mise reshim";
 // Homebrew cask) can shadow it in a shell or job whose PATH order differs,
 // and a mise shim can dispatch to any provider of grok. A global npm install
 // also shadows the pin through the shim without appearing on PATH. Grok setup
-// aligns ~/.grok/bin/grok with the pin, so that path is managed.
+// aligns ~/.grok/bin/grok with the pin, so that path is managed while it links
+// to the pinned version (mise names install directories by version).
 function grokInstallDrift(runtime: Runtime): Drift[] {
   const home = runtime.env.HOME;
   const drift: Drift[] = [];
   const reported: string[] = [];
   const foreign = (path: string) => {
+    if (reported.includes(path)) return;
     reported.push(path);
     drift.push({
       detail: `grok resolves to ${path}, not the mise pin`,
@@ -241,7 +243,17 @@ function grokInstallDrift(runtime: Runtime): Drift[] {
   const shims = home === undefined ? undefined : `${home}/.local/share/mise/shims/`;
   const staged = home === undefined ? undefined : `${home}/.grok/bin/grok`;
   for (const path of paths) {
-    if (pinned(path) || path === staged) continue;
+    if (pinned(path)) continue;
+    if (path === staged) {
+      const target = capture(runtime, "readlink", [path]).stdout.trim();
+      const expected = pin.length > 0 ? `grok-${basename(pin)}` : undefined;
+      if (expected !== undefined && target === expected) continue;
+      drift.push({
+        detail: `${path} links to ${target || "no staged version"}, not ${expected ?? "the mise pin"}`,
+        repair: "./dotfiles apply",
+      });
+      continue;
+    }
     if (shims === undefined || !path.startsWith(shims)) {
       foreign(path);
       continue;
@@ -312,6 +324,8 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
       writeLine(runtime.stdout, `Skipping ${label}: '${binary}' is not installed`);
       continue;
     }
+    // Every profile installs Grok, so its drift is checked without MCP servers.
+    if (harness === "grok") findings.push(...grokDriftFindings(runtime));
     const chosen = selected(harness);
     if (chosen.length === 0) {
       continue;
@@ -327,7 +341,6 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
         const result = capture(runtime, "grok", ["mcp", "doctor", "--json"]);
         const doctor = parseGrokDoctor(result.stdout);
         findings.push(...chosen.map((server) => grokFinding(server, doctor, result.text)));
-        findings.push(...grokDriftFindings(runtime));
         break;
       }
     }

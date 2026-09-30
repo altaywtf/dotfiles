@@ -13,6 +13,8 @@ export type CommandOptions = {
   input?: "inherit" | "pipe";
   timeoutMs?: number;
   maxBuffer?: number;
+  // Fail instead of substituting U+FFFD for bytes that are not UTF-8.
+  strictUtf8?: boolean;
 };
 export type CommandRunner = (
   command: string,
@@ -27,18 +29,31 @@ export function runCommand(
 ): CommandResult {
   const output = options.output === "discard" ? "ignore" : "pipe";
   const result = spawnSync(command, [...args], {
-    encoding: "utf8",
     stdio: [options.input ?? "inherit", output, output],
     timeout: options.timeoutMs ?? 30_000,
     killSignal: "SIGKILL",
     maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
   });
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-    error: result.error,
-  };
+  const stderr = result.stderr?.toString("utf8") ?? "";
+  if (!options.strictUtf8) {
+    return {
+      status: result.status,
+      stdout: result.stdout?.toString("utf8") ?? "",
+      stderr,
+      error: result.error,
+    };
+  }
+  try {
+    const stdout = new TextDecoder("utf-8", { fatal: true }).decode(result.stdout ?? undefined);
+    return { status: result.status, stdout, stderr, error: result.error };
+  } catch (cause) {
+    return {
+      status: result.status,
+      stdout: "",
+      stderr,
+      error: result.error ?? new Error(`${command} output is not valid UTF-8`, { cause }),
+    };
+  }
 }
 
 export function canAccess(path: string, mode: number): boolean {

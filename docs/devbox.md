@@ -159,9 +159,10 @@ Keep `--base-dir` stable across updates; see the upstream
 ### Refresh a Linux Service's PATH
 
 Applying dotfiles updates the systemd user manager's `PATH`. An already-running
-T3 service keeps its old environment until restarted. If the profile check
-reports missing mise shims after a successful apply, run these commands as the
-service's Unix user from the dotfiles checkout:
+T3 service keeps its old environment until restarted; apply warns about it but
+does not restart the service. After that warning, or when the profile check
+reports missing mise shims, run these commands as the service's Unix user from
+the dotfiles checkout:
 
 ```sh
 systemctl --user restart t3code.service

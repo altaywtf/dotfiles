@@ -58,7 +58,7 @@ done
   );
   writeFileSync(
     join(bin, "curl"),
-    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}.curl"\nwhile [ "$1" != "-o" ]; do shift; done\nprintf 'not the pinned client' > "$2"\n`,
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}.curl"\nwhile [ "$#" -gt 0 ] && [ "$1" != "-o" ]; do shift; done\n[ "$#" -ge 2 ] || { echo "curl fixture: missing -o PATH" >&2; exit 2; }\nprintf 'not the pinned client' > "$2"\n`,
     { mode: 0o700 },
   );
   for (const harness of options.harnesses ?? ["claude", "codex", "grok"])

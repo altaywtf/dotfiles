@@ -299,9 +299,47 @@ test("accepts Grok's pin-aligned staged binary on PATH", () => {
     stdout:
       "$HOME/.local/share/mise/installs/npm-xai-official-grok/1.0.41/bin/grok\n$HOME/.grok/bin/grok\n",
   });
+  replies.set(`readlink ${home}/.grok/bin/grok`, { stdout: "grok-1.0.41\n" });
   const runtime = new FixtureRuntime(repoDir, home, replies);
   assert.equal(main([], runtime), 0);
   assert.doesNotMatch(runtime.stdout.value, /Grok: install/);
+});
+
+test("reports a staged Grok link left on an older version", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("which -a grok", {
+    stdout: "$HOME/.grok/bin/grok\n$HOME/.local/share/mise/shims/grok\n",
+  });
+  replies.set(`readlink ${home}/.grok/bin/grok`, { stdout: "grok-1.0.40\n" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(
+    runtime.stdout.value,
+    /Grok: install - .*\.grok\/bin\/grok links to grok-1\.0\.40, not grok-1\.0\.41/,
+  );
+});
+
+test("reports a foreign Grok once when PATH lists it and a shim resolving to it", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("which -a grok", {
+    stdout: "$HOME/.local/share/mise/shims/grok\n/opt/homebrew/bin/grok\n",
+  });
+  replies.set("mise which grok", { stdout: "/opt/homebrew/bin/grok\n" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.equal(runtime.stdout.value.match(/Grok: install/g)?.length, 1);
+});
+
+test("checks Grok installation drift for profiles without Grok MCP servers", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(join(repoDir, "agents/mcps/developer.json"), JSON.stringify({ servers: [] }));
+  const replies = new Map(healthy);
+  replies.set("which -a grok", { stdout: "/opt/homebrew/bin/grok\n" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stdout.value, /Grok: install - grok resolves to \/opt\/homebrew\/bin\/grok/);
 });
 
 test("reports a global npm Grok once when the shim already resolves to it", () => {

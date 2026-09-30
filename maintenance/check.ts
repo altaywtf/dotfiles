@@ -345,7 +345,7 @@ async function runBrewBacklogProbe(
 ): Promise<ProbeResult> {
   const started = performance.now();
   const refresh = await runProbe(
-    probe("brew_update", "brew", ["update"], () => null),
+    probe("brew_update", "brew", ["update"], () => null, { timeoutMs: 120_000 }),
     context,
     runner,
   );

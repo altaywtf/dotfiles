@@ -1,5 +1,6 @@
 import { Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
+import { parse, TomlError } from "smol-toml";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail } from "../../lib/program.ts";
 
@@ -68,13 +69,35 @@ function scan(contents: string): Line[] {
 
 const isHeader = (line: Line) => !line.open && /^\s*\[/.test(line.code);
 
+// Basic-string escapes TOML shares with JSON decode here; the rest stay
+// encoded and the final TOML validation refuses any duplicate they cause.
+function unquoteKey(part: string): string {
+  if (/^'[^']*'$/.test(part)) return part.slice(1, -1);
+  if (!/^"(?:[^"\\]|\\.)*"$/.test(part)) return part;
+  try {
+    return JSON.parse(part) as string;
+  } catch {
+    return part;
+  }
+}
+
 function headerName(line: Line): string | undefined {
   const match = /^\s*\[([^[\]]+)\]\s*$/.exec(line.code);
   if (line.open || !match) return undefined;
   return match[1]
     .split(".")
-    .map((part) => part.trim().replace(/^"([^"\\]*)"$|^'([^']*)'$/, "$1$2"))
+    .map((part) => unquoteKey(part.trim()))
     .join(".");
+}
+
+// Report only the position: config values may hold credentials.
+function assertToml(contents: string, problem: string): void {
+  try {
+    parse(contents);
+  } catch (error) {
+    const at = error instanceof TomlError ? ` at line ${error.line}, column ${error.column}` : "";
+    throw new Error(`${problem}${at}; fix it by hand, then rerun`);
+  }
 }
 
 function sectionOf(lines: readonly Line[], table: string): [number, number] | undefined {
@@ -143,6 +166,7 @@ const render = (value: boolean | string) =>
   typeof value === "boolean" ? String(value) : JSON.stringify(value);
 
 export function applyManagedSettings(contents: string): string {
+  assertToml(contents, "Grok config is not valid TOML");
   let lines = scan(contents.replace(/\n*$/, ""));
   const appended = new Map<string, string[]>();
   for (const { table, key, value } of MANAGED_SETTINGS) {
@@ -164,7 +188,9 @@ export function applyManagedSettings(contents: string): string {
   const body = lines.map((line) => line.text).join("\n");
   const tables = [...appended].map(([table, entries]) => [`[${table}]`, ...entries].join("\n"));
   const updated = [body, ...tables].filter((part) => part.trim() !== "").join("\n\n");
-  return updated === contents.replace(/\n*$/, "") ? contents : `${updated}\n`;
+  if (updated === contents.replace(/\n*$/, "")) return contents;
+  assertToml(updated, "Grok config cannot take the managed defaults without breaking TOML");
+  return `${updated}\n`;
 }
 
 export const configureGrokDefaults = Effect.fn("configureGrokDefaults")(function* (
@@ -235,10 +261,14 @@ export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokH
   const previous = `${canonical}.previous`;
   yield* fs.remove(previous, { force: true });
   const movedAside = Option.isSome(yield* fs.rename(canonical, previous).pipe(Effect.option));
+  const restore = movedAside
+    ? fs.remove(canonical, { force: true }).pipe(Effect.andThen(fs.rename(previous, canonical)))
+    : Effect.void;
   const launched = yield* runner
     .run(join(installDir, layout.launcher), ["--version"], { env: { GROK_HOME: grokHome } })
     .pipe(
       Effect.catch((error) => Effect.succeed({ status: -1, stdout: "", stderr: error.message })),
+      Effect.onInterrupt(() => Effect.ignore(restore)),
     );
   if (
     launched.status === 0 &&
@@ -247,10 +277,7 @@ export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokH
     yield* fs.remove(previous, { force: true });
     return Option.some(version);
   }
-  if (movedAside) {
-    yield* fs.remove(canonical, { force: true });
-    yield* fs.rename(previous, canonical);
-  }
+  yield* restore;
   return yield* fail(
     `pinned Grok ${version} did not stage (exit ${launched.status}): ${`${launched.stdout}\n${launched.stderr}`.trim()}`,
   );

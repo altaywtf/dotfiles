@@ -166,6 +166,31 @@ const readRequiredFile = Effect.fn("readRequiredAgentRuleFile")(function* (
 const readCachedRules = Effect.fn("readCachedAgentRules")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
   if (!(yield* fs.exists(path))) return Option.none<string>();
+  // Only trust state this account alone could have written, as writeCache creates it.
+  const untrusted = new RuleConfigurationFailure({
+    message: `agent rule cache is not an owner-only regular file: ${path}`,
+  });
+  const symlink = yield* fs.readLink(path).pipe(
+    Effect.as(true),
+    Effect.catch(() => Effect.succeed(false)),
+  );
+  if (symlink) return yield* untrusted;
+  const info = yield* fs
+    .stat(path)
+    .pipe(
+      Effect.mapError(
+        () => new RuleConfigurationFailure({ message: `cannot read agent rule cache: ${path}` }),
+      ),
+    );
+  const uid = process.getuid?.();
+  const owner = Option.getOrUndefined(info.uid);
+  if (
+    info.type !== "File" ||
+    (info.mode & 0o022) !== 0 ||
+    (uid !== undefined && owner !== undefined && owner !== uid)
+  ) {
+    return yield* untrusted;
+  }
   const contents = yield* fs
     .readFileString(path)
     .pipe(

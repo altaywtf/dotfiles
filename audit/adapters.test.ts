@@ -225,10 +225,16 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
 test("linked worktree scan fails closed on paths that do not decode", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
   const scans: Array<readonly string[]> = [];
-  const command: CommandRunner = (name, args) => {
+  const command: CommandRunner = (name, args, options) => {
     if (name === "git" && args.includes("worktree"))
       return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };
-    if (name === "git") return { status: 0, stdout: "tracked.ts\0secret-\uFFFD.env\0", stderr: "" };
+    if (name === "git" && options?.strictUtf8)
+      return {
+        status: 0,
+        stdout: "",
+        stderr: "",
+        error: new Error("git output is not valid UTF-8"),
+      };
     if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
     return { status: 0, stdout: "", stderr: "" };
   };
@@ -249,4 +255,12 @@ test("linked worktree scan fails closed on paths that do not decode", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("strict UTF-8 output keeps a literal U+FFFD and rejects invalid bytes", () => {
+  const valid = runCommand("printf", ["report-�.txt"], { strictUtf8: true });
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.stdout, "report-�.txt");
+  const invalid = runCommand("printf", ["report-\\377.txt"], { strictUtf8: true });
+  assert.match(invalid.error?.message ?? "", /not valid UTF-8/);
 });
