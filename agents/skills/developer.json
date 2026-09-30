@@ -5,24 +5,8 @@
       "source": "mattpocock/skills"
     },
     {
-      "name": "domain-modeling",
-      "source": "mattpocock/skills"
-    },
-    {
-      "name": "effect-ts",
-      "source": "Effect-TS/skills"
-    },
-    {
-      "name": "gh-stack",
-      "source": "github/gh-stack"
-    },
-    {
       "name": "grilling",
       "source": "mattpocock/skills"
-    },
-    {
-      "name": "improve",
-      "source": "shadcn/improve"
     }
   ]
 }
