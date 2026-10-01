@@ -1,7 +1,7 @@
 [tools]
 node = "24.21.0"
 bun = "1.4.2"
-python = "3.14.7"
+python = "3.14.8"
 java = "temurin-25"
 ruby = "4.0.7"
 uv = "0.12.21"
