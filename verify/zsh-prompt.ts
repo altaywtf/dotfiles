@@ -84,6 +84,16 @@ const program = Effect.scoped(
       { HOME: home, PATH: inheritedPath },
       ["-dfc"],
     );
+    const octopoolDirectory = join(home, ".local/share/octopool/bin");
+    yield* fs.makeDirectory(octopoolDirectory, { recursive: true });
+    yield* fs.writeFileString(join(octopoolDirectory, "gh"), "#!/bin/sh\nexit 0\n", {
+      mode: 0o755,
+    });
+    yield* check(
+      '[[ "$(command -v gh)" == "$HOME/.local/share/octopool/bin/gh" ]]',
+      { HOME: home, PATH: inheritedPath, OCTOPOOL_GH_PATH: "/usr/bin/true" },
+      ["-dlc"],
+    );
     const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
     yield* fs.makeDirectory(join(home, ".local/state/dotfiles/updates"), { recursive: true });
     yield* fs.writeFileString(receipt, "{}");
