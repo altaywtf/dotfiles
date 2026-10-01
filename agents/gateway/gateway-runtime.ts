@@ -2,7 +2,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Cause, Console, Effect, FileSystem, Option, Runtime, Schema } from "effect";
 import { accessSync, constants } from "node:fs";
 import { isAbsolute, join } from "node:path";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { parseGatewayConfig } from "./gateway-config.ts";
 
 class GatewayFailure extends Schema.TaggedError<GatewayFailure>()("GatewayFailure", {
