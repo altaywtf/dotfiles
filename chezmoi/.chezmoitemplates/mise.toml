@@ -15,7 +15,7 @@ rust = "1.99.0"
 # Coding agents share one pin on every platform. Cursor keeps its own installer.
 "npm:@openai/codex" = "0.160.0"
 # T3 Code's CLI installs its background service; the service updates itself.
-"npm:t3" = "0.0.44"
+"npm:t3" = "0.0.45"
 "npm:@xai-official/grok" = "1.0.46"
 
 gh = "2.102.0"
