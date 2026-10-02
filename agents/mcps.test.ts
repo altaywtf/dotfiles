@@ -169,6 +169,7 @@ test("adds each server through the upsert CLIs", () => {
     "mcp add shared-mcp --url https://mcp.fixture.test/mcp",
   ]);
   assert.deepEqual(harnessCalls(runtime, "grok"), [
+    "mcp list --json",
     "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
   ]);
   assert.match(runtime.stdout.value, /MCP layers: developer, workstation/);
@@ -234,6 +235,36 @@ test("skips a Codex server whose URL already matches", () => {
   assert.equal(main([], runtime), 0);
   assert.deepEqual(harnessCalls(runtime, "codex"), ["mcp get shared-mcp"]);
   assert.match(runtime.stdout.value, /Codex: shared-mcp is already configured/);
+});
+
+function grokList(enabled: boolean): string {
+  return JSON.stringify([
+    { url: "https://mcp.fixture.test/mcp", enabled, name: "shared-mcp", scope: "user" },
+  ]);
+}
+
+test("skips an enabled Grok server whose URL already matches", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: new Map([["grok mcp list --json", grokList(true)]]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "grok"), ["mcp list --json"]);
+  assert.match(runtime.stdout.value, /Grok: shared-mcp is already configured/);
+});
+
+test("re-adds a disabled Grok server so the upsert enables it", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: new Map([["grok mcp list --json", grokList(false)]]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "grok"), [
+    "mcp list --json",
+    "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
+  ]);
 });
 
 test("downgrades a Codex add whose config landed before its login step failed", () => {
