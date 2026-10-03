@@ -145,7 +145,14 @@ function privately<T>(update: () => T): T {
 export function converge(repo: string, lockOptions: LockOptions = {}, home = homedir()): void {
   const release = acquireCheckoutLock(repo, lockOptions);
   try {
-    const revision = syncCheckout(repo);
+    let revision: string;
+    try {
+      revision = syncCheckout(repo);
+    } catch (error) {
+      if (!(error instanceof LocalWork)) throw error;
+      console.warn(`Kept ${repo}: ${error.message}; convergence skipped`);
+      return;
+    }
     const failed: string[] = [];
     for (const checkout of ruleSourceCheckouts(home, repo)) {
       try {

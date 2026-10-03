@@ -85,6 +85,25 @@ for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diver
   });
 }
 
+test("local work in the dotfiles checkout skips convergence with a warning", (t) => {
+  const { repo, advance } = fixture(t);
+  advance();
+  writeFileSync(join(repo, "policy"), "local\n");
+  git(repo, "commit", "-am", "local work");
+  const before = git(repo, "rev-parse", "HEAD");
+  const warnings: unknown[][] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warnings.push(args);
+  try {
+    converge(repo, {}, join(repo, "no-home"));
+  } finally {
+    console.warn = warn;
+  }
+  assert.match(String(warnings[0]?.[0]), /not on origin\/main; convergence skipped/);
+  assert.equal(git(repo, "rev-parse", "HEAD"), before);
+  assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
+});
+
 test("failed fetch preserves the checkout and a held lock prevents a second updater", (t) => {
   const { repo, upstream } = fixture(t);
   const before = git(repo, "rev-parse", "HEAD");
