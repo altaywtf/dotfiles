@@ -17,14 +17,6 @@
       "source": "putdotio/agent-skills"
     },
     {
-      "name": "uinaf-dev",
-      "source": "altaywtf/agent-skills"
-    },
-    {
-      "name": "uinaf-intake",
-      "source": "altaywtf/agent-skills"
-    },
-    {
       "name": "zebroid-fleet",
       "source": "altaywtf/agent-skills"
     }
