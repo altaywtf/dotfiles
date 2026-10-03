@@ -73,7 +73,26 @@ const dockHasOnlyChrome = Effect.fn("dockHasOnlyChrome")(function* () {
   const bundleCount = result.stdout.match(/"bundle-identifier"/g)?.length ?? 0;
   const chromeCount =
     result.stdout.match(/"bundle-identifier" = "com\.google\.Chrome"/g)?.length ?? 0;
-  return bundleCount === 1 && chromeCount === 1;
+  if (bundleCount !== 1 || chromeCount !== 1) return false;
+  // `defaults read` prints a string "15" and an integer 15 identically; the Dock
+  // only resolves the integer and shows a question mark otherwise.
+  const exported = yield* runner.run("defaults", ["export", "com.apple.dock", "-"]);
+  if (exported.status !== 0) return false;
+  const urlType = yield* runner.run(
+    "plutil",
+    [
+      "-extract",
+      "persistent-apps.0.tile-data.file-data._CFURLStringType",
+      "raw",
+      "-expect",
+      "integer",
+      "-o",
+      "-",
+      "-",
+    ],
+    { stdin: new TextEncoder().encode(exported.stdout) },
+  );
+  return urlType.status === 0 && urlType.stdout.trim() === "15";
 });
 
 const dockArrayIsEmpty = Effect.fn("dockArrayIsEmpty")(function* (key: string) {
@@ -134,17 +153,20 @@ const program = Effect.gen(function* () {
     "com.apple.dock",
     "persistent-apps",
     "-array",
-    `{
-  "tile-data" = {
-    "bundle-identifier" = "com.google.Chrome";
-    "file-data" = {
-      "_CFURLString" = "file:///Applications/Google%20Chrome.app/";
-      "_CFURLStringType" = 15;
-    };
-    "file-label" = "Google Chrome";
-  };
-  "tile-type" = "file-tile";
-}`,
+    // XML keeps _CFURLStringType an integer; the old-style plist syntax makes it a string.
+    `<dict>
+  <key>tile-data</key>
+  <dict>
+    <key>bundle-identifier</key><string>com.google.Chrome</string>
+    <key>file-data</key>
+    <dict>
+      <key>_CFURLString</key><string>file:///Applications/Google%20Chrome.app/</string>
+      <key>_CFURLStringType</key><integer>15</integer>
+    </dict>
+    <key>file-label</key><string>Google Chrome</string>
+  </dict>
+  <key>tile-type</key><string>file-tile</string>
+</dict>`,
   ]);
   yield* writeDefault(["com.apple.dock", "persistent-others", "-array"]);
   yield* writeDefault(["com.apple.dock", "recent-apps", "-array"]);
