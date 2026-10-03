@@ -1,12 +1,7 @@
-{{ $profile := includeTemplate "profile" . | fromJson -}}
 {{ includeTemplate "mise.toml" . }}
 {{- /* The per-OS file repeats the [tools] header so Renovate can parse it alone; drop it here. */}}
 {{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate (printf "%s/mise.toml" .chezmoi.os) .) "" }}
 {{ includeTemplate "mise-tasks.toml" . }}
-{{ if $profile.capabilities.personal -}}
-[env]
-_.path = [{{ printf "%s/octopool/bin" (env "XDG_DATA_HOME" | default (printf "%s/.local/share" .chezmoi.homeDir)) | quote }}]
-{{ end }}
 [settings]
 node.npm_shim = false
 idiomatic_version_file_enable_tools = ["java", "rust"]
