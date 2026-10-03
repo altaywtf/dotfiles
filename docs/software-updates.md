@@ -48,7 +48,10 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 
 - [Convergence](../maintenance/converge.ts) requires a clean default
   branch tracking `origin`, with no local commits or unfinished Git operations.
-  Dirty, ahead, detached, or diverged checkouts retain local work and fail.
+  Dirty, ahead, detached, or diverged checkouts retain local work, skip
+  convergence with a warning, and do not fail the step, so in-progress edits
+  send no alert. Nothing reports a checkout that stays held back; push or
+  discard local work.
 - [Local rule fragments](agents.md#global-rules) that link into another Git
   checkout are fetched, then fast-forwarded only when clean. Local changes,
   another branch, local commits, or an unfinished Git operation keep the
