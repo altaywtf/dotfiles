@@ -21,10 +21,3 @@ if [[ ! -o interactive ]] && command -v mise >/dev/null 2>&1; then
   path=("$mise_shims" ${path:#$mise_shims})
   unset mise_shims
 fi
-
-# Keep an explicitly installed Octopool shim ahead of mise after login PATH edits.
-octopool_shim_dir="${XDG_DATA_HOME:-$HOME/.local/share}/octopool/bin"
-if [ -n "${OCTOPOOL_GH_PATH:-}" ] && [ -x "$octopool_shim_dir/gh" ]; then
-  path=("$octopool_shim_dir" ${path:#$octopool_shim_dir})
-fi
-unset octopool_shim_dir

@@ -60,28 +60,6 @@ node verify/home-fixture.ts
   changes selected defaults while preserving other fields, including `env`.
   Provider routing belongs to the [gateway configurator](devbox.md#opt-in-coding-llm-gateway).
 
-## Personal GitHub Relay
-
-Personal macOS profiles install [Octopool](https://github.com/openclaw/octopool)
-from the personal Brewfile. Log in separately on each machine with that user's
-existing GitHub identity:
-
-```zsh
-octopool login
-OCTOPOOL_GH_PATH="$(mise which gh)" octopool install-shim
-```
-
-Move the installer's marked `octopool gh shim` block from `~/.zshenv` into
-`~/.config/dotfiles/zshenv.local` (mode `0600`), preserving any existing local
-exports. Chezmoi leaves that override alone. The managed login shell and personal
-mise configuration keep Octopool ahead of mise's `gh` in every shell mode.
-Run the installer again after replacing the pinned native `gh`, then move its
-updated block into the override. Keep the login file and machine-specific binary
-path outside Git.
-
-Verify with `octopool whoami`, `octopool health`, and
-`zsh -lc 'command -v gh'`; the last command should resolve to the Octopool shim.
-
 ## Source Boundaries
 
 - Keep private identities, host data, credentials, and local overrides out of Git.
