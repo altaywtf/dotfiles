@@ -56,6 +56,7 @@ are shared by synchronization and read-only inventory.
 
 ## Verify and Deliver
 
-- Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery.
+- Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery. Pick focused checks by domain from [checks.json](verify/checks.json); docs-only changes need no live profile checks or audits.
 - Run live checks only on the matching host and user. PR CI runs the deterministic checks on macOS and Ubuntu; a successful push workflow proves release evaluation, not verification.
-- Update the owning doc when behavior changes. Use proper-case headings and sentence-case prose; keep configuration facts in their source owners.
+- A push to `main` rolls out: machines with the [scheduled updater](docs/software-updates.md#dotfiles-convergence) fast-forward a clean checkout and apply their profile, without rollback. The release job tags a version per [.releaserc.json](.releaserc.json).
+- Use proper-case headings and sentence-case prose; keep configuration facts in their source owners.
