@@ -1,6 +1,6 @@
 [tools]
 # See darwin/mise.toml for why Claude Code uses GitHub releases.
-"github:anthropics/claude-code" = { version = "2.1.288", matching_regex = "^claude-linux-(arm64|x64)\\.tar\\.gz$" }
+"github:anthropics/claude-code" = { version = "2.1.289", matching_regex = "^claude-linux-(arm64|x64)\\.tar\\.gz$" }
 # btop has no macOS release asset; Homebrew supplies it there.
 btop = "1.4.7"
 "github:uinaf/ffss" = { version = "4.2.0", version_prefix = "slopguard/v", matching_regex = "^slopguard_v.*_linux_(amd64|arm64)\\.tar\\.gz$" }
