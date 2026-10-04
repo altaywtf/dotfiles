@@ -16,7 +16,7 @@
     "smol-toml": "1.9.0"
   },
   "devDependencies": {
-    "@types/node": "24.13.6",
+    "@types/node": "24.19.0",
     "esbuild": "0.28.2",
     "knip": "6.38.0",
     "typescript": "7.0.2",
