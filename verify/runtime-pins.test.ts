@@ -82,7 +82,7 @@ test("mise and Renovate agree on CLI age exemptions without exempting runtimes o
   );
   assert.ok(cliRule);
   assert.deepEqual(mise.minimum_release_age_excludes, cliRule.matchDepNames);
-  assert.equal(mise.minimum_release_age, "24h");
+  assert.equal(mise.minimum_release_age, "3d");
   assert.equal(cliRule.minimumReleaseAge, null);
   assert.deepEqual(cliRule.matchUpdateTypes, ["patch", "minor", "pin"]);
   for (const tool of [

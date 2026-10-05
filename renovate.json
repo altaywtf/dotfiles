@@ -9,15 +9,13 @@
       "allowedVersions": "10.2.1"
     },
     {
-      "description": "Keep CI, bootstrap, and installed Node on the same release; follow patch and minor after one day",
+      "description": "Keep CI, bootstrap, and installed Node on the same release",
       "matchPackageNames": ["node"],
       "groupName": "Node.js",
-      "rangeStrategy": "bump",
-      "minimumReleaseAge": "1 day",
-      "schedule": ["at any time"]
+      "rangeStrategy": "bump"
     },
     {
-      "description": "Stable CLI patch and minor pins have no release-age delay; runtime and package-manager gates stay separate",
+      "description": "Harness and stable CLI patch and minor pins have no release age; every other pin keeps the shared three-day gate",
       "matchManagers": ["mise"],
       "matchDepNames": [
         "npm:@openai/codex",
@@ -50,13 +48,6 @@
       "description": "Keep repository and installed pnpm together in one push",
       "matchPackageNames": ["pnpm"],
       "groupName": "pnpm"
-    },
-    {
-      "description": "Tools pinned outside mise follow patch, minor, and digest updates after one day, like mise pins in the shared preset; repository libraries and semantic-release keep the seven-day gate",
-      "matchDepNames": ["npm", "jdx/mise", "https://github.com/ohmyzsh/ohmyzsh"],
-      "matchUpdateTypes": ["patch", "minor", "digest"],
-      "minimumReleaseAge": "1 day",
-      "schedule": ["at any time"]
     },
     {
       "description": "Keep PyYAML install and live verification together",

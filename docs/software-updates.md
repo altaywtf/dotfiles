@@ -274,7 +274,7 @@ current use before stopping anything. Linux is unsupported.
 
 The [Renovate rules](../renovate.json) and
 [mise settings](../chezmoi/private_dot_config/mise/config.toml.tmpl) exempt the
-same CLI tools from the 24-hour release-age gate; runtime pins keep it, and a new
+same CLI tools from the three-day release-age gate; runtime pins keep it, and a new
 tool needs an explicit choice. Required CI still gates merges. `mise latest`
 reports a version; it does not advance an exact template pin or install an update.
 

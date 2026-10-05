@@ -6,8 +6,8 @@
 node.npm_shim = false
 idiomatic_version_file_enable_tools = ["java", "rust"]
 trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees", "~/.t3/worktrees"]
-# Keep the default age gate for runtimes, package managers, and held tools.
-minimum_release_age = "24h"
+# Match the shared three-day Renovate gate for runtimes, package managers, and held tools.
+minimum_release_age = "3d"
 minimum_release_age_excludes = [
   "npm:@openai/codex",
   "npm:@xai-official/grok",
