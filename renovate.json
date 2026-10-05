@@ -17,13 +17,6 @@
       "schedule": ["at any time"]
     },
     {
-      "description": "Mise toolchain pins can follow patch and minor after one day; majors stay on the shared gate",
-      "matchManagers": ["mise"],
-      "matchUpdateTypes": ["patch", "minor", "pin"],
-      "minimumReleaseAge": "1 day",
-      "schedule": ["at any time"]
-    },
-    {
       "description": "Stable CLI patch and minor pins have no release-age delay; runtime and package-manager gates stay separate",
       "matchManagers": ["mise"],
       "matchDepNames": [
@@ -59,8 +52,8 @@
       "groupName": "pnpm"
     },
     {
-      "description": "Package managers and pinned tool revisions follow patch, minor, and digest updates after one day in every manager, so grouped pins age together; repository libraries and semantic-release keep the shared seven-day gate",
-      "matchDepNames": ["pnpm", "npm", "jdx/mise", "https://github.com/ohmyzsh/ohmyzsh"],
+      "description": "Tools pinned outside mise follow patch, minor, and digest updates after one day, like mise pins in the shared preset; repository libraries and semantic-release keep the seven-day gate",
+      "matchDepNames": ["npm", "jdx/mise", "https://github.com/ohmyzsh/ohmyzsh"],
       "matchUpdateTypes": ["patch", "minor", "digest"],
       "minimumReleaseAge": "1 day",
       "schedule": ["at any time"]
