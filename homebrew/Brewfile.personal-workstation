@@ -1,3 +1,5 @@
+tap "basecamp/tap", trusted: true
+
 # App Store automation
 brew "mas"
 
@@ -14,6 +16,7 @@ cask "proxyman"
 cask "signal"
 cask "telegram"
 cask "zoom"
+cask "basecamp/tap/hey"
 
 # Agent tools
 cask "uinaf/tap/slopwake"
