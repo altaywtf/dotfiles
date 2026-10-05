@@ -4,11 +4,6 @@
   "platformAutomerge": true,
   "packageRules": [
     {
-      "description": "Hold Playwright CLI until publishing provenance is restored",
-      "matchPackageNames": ["@playwright/cli"],
-      "allowedVersions": "0.1.18"
-    },
-    {
       "description": "Hold the changelog preset for release-notes-generator 14; newer presets require writer 9 and must be upgraded together",
       "matchPackageNames": ["conventional-changelog-conventionalcommits"],
       "allowedVersions": "10.2.1"
