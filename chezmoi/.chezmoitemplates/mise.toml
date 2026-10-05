@@ -6,7 +6,7 @@ java = "temurin-25"
 ruby = "4.0.7"
 uv = "0.12.23"
 go = "1.27.1"
-pnpm = "12.6.0"
+pnpm = "12.7.0"
 # rustup-managed toolchain. mise honors a repository's rust-toolchain.toml only
 # because "rust" is in idiomatic_version_file_enable_tools in config.toml.tmpl.
 rust = "1.99.0"
