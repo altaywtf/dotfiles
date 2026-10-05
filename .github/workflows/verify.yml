@@ -71,7 +71,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
-          MISE_VERSION: "v2026.9.15"
+          MISE_VERSION: "v2026.10.1"
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"

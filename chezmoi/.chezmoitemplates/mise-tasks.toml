@@ -3,6 +3,6 @@
 [tasks."dotfiles:runtime-packages"]
 description = "Converge packages inside the managed runtimes"
 run = [
-  "npm install --global npm@12.1.0",
+  "npm install --global npm@12.2.0",
   "python -m pip install --disable-pip-version-check PyYAML==6.0.3",
 ]
