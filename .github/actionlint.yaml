@@ -3,3 +3,8 @@ self-hosted-runner:
   labels:
     - ubuntu-26.04
     - ubuntu-26.04-arm
+paths:
+  # actionlint 1.7.12 rejects the concurrency `queue` key; drop once a release knows it.
+  "**/.github/workflows/verify.yml":
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
