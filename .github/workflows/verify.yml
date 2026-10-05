@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: verify-${{ github.workflow }}-${{ github.ref }}
+      group: verify-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
