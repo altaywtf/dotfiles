@@ -71,7 +71,7 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 
 ## Host Hygiene
 
-[Hygiene](../maintenance/hygiene.ts) coordinates scheduled cleanup.
+[Hygiene](../maintenance/hygiene.ts) coordinates scheduled cleanup, due every three days.
 [Repository cleanup](../maintenance/repositories.ts) owns discovery, eligibility,
 grace periods, and removal revalidation. Preview before deleting anything:
 
@@ -99,6 +99,10 @@ git config --local --unset dotfiles.hygiene # include it again
   and age thresholds. It preserves project sources and persistent container
   data; review the preview for the current targets. Shared Homebrew cleanup
   belongs to its prefix owner.
+- The sweep also deletes Git-ignored, `CACHEDIR.TAG`-tagged Cargo `target/`
+  and SwiftPM `.build/` directories at checkout roots under agent worktrees
+  and `~/projects` once nothing in them changed for three days, open pull
+  requests included. The next build is cold.
 - The sweep permanently deletes aged Codex session history under `CODEX_HOME`
   when set; preview before applying. Codex config, skills, memories, plugins,
   worktrees, and databases are never swept. A pruned session can still be

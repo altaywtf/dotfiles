@@ -37,7 +37,7 @@ test("applied hygiene retains successive reports when stdout is not redirected",
   assert.equal(log.match(/Cache cleanup is not due/g)?.length, 2);
   assert.equal(statSync(path).mode & 0o777, 0o600);
   await hygiene(home, true, true, now + 2);
-  assert.equal(readFileSync(path, "utf8"), log, "weekly skips do not append");
+  assert.equal(readFileSync(path, "utf8"), log, "skipped runs do not append");
 });
 test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-state-")));
@@ -56,7 +56,7 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
     };
     writeFileSync(statePath, JSON.stringify(valid));
     assert.deepEqual(readState(statePath), { state: valid, recovered: false });
-    // A directory at the state path is neither missing nor undecodable JSON: it must not bypass the weekly gate.
+    // A directory at the state path is neither missing nor undecodable JSON: it must not bypass the scheduled interval.
     const directoryPath = join(root, "state-directory.json");
     mkdirSync(directoryPath);
     assert.throws(() => readState(directoryPath), { code: "EISDIR" });

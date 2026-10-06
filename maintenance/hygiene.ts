@@ -14,7 +14,7 @@ import { cleanRepository, discoverRepositories, openFiles } from "./repositories
 
 type Entry = { target: string; result: string };
 
-const week = 7 * 86400_000;
+const interval = 3 * 86400_000;
 const State = Schema.Struct({
   lastRun: Schema.Number,
   lastCache: Schema.Number,
@@ -32,7 +32,7 @@ export function readState(statePath: string): { state: State; recovered: boolean
   } catch (error) {
     // Only a missing file is an empty state. Any other read failure (EACCES,
     // EIO, EISDIR) must not silently restart grace periods or bypass the
-    // weekly gate, so it propagates and fails the run.
+    // scheduled interval, so it propagates and fails the run.
     if ((error as NodeJS.ErrnoException).code === "ENOENT")
       return { state: empty, recovered: false };
     throw error;
@@ -64,8 +64,8 @@ export async function hygiene(
     console.error(
       `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}`,
     );
-  if (scheduled && now >= state.lastRun && now - state.lastRun < week) {
-    console.log("Host hygiene: next weekly run is not due.");
+  if (scheduled && now >= state.lastRun && now - state.lastRun < interval) {
+    console.log("Host hygiene: next run is not due.");
     return;
   }
   mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -99,7 +99,7 @@ export async function hygiene(
         ];
       }
     }
-    const cacheDue = !scheduled || now - state.lastCache >= week;
+    const cacheDue = !scheduled || now - state.lastCache >= interval;
     const cache = cacheDue
       ? await Effect.runPromise(
           cacheCleanup(home, apply).pipe(

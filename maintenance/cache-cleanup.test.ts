@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, utimes, symlink, readFile, rm, access } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { test, type TestContext } from "vite-plus/test";
 import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
@@ -51,7 +52,8 @@ async function fixture(t: TestContext) {
               return options.spawnFailure
                 ? Effect.fail(new CommandError({ command, message: "fixture spawn failure" }))
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
-            if (command === "find") return live.run("/usr/bin/find", args, commandOptions);
+            if (command === "find" || command === "git")
+              return live.run(`/usr/bin/${command}`, args, commandOptions);
             return Effect.succeed({
               status: options.probeFailure && (args[0] === "info" || args[0] === "--find") ? 1 : 0,
               stdout:
@@ -251,3 +253,53 @@ for (const value of ["", "relative-codex"]) {
     await assert.rejects(access(fallback), { code: "ENOENT" });
   });
 }
+
+test("idle tagged build output at checkout roots is swept; active, untagged, tracked, nested, and environment trees stay", async (t) => {
+  const f = await fixture(t);
+  const tag = "Signature: 8a477f597d28d172789f06886806bc55\n";
+  const repo = async (relative: string) => {
+    const path = join(f.home, relative);
+    await mkdir(path, { recursive: true });
+    execFileSync("/usr/bin/git", ["init", "-q", path]);
+    await writeFile(join(path, ".gitignore"), "target/\n.venv/\n");
+    return path;
+  };
+  const build = async (relative: string, days: number, tagged = true) => {
+    const artifact = await f.file(`${relative}/debug/deps/libcrate.rlib`, days);
+    if (tagged) await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
+    const when = new Date(Date.now() - days * 86400_000);
+    for (const path of [
+      `${relative}/CACHEDIR.TAG`,
+      `${relative}/debug/deps`,
+      `${relative}/debug`,
+      relative,
+    ])
+      await utimes(join(f.home, path), when, when).catch(() => undefined);
+    return artifact;
+  };
+  await repo(".t3/worktrees/pnpm/review");
+  await repo("projects/org/active");
+  await repo("projects/org/untagged");
+  await mkdir(join(f.home, "projects/org/tracked"), { recursive: true });
+  execFileSync("/usr/bin/git", ["init", "-q", join(f.home, "projects/org/tracked")]);
+  const idle = await build(".t3/worktrees/pnpm/review/target", 10);
+  await repo("projects/org/python");
+  await repo("projects/org/nested");
+  const kept = await Promise.all([
+    build("projects/org/active/target", 1),
+    build("projects/org/python/.venv", 10),
+    build("projects/org/nested/Tuist/target", 10),
+    build("projects/org/untagged/target", 10, false),
+    build("projects/org/tracked/target", 10),
+  ]);
+  const dry = await f.run(false);
+  assert.equal(dry.status, 0);
+  assert.match(dry.stdout, /idle for 3 days: .*review\/target\n/);
+  await Promise.all([idle, ...kept].map((path) => access(path)));
+  assert.equal((await f.run(true)).status, 0);
+  await assert.rejects(access(join(f.home, ".t3/worktrees/pnpm/review/target")), {
+    code: "ENOENT",
+  });
+  await access(join(f.home, ".t3/worktrees/pnpm/review/.gitignore"));
+  await Promise.all(kept.map((path) => access(path)));
+});

@@ -1,5 +1,5 @@
 import { DateTime, Effect, FileSystem, Option } from "effect";
-import { isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { commandAvailable } from "../lib/command-available.ts";
 import { CommandRunner } from "../lib/command.ts";
 
@@ -24,6 +24,17 @@ const codexCaches = [
   ["visualizations", 30, undefined],
   [".tmp", 7, "*.lock"],
 ] as const;
+
+// Build output declares itself regenerable with a CACHEDIR.TAG
+// (https://bford.info/cachedir/), as Cargo's target/ does. One idle build tree
+// per agent worktree reached hundreds of gigabytes before any PR merged, so the
+// sweep does not wait for worktree removal. Other tools tag live environments
+// too (uv virtualenvs, Tuist dependencies), so only Cargo and SwiftPM output at
+// a checkout root qualifies, and only when Git confirms the path is ignored.
+const buildRoots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees", "projects"];
+const buildNames = new Set(["target", ".build"]);
+const buildIdleDays = 3;
+const cacheTagSignature = "Signature: 8a477f597d28d172789f06886806bc55";
 
 // Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
 // same tree Codex writes to. Empty and relative values fall back rather than
@@ -113,6 +124,73 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       if (apply)
         yield* checked("find", [path, "-mindepth", "1", "-type", "d", "-empty", "-delete"]);
       else lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
+    }
+    const builds: string[] = [];
+    for (const relative of buildRoots) {
+      const root = join(home, relative);
+      const info = yield* fs.stat(root).pipe(Effect.option);
+      if (Option.isNone(info) || info.value.type !== "Directory") continue;
+      const found = yield* checked("find", [
+        root,
+        "-maxdepth",
+        "5",
+        "(",
+        "-name",
+        "node_modules",
+        "-o",
+        "-name",
+        ".git",
+        ")",
+        "-prune",
+        "-o",
+        "-type",
+        "f",
+        "-name",
+        "CACHEDIR.TAG",
+        "-print0",
+      ]);
+      for (const marker of found.stdout.split("\0").filter(Boolean)) {
+        const tag = yield* fs.readFileString(marker).pipe(Effect.option);
+        const directory = dirname(marker);
+        if (
+          Option.isSome(tag) &&
+          tag.value.startsWith(cacheTagSignature) &&
+          buildNames.has(basename(directory)) &&
+          (yield* fs.exists(join(dirname(directory), ".git")))
+        )
+          builds.push(directory);
+      }
+    }
+    const removed: string[] = [];
+    for (const directory of builds.sort()) {
+      if (removed.some((parent) => directory.startsWith(`${parent}/`))) continue;
+      const ignored = yield* command("git", [
+        "-C",
+        dirname(directory),
+        "check-ignore",
+        "-q",
+        basename(directory),
+      ]);
+      if (ignored.status !== 0) continue;
+      const recent = yield* checked("find", [
+        directory,
+        "-mtime",
+        `-${buildIdleDays}`,
+        "-print",
+        "-quit",
+      ]);
+      if (recent.status !== 0 || recent.stdout !== "") continue;
+      removed.push(directory);
+      yield* log(`remove build output idle for ${buildIdleDays} days: ${directory}`);
+      if (!apply) continue;
+      yield* fs.remove(directory, { recursive: true }).pipe(
+        Effect.catch(() =>
+          Effect.gen(function* () {
+            failed = true;
+            yield* log(`warning: failed to remove ${directory}`);
+          }),
+        ),
+      );
     }
     if (
       (yield* commandAvailable("xcrun")) &&
