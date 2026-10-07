@@ -169,12 +169,6 @@
       "output": "Standalone Effect gateway adapters, ACP framing and lifecycle, credential isolation, provider routing, check, and exact rollback"
     },
     {
-      "id": "hindsight",
-      "domain": "agents",
-      "command": ["pnpm", "exec", "vp", "test", "bootstrap/configure-hindsight.test.ts"],
-      "output": "Hindsight runtime freshness, per-harness MCP wiring, and machine-local server configuration"
-    },
-    {
       "id": "agent-rule-sources",
       "domain": "agents",
       "command": ["pnpm", "exec", "vp", "test", "agents/rules.test.ts"],

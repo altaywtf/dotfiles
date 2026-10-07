@@ -266,7 +266,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
     "configure-codex.ts",
     "configure-grok.ts",
     "configure-llm-gateway.ts",
-    "configure-hindsight.ts",
   ])
     stub(join(root, "bootstrap", name), name);
   for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
@@ -311,7 +310,6 @@ for (const failure of [false, true]) {
       assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^sync.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^mcps.ts --profile personal-devbox$/m);
-      assert.match(steps, /^configure-hindsight.ts --check$/m);
     }
   });
 }

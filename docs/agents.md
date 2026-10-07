@@ -180,50 +180,6 @@ Doctor also reports Grok installation drift: any `grok` on `PATH` other than
 the mise pin, a mise shim that dispatches elsewhere, or a global npm install.
 Review its repair command before removing a conflicting installation.
 
-## Hindsight Memory
-
-Personal profiles run `configure-hindsight` after agent sync.
-[Hindsight setup](../agents/hindsight.ts) keeps the
-`@vectorize-io/hindsight-coding-agents` runtime at the published version and
-wires every installed managed harness through the upstream installer, which
-rewrites only its own hook and MCP entries. The runtime's own `autoUpdate`
-re-stages code but never rewires hosts; a harness whose MCP entry lacks
-`HINDSIGHT_MCP_HARNESS` fails its handshake, so the step reinstalls whenever the
-version or that wiring drifts. Daily maintenance repeats the step.
-
-When a published release lacks a fix, `CLIENT_OVERRIDE` in that file pins a
-build of it: the step downloads the tarball, checks its SHA-256, and installs
-it instead while npm still publishes the release it patches. The first newer
-release replaces it; delete the override then.
-
-The server endpoint and token stay in owner-only `~/.hindsight/coding-agent.json`;
-setup requires them and never writes them. Each machine gets its own token from
-the owning private system; never copy one machine's token to another, so a
-single machine can be rotated or revoked alone. To rotate, replace `apiToken`
-in that file; restart running sessions so their MCP servers reload it.
-
-A directory whose repositories belong to another tenant gets a
-`paths.<prefix>` entry with that tenant's `apiToken` (and `apiUrl` if it
-differs); the runtime applies it to every repository under the prefix, and the
-longest prefix wins. Setup never writes the file.
-Provision a new machine once:
-
-```zsh
-umask 077
-npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
-  --server self-hosted --api-url URL
-chmod 600 ~/.hindsight/coding-agent.json
-```
-
-Set `apiToken` in that file using a private local editor, keeping the other
-settings. Passing the token through `--api-token` exposes it in process
-arguments. Then wire the managed harnesses and check the result:
-
-```zsh
-./bootstrap/configure-hindsight.ts
-./bootstrap/configure-hindsight.ts --check
-```
-
 ## Verify
 
 The `agents` domain covers harness settings, gateways, rules, skills, plugins,

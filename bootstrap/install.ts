@@ -78,9 +78,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
       return yield* execute(step, bootstrap("configure-llm-gateway.ts"), [
         maintenance ? "--maintenance" : "--setup",
       ]);
-    case "configure-hindsight":
-      yield* execute(step, bootstrap("configure-hindsight.ts"), []);
-      return yield* execute(`${step} check`, bootstrap("configure-hindsight.ts"), ["--check"]);
     case "sync-agents":
       for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
         yield* execute(`${step} ${name}`, resolve(repoRoot, "agents", name), [
