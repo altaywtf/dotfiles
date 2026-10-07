@@ -41,6 +41,7 @@ test("system updates keep packages and tools in one headless owner job", async (
       assert.equal(plist.EnvironmentVariables.HOMEBREW_NO_AUTO_UPDATE, "1");
       assert.equal(plist.EnvironmentVariables.HOMEBREW_NO_INSTALL_CLEANUP, "1");
       assert.equal(plist.EnvironmentVariables.HOMEBREW_NO_UPGRADE_QUIT_CASKS, "1");
+      assert.equal(plist.EnvironmentVariables.HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS, "1");
       assert.equal(plist.RunAtLoad, true);
       assert.equal(plist.KeepAlive, false);
       assert.equal(plist.SessionCreate, true);

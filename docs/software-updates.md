@@ -36,8 +36,9 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
   processes can overlap it; check for idle before interactive work.
 - No sudo credentials or interactive input are supplied. Privileged installers
-  may require an operator run. Homebrew is told not to quit running casks;
-  vendor installers can still disrupt apps.
+  may require an operator run. Scheduled jobs explicitly leave self-updating
+  casks to their vendor updaters and prevent Homebrew from quitting running
+  casks; vendor installers can still disrupt apps.
 - OS installation, reboots, machine provisioning, identity enrollment, and
   remote services remain separate operations.
 - Full Xcode follows [the declared pin](../chezmoi/.chezmoidata/xcode.json).
@@ -246,8 +247,12 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
   cached applicability, live-scan decisions, and incomplete/timed-out probes.
   On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
   inventories remain.
-- Coding-agent version probes include the user's managed `~/.local/bin` wrappers
-  and mise shims even in noninteractive SSH sessions.
+- Coding-agent version probes, including T3 Code, use the user's managed
+  `~/.local/bin` wrappers and mise shims even in noninteractive SSH sessions.
+- Mise convergence compares the shared and platform template pins with the
+  global configuration and installed tools. Unapplied pins and missing
+  installations remain pending even when `mise outdated` reports no updates;
+  failed inspection makes the snapshot incomplete.
 - Homebrew cask receipts are compared with installed bundle versions from
   `brew info --json=v2`. Exact target matches appear under `record_lag` and do
   not count toward the backlog. Mismatches remain pending; missing app versions

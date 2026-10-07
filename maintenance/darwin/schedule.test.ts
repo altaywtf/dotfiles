@@ -515,6 +515,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
         "--yes",
       ]);
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_UPGRADE_QUIT_CASKS, "1");
+      assert.equal(job.EnvironmentVariables.HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS, "1");
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_INSTALL_CLEANUP, "1");
       assert.equal(job.EnvironmentVariables.GIT_TERMINAL_PROMPT, "0");
       assert.ok(

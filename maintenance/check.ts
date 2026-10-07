@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { parse as parseToml } from "smol-toml";
 import { Effect, Schema } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
@@ -83,6 +84,75 @@ function parseNpmBacklog(contents: string): Record<string, unknown> {
     if (Schema.is(NpmBacklog)(value)) return value;
   } catch {}
   throw new Error("npm returned an invalid update inventory");
+}
+
+const MiseConfig = Schema.Struct({
+  tools: Schema.Record(
+    Schema.String,
+    Schema.Union([Schema.NonEmptyString, Schema.Struct({ version: Schema.NonEmptyString })]),
+  ),
+});
+const MiseInstallInventory = Schema.Record(
+  Schema.String,
+  Schema.Array(
+    Schema.Struct({
+      version: Schema.NonEmptyString,
+      requested_version: Schema.NonEmptyString,
+      installed: Schema.Boolean,
+    }),
+  ),
+);
+
+function misePins(path: string): Record<string, string> {
+  try {
+    const config = Schema.decodeUnknownSync(MiseConfig)(parseToml(readFileSync(path, "utf8")));
+    return Object.fromEntries(
+      Object.entries(config.tools).map(([tool, pin]) => [
+        tool,
+        typeof pin === "string" ? pin : pin.version,
+      ]),
+    );
+  } catch (cause) {
+    throw new Error(`cannot inspect mise pins in ${path}`, { cause });
+  }
+}
+
+function miseConvergence(context: MaintenanceContext, result: RawCommandResult) {
+  const templates = join(context.repoRoot, "chezmoi/.chezmoitemplates");
+  const declared = {
+    ...misePins(join(templates, "mise.toml")),
+    ...misePins(join(templates, context.platform, "mise.toml")),
+  };
+  const configured = misePins(
+    context.env.MISE_GLOBAL_CONFIG_FILE ||
+      join(context.env.XDG_CONFIG_HOME || join(context.home, ".config"), "mise/config.toml"),
+  );
+  let inventory: typeof MiseInstallInventory.Type;
+  try {
+    inventory = Schema.decodeUnknownSync(MiseInstallInventory)(JSON.parse(result.stdout));
+  } catch (cause) {
+    throw new Error("mise returned an invalid installed pin inventory", { cause });
+  }
+  const pending: Record<
+    string,
+    { declared: string; configured: string | null; current: string | null; installed: boolean }
+  > = {};
+  for (const [tool, pin] of Object.entries(declared)) {
+    const selection = inventory[tool]?.find(
+      (entry) => entry.requested_version === configured[tool],
+    );
+    if (configured[tool] && !selection)
+      throw new Error(`mise did not report the configured installation of ${tool}`);
+    if (configured[tool] !== pin || !selection?.installed) {
+      pending[tool] = {
+        declared: pin,
+        configured: configured[tool] ?? null,
+        current: selection?.version ?? null,
+        installed: selection?.installed ?? false,
+      };
+    }
+  }
+  return pending;
 }
 
 function parseBrewItem(value: unknown): BrewItem {
@@ -206,6 +276,7 @@ function agentProbes(context: MaintenanceContext): Probe[] {
   ];
   if (profile.capabilities.personal && profile.capabilities.workstation)
     versions.push(["grok", "grok", ["--version"]]);
+  if (profile.installSteps.includes("install-runtimes")) versions.push(["t3", "t3", ["--version"]]);
   const env = {
     PATH: [
       join(context.home, ".local/bin"),
@@ -249,6 +320,13 @@ function skillFacts(context: MaintenanceContext) {
 function buildProbes(context: MaintenanceContext): Probe[] {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
   const probes: Probe[] = [
+    probe(
+      "mise_convergence",
+      "mise",
+      ["ls", "--json", "--current"],
+      (result) => miseConvergence(context, result),
+      { env: { DOTFILES_CHECKOUT: context.home } },
+    ),
     probe(
       "mise_outdated",
       "mise",
@@ -394,10 +472,14 @@ function backlogCount(probes: Record<string, ProbeResult>): number {
     count += Array.isArray(brew.formulae) ? brew.formulae.length : 0;
     count += Array.isArray(brew.casks) ? brew.casks.length : 0;
   }
-  for (const id of ["mise_outdated", "npm_outdated"]) {
+  const misePending = new Set<string>();
+  for (const id of ["mise_outdated", "mise_convergence"]) {
     const value = probes[id]?.value;
-    if (isRecord(value)) count += Object.keys(value).length;
+    if (isRecord(value)) for (const tool of Object.keys(value)) misePending.add(tool);
   }
+  count += misePending.size;
+  const npm = probes.npm_outdated?.value;
+  if (isRecord(npm)) count += Object.keys(npm).length;
   const mas = probes.mas_outdated?.value;
   if (Array.isArray(mas)) count += mas.length;
   return count;

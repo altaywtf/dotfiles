@@ -6,7 +6,8 @@ import { Effect, Exit } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { test } from "vite-plus/test";
+import { afterAll, test } from "vite-plus/test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 
 import type { ProfileConfig } from "../profiles/model.ts";
 import {
@@ -30,17 +31,33 @@ const profileConfig = {
   installSteps: ["apply-dotfiles", "install-runtimes", "install-repository-dependencies"],
 } as const satisfies ProfileConfig;
 
+const emptyMiseRoot = mkdtempSync(join(tmpdir(), "maintenance-empty-mise-"));
+for (const directory of [
+  "chezmoi/.chezmoitemplates/linux",
+  "chezmoi/.chezmoitemplates/darwin",
+  ".config/mise",
+])
+  mkdirSync(join(emptyMiseRoot, directory), { recursive: true });
+for (const file of [
+  "chezmoi/.chezmoitemplates/mise.toml",
+  "chezmoi/.chezmoitemplates/linux/mise.toml",
+  "chezmoi/.chezmoitemplates/darwin/mise.toml",
+  ".config/mise/config.toml",
+])
+  writeFileSync(join(emptyMiseRoot, file), "[tools]\n");
+afterAll(() => rm(emptyMiseRoot, { recursive: true, force: true }));
+
 function context(): MaintenanceContext {
   return {
-    cwd: "/fixture/repo",
-    env: { HOME: "/fixture/home", USER: "fixture" },
-    home: "/fixture/home",
+    cwd: emptyMiseRoot,
+    env: { HOME: emptyMiseRoot, USER: "fixture" },
+    home: emptyMiseRoot,
     hostname: "fixture-host",
     ownsHomebrew: false,
     platform: "linux",
     profile: "workstation",
     profileConfig,
-    repoRoot: "/fixture/repo",
+    repoRoot: emptyMiseRoot,
     user: "fixture",
     fresh: false,
     verify: false,
@@ -69,7 +86,9 @@ test("single-owner Darwin devboxes retain the service probe without shared Homeb
       return result("");
     },
   );
-  assert.ok(calls.some((call) => call.includes("/fixture/repo/verify/darwin/devbox-services.ts")));
+  assert.ok(
+    calls.some((call) => call.includes(join(emptyMiseRoot, "verify/darwin/devbox-services.ts"))),
+  );
 });
 
 test("Homebrew backlog parsing keeps exact installed and current versions", () => {
@@ -570,3 +589,173 @@ for (const inventoryAvailable of [true, false]) {
     assert.equal(snapshot.summary.backlog_count, inventoryAvailable ? 2 : 4);
   });
 }
+
+async function pinContext() {
+  const root = await mkdtemp(join(tmpdir(), "maintenance-mise-pins-"));
+  await mkdir(join(root, "chezmoi/.chezmoitemplates/linux"), { recursive: true });
+  await mkdir(join(root, ".config/mise"), { recursive: true });
+  await writeFile(join(root, "chezmoi/.chezmoitemplates/mise.toml"), '[tools]\nnode = "24.21.0"\n');
+  await writeFile(
+    join(root, "chezmoi/.chezmoitemplates/linux/mise.toml"),
+    '[tools]\n"github:anthropics/claude-code" = { version = "2.1.292", matching_regex = "^claude-linux-arm64" }\n',
+  );
+  await writeFile(
+    join(root, ".config/mise/config.toml"),
+    '[tools]\nnode = "24.21.0"\n"github:anthropics/claude-code" = { version = "2.1.291" }\n',
+  );
+  return {
+    ...context(),
+    cwd: root,
+    repoRoot: root,
+    home: root,
+    env: { HOME: root },
+    profileConfig: {
+      ...profileConfig,
+      agentLayers: [],
+      capabilities: { ...profileConfig.capabilities, workstation: false },
+    },
+  };
+}
+
+const pinnedInstall = {
+  node: [{ version: "24.21.0", requested_version: "24.21.0", installed: true }],
+  "github:anthropics/claude-code": [
+    { version: "2.1.291", requested_version: "2.1.291", installed: true },
+  ],
+};
+
+test("source pin changes remain pending even when the installed mise catalog reports no updates", async (t) => {
+  const fixture = await pinContext();
+  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args, options) => {
+    if (command === "mise" && args[0] === "ls") {
+      assert.equal(options.cwd, fixture.home);
+      return result(JSON.stringify(pinnedInstall));
+    }
+    return result("{}");
+  });
+  assert.equal(snapshot.summary.status, "attention");
+  assert.equal(snapshot.summary.backlog_count, 1);
+  assert.deepEqual(snapshot.probes.mise_convergence.value, {
+    "github:anthropics/claude-code": {
+      declared: "2.1.292",
+      configured: "2.1.291",
+      current: "2.1.291",
+      installed: true,
+    },
+  });
+});
+
+test("missing declared installations count once alongside upstream availability", async (t) => {
+  const fixture = await pinContext();
+  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+  await writeFile(
+    join(fixture.home, ".config/mise/config.toml"),
+    '[tools]\nnode = "24.21.0"\n"github:anthropics/claude-code" = "2.1.292"\n',
+  );
+  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) => {
+    if (command === "mise" && args[0] === "ls")
+      return result(
+        JSON.stringify({
+          ...pinnedInstall,
+          "github:anthropics/claude-code": [
+            { version: "2.1.292", requested_version: "2.1.292", installed: false },
+          ],
+        }),
+      );
+    if (command === "mise")
+      return result(
+        JSON.stringify({
+          "github:anthropics/claude-code": { current: "2.1.291", latest: "2.1.292" },
+        }),
+      );
+    return result("{}");
+  });
+  assert.equal(snapshot.summary.status, "attention");
+  assert.equal(snapshot.summary.backlog_count, 1);
+  assert.deepEqual(snapshot.probes.mise_convergence.value, {
+    "github:anthropics/claude-code": {
+      declared: "2.1.292",
+      configured: "2.1.292",
+      current: "2.1.292",
+      installed: false,
+    },
+  });
+});
+
+test("unavailable, failed, absent and malformed installed pin inspections remain incomplete", async (t) => {
+  const fixture = await pinContext();
+  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+  for (const inspection of [
+    { ...result("", 127), error: Object.assign(new Error("missing"), { code: "ENOENT" }) },
+    result("", 1),
+    result("private malformed inspection"),
+    result("{}"),
+    result(JSON.stringify({ node: [{ version: 24, installed: true }] })),
+  ]) {
+    const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) =>
+      command === "mise" && args[0] === "ls" ? inspection : result("{}"),
+    );
+    assert.equal(snapshot.summary.status, "incomplete");
+    assert.notEqual(snapshot.probes.mise_convergence.status, "ok");
+    assert.doesNotMatch(
+      snapshot.probes.mise_convergence.error ?? "",
+      /private malformed inspection/,
+    );
+  }
+  await rm(join(fixture.repoRoot, "chezmoi/.chezmoitemplates/linux/mise.toml"));
+  const snapshot = await collectMaintenanceSnapshot(fixture, async () =>
+    result(JSON.stringify(pinnedInstall)),
+  );
+  assert.equal(snapshot.summary.status, "incomplete");
+  assert.equal(snapshot.probes.mise_convergence.status, "failed");
+});
+
+test("T3 CLI version uses the same managed executable path as the other harness probes", async () => {
+  const snapshot = await collectMaintenanceSnapshot(
+    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
+    async (command, args, options) => {
+      if (command === "t3") {
+        assert.deepEqual(args, ["--version"]);
+        assert.ok(options.env.PATH?.startsWith(join(context().home, ".local/bin")));
+        return result("t3 v0.0.45\n");
+      }
+      return result("{}");
+    },
+  );
+  assert.equal(snapshot.probes.version_t3?.value, "t3 v0.0.45");
+});
+
+test("converged runtime selectors and source pins do not invent an upgrade", async (t) => {
+  const fixture = await pinContext();
+  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+  await writeFile(
+    join(fixture.repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
+    '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n',
+  );
+  await writeFile(
+    join(fixture.home, ".config/mise/config.toml"),
+    '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n"github:anthropics/claude-code" = "2.1.292"\n',
+  );
+  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) => {
+    if (command === "mise" && args[0] === "ls")
+      return result(
+        JSON.stringify({
+          ...pinnedInstall,
+          java: [
+            {
+              requested_version: "temurin-25",
+              version: "temurin-25.0.4+101.0.LTS",
+              installed: true,
+            },
+          ],
+          "github:anthropics/claude-code": [
+            { requested_version: "2.1.292", version: "2.1.292", installed: true },
+          ],
+        }),
+      );
+    return result("{}");
+  });
+  assert.equal(snapshot.summary.status, "clean");
+  assert.deepEqual(snapshot.probes.mise_convergence.value, {});
+});
