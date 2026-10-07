@@ -2,5 +2,5 @@
 # Claude Code comes from its GitHub release: the npm package fetches its native
 # binary in a postinstall that mise's npm backend does not run. The GitHub backend selects the
 # architecture from the assets the regex leaves.
-"github:anthropics/claude-code" = { version = "2.1.291", matching_regex = "^claude-darwin-(arm64|x64)\\.tar\\.gz$" }
+"github:anthropics/claude-code" = { version = "2.1.292", matching_regex = "^claude-darwin-(arm64|x64)\\.tar\\.gz$" }
 xcodegen = "2.46.0"
