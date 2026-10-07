@@ -169,7 +169,7 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
         ? "~/.grok/config.toml does not parse: " + syntax.replace(/^.*syntax errors: /, "")
         : "mcp doctor produced no JSON",
       repair: syntax
-        ? "fix ~/.grok/config.toml (duplicate Hindsight block?), then mise run agents:sync"
+        ? "fix ~/.grok/config.toml (duplicate table?), then mise run agents:sync"
         : "grok mcp doctor",
     };
   }

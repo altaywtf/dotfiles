@@ -13,7 +13,7 @@ afterEach(() => {
 
 test("reads the url of the named server from config.toml", () => {
   const toml = [
-    "[mcp_servers.hindsight]",
+    "[mcp_servers.local-mcp]",
     'command = "node"',
     "",
     "[mcp_servers.remote-mcp]",
@@ -22,7 +22,7 @@ test("reads the url of the named server from config.toml", () => {
     "",
   ].join("\n");
   assert.equal(serverUrlFromConfig(toml, "remote-mcp"), "https://executor.example/mcp");
-  assert.equal(serverUrlFromConfig(toml, "hindsight"), undefined);
+  assert.equal(serverUrlFromConfig(toml, "local-mcp"), undefined);
   assert.equal(serverUrlFromConfig(toml, "missing"), undefined);
 });
 

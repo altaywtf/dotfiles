@@ -53,8 +53,7 @@
           "configure-codex",
           "configure-llm-gateway",
           "configure-grok",
-          "sync-agents",
-          "configure-hindsight"
+          "sync-agents"
         ]
       },
       "personal-devbox": {
@@ -81,7 +80,6 @@
           "configure-llm-gateway",
           "configure-grok",
           "sync-agents",
-          "configure-hindsight",
           "install-t3-service"
         ]
       },

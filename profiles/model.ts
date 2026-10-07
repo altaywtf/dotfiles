@@ -20,7 +20,6 @@ const InstallStep = Schema.Literals([
   "configure-codex",
   "configure-grok",
   "configure-llm-gateway",
-  "configure-hindsight",
   "sync-agents",
 ]);
 const ProfileConfig = Schema.Struct({

@@ -96,9 +96,8 @@ before using Git updates or contribution commands.
 ## Apply a Profile
 
 Before applying a `devbox` or personal profile, provision the owner-only
-[LLM gateway config](devbox.md#opt-in-coding-llm-gateway); personal profiles
-also need the [Hindsight server config](agents.md#hindsight-memory). Setup
-preserves saved coding-client logins.
+[LLM gateway config](devbox.md#opt-in-coding-llm-gateway). Setup preserves
+saved coding-client logins.
 
 ```zsh
 profile=workstation # choose your profile

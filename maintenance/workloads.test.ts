@@ -22,7 +22,7 @@ test("workload classification needs specific evidence and never emits argv", asy
 23 1 24-02:00:00 /bin/node /app/long-running.js
 24 1 00:01 /bin/postgres -D /opt/postgres/latest/data
 25 1 00:01 /bin/node /app/server.js --socket /tmp/app.sock --token=unrelated-test-value
-26 1 00:01 /bin/postgres -D /Users/example/.pg0/instances/hindsight-test/data
+26 1 00:01 /bin/postgres -D /Users/example/.pg0/instances/app-test/data
 27 1 00:01 /bin/bun /private/tmp/executor-family.x/apps/cli/src/main.ts daemon run
 28 1 00:01 /bin/node /tmp/server.js --token=unrelated-test-value
 `),
