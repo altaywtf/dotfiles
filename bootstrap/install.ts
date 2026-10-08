@@ -20,7 +20,7 @@ Applies per-user dotfiles and runs only the setup steps owned by the selected
 role. An existing ~/.config/dotfiles/profile is used when --profile is omitted;
 a different --profile needs --switch-profile to replace it.
 --maintenance also installs declared packages and updates agent assets, preserving
-Codex, Claude, and Grok logins. Bifrost enrollment preserves unrelated credentials.`;
+Codex, Claude, and Grok logins.`;
 
 const execute = Effect.fn("executeInstallCommand")(function* (
   label: string,

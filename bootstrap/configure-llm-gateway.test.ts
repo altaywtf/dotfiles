@@ -51,12 +51,8 @@ for (const configExisted of [false, true]) {
           gatewayConfig,
           JSON.stringify({
             version: validConfig.version,
-            credentials: {
-              gatewai: validConfig.credentials.gatewai,
-              bifrost: validConfig.credentials.bifrost,
-            },
+            credentials: validConfig.credentials,
             gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
-            bifrostBaseUrl: validConfig.bifrostBaseUrl,
             grokBin,
           }),
           { mode: 0o600 },
@@ -170,23 +166,10 @@ test("gateway config is strict and provider edits use command-backed Responses a
   );
   assert.ok(
     edits.some(
-      (edit) => edit.keyPath === "model_providers.bifrost.name" && edit.value === "Bifrost",
-    ),
-  );
-  assert.ok(
-    edits.some(
       (edit) =>
         edit.keyPath === "model_providers.gatewai.auth.args" &&
         Array.isArray(edit.value) &&
         edit.value[0] === "gatewai",
-    ),
-  );
-  assert.ok(
-    edits.some(
-      (edit) =>
-        edit.keyPath === "model_providers.bifrost.auth.args" &&
-        Array.isArray(edit.value) &&
-        edit.value[0] === "bifrost",
     ),
   );
   assert.equal(
@@ -305,7 +288,6 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.match(appliedCodex, /model_provider = "gatewai"/);
       assert.match(appliedCodex, /supports_websockets = true/);
       assert.match(appliedCodex, /X-OpenAI-Actor-Authorization = "local-proxy"/);
-      assert.match(appliedCodex, /\[model_providers\.bifrost\]/);
       assert.match(appliedCodex, /forced_login_method = "chatgpt"/);
       const appliedClaude = JSON.parse(readFileSync(claudeSettingsPath, "utf8")) as {
         apiKeyHelper: string;
@@ -322,16 +304,6 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(appliedClaude.permissions.defaultMode, "auto");
       assert.equal(appliedClaude.theme, "dark");
       assert.equal(statSync(claudeSettingsPath).mode & 0o777, 0o600);
-      const bifrostCredential = spawnSync(
-        join(home, ".local/libexec/dotfiles/llm-gateway-credential"),
-        ["bifrost"],
-        {
-          encoding: "utf8",
-          env,
-        },
-      );
-      assert.equal(bifrostCredential.status, 0, bifrostCredential.stderr);
-      assert.equal(bifrostCredential.stdout.trim(), validConfig.credentials.bifrost);
 
       const second = run("--maintenance");
       assert.equal(second.status, 0, second.stderr);
@@ -392,7 +364,7 @@ rm -f "$HOME/.claude/.credentials.json"
 );
 
 test(
-  "Gatewai-only enrollment supports apply, maintenance, check and rollback",
+  "maintenance drops retired Bifrost settings from an existing enrollment",
   { skip: !codexInstalled },
   () => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-gatewai-only-"));
@@ -402,14 +374,30 @@ test(
       const configPath = join(home, ".config/dotfiles/llm-gateway.json");
       mkdirSync(dirname(configPath), { recursive: true });
       mkdirSync(codexHome, { recursive: true });
-      const original = 'model = "gpt-6-astra"\n';
+      const original = [
+        'model = "gpt-6-astra"',
+        "",
+        "[model_providers.bifrost]",
+        'name = "Bifrost"',
+        'base_url = "https://bifrost.example/v1"',
+        'wire_api = "responses"',
+        "",
+        "[model_providers.bifrost.auth]",
+        'command = "/bin/echo"',
+        'args = ["bifrost"]',
+        "",
+      ].join("\n");
       writeFileSync(join(codexHome, "config.toml"), original, { mode: 0o600 });
       writeFileSync(
         configPath,
         JSON.stringify({
           version: 3,
-          credentials: { gatewai: validConfig.credentials.gatewai },
+          credentials: {
+            gatewai: validConfig.credentials.gatewai,
+            bifrost: "sk-bf-11111111-1111-4111-8111-111111111111",
+          },
           gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+          bifrostBaseUrl: "https://bifrost.example/v1",
         }),
         { mode: 0o600 },
       );
@@ -426,6 +414,7 @@ test(
       const codex = readFileSync(join(codexHome, "config.toml"), "utf8");
       assert.match(codex, /model_provider = "gatewai"/);
       assert.doesNotMatch(codex, /bifrost/);
+      assert.doesNotMatch(readFileSync(configPath, "utf8"), /bifrost/);
       const helper = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
       const gatewai = spawnSync(helper, ["gatewai"], { encoding: "utf8", env });
       assert.equal(gatewai.status, 0, gatewai.stderr);
@@ -433,7 +422,7 @@ test(
       const missing = spawnSync(helper, ["bifrost"], { encoding: "utf8", env });
       assert.notEqual(missing.status, 0);
       assert.equal(missing.stdout, "");
-      assert.match(missing.stderr, /missing resolved bifrost credential/);
+      assert.match(missing.stderr, /usage: llm-gateway-credential gatewai/);
       const rollback = spawnSync(script, ["--rollback"], { encoding: "utf8", env });
       assert.equal(rollback.status, 0, rollback.stderr);
       assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), original);
@@ -442,23 +431,3 @@ test(
     }
   },
 );
-
-test("Bifrost URL and credential must be supplied together", () => {
-  const only = {
-    version: 3,
-    credentials: { gatewai: validConfig.credentials.gatewai },
-    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
-  };
-  assert.doesNotThrow(() => parseGatewayConfig(JSON.stringify(only)));
-  assert.throws(() =>
-    parseGatewayConfig(JSON.stringify({ ...only, bifrostBaseUrl: validConfig.bifrostBaseUrl })),
-  );
-  assert.throws(() =>
-    parseGatewayConfig(JSON.stringify({ ...only, credentials: validConfig.credentials })),
-  );
-  assert.throws(() =>
-    parseGatewayConfig(
-      JSON.stringify({ ...validConfig, bifrostBaseUrl: "http://bifrost.example/v1" }),
-    ),
-  );
-});

@@ -31,12 +31,8 @@ function fixture(t: TestContext, installedBundles = bundles) {
     writeFileSync(join(installed, name), contents, { mode: 0o700 });
   const config = {
     version: 3,
-    credentials: {
-      gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
-      bifrost: "sk-bf-11111111-1111-4111-8111-111111111111",
-    },
+    credentials: { gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD" },
     gatewaiBaseUrl: "https://gateway.example/v1",
-    bifrostBaseUrl: "https://bifrost.example/v1",
   };
   const configPath = join(home, ".config/dotfiles/llm-gateway.json");
   mkdirSync(dirname(configPath), { recursive: true });
@@ -61,12 +57,10 @@ function fixture(t: TestContext, installedBundles = bundles) {
 test("installed adapters run outside the checkout with no module graph, jq, Python, or Node on PATH", (t) => {
   const f = fixture(t);
   assert.equal(existsSync(join(f.root, "node_modules")), false);
-  for (const kind of ["gatewai", "bifrost"] as const) {
-    const result = f.run("llm-gateway-credential", [kind]);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), f.config.credentials[kind]);
-    assert.equal(result.stderr, "");
-  }
+  const result = f.run("llm-gateway-credential", ["gatewai"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), f.config.credentials.gatewai);
+  assert.equal(result.stderr, "");
   const unknown = f.run("llm-gateway-credential", ["unknown"]);
   assert.notEqual(unknown.status, 0);
   assert.equal(unknown.stdout, "");

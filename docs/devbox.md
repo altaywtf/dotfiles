@@ -70,19 +70,16 @@ and URLs:
 {
   "version": 3,
   "credentials": {
-    "gatewai": "<resolved Gatewai key>",
-    "bifrost": "<resolved Bifrost key>"
+    "gatewai": "<resolved Gatewai key>"
   },
-  "gatewaiBaseUrl": "https://gatewai.example/v1",
-  "bifrostBaseUrl": "https://bifrost.example/v1"
+  "gatewaiBaseUrl": "https://gatewai.example/v1"
 }
 ```
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
-own optional fields and validation. Gatewai-only enrollment omits both
-`credentials.bifrost` and `bifrostBaseUrl`; supplying only one is rejected. It
-configures Codex and Claude through Gatewai without adding a Bifrost provider.
-Existing unrelated provider settings are preserved.
+own optional fields and validation. Enrollment configures Codex and Claude
+through Gatewai and preserves unrelated provider settings. Maintenance drops
+retired Bifrost fields from the gateway config and its Codex provider.
 
 Credentials stay in owner-only configuration or client stores. Enrollment and
 maintenance refuse gateway state other than version 9.

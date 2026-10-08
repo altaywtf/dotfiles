@@ -394,9 +394,6 @@ export async function configureGateway(
       "[model_providers.gatewai.auth]",
       'X-OpenAI-Actor-Authorization = "local-proxy"',
       'args = ["gatewai"]',
-      ...(config.bifrostBaseUrl
-        ? [config.bifrostBaseUrl, "[model_providers.bifrost.auth]", 'args = ["bifrost"]']
-        : []),
     ]) {
       if (!contents.includes(expected)) throw new Error("Codex gateway config drifted");
     }
@@ -410,24 +407,23 @@ export async function configureGateway(
     ) {
       throw new Error("Claude gateway settings drifted");
     }
-    const credentialKinds = config.credentials.bifrost ? ["gatewai", "bifrost"] : ["gatewai"];
-    for (const kind of credentialKinds) {
-      const result = spawnSync(credentialTarget, [kind], {
-        encoding: "utf8",
-        env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
-      });
-      if (result.status !== 0 || result.stdout.trim().length === 0) {
-        const detail = result.error
-          ? result.error.message
-          : result.stderr.trim() ||
-            (result.signal
-              ? `killed by ${result.signal}`
-              : `exit ${result.status ?? "unknown"} without output`);
-        throw new Error(`${kind} credential helper failed: ${detail}`);
-      }
+    if (/^\[model_providers\.bifrost[.\]]/m.test(contents))
+      throw new Error("Codex gateway config still has the retired Bifrost provider");
+    const result = spawnSync(credentialTarget, ["gatewai"], {
+      encoding: "utf8",
+      env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
+    });
+    if (result.status !== 0 || result.stdout.trim().length === 0) {
+      const detail = result.error
+        ? result.error.message
+        : result.stderr.trim() ||
+          (result.signal
+            ? `killed by ${result.signal}`
+            : `exit ${result.status ?? "unknown"} without output`);
+      throw new Error(`gatewai credential helper failed: ${detail}`);
     }
     process.stdout.write(
-      `ok ${credentialKinds.join("/")} config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
+      `ok gatewai config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
     );
     return;
   }

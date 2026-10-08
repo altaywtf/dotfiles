@@ -61,12 +61,9 @@ export const replaceProcess = Effect.fn("replaceGatewayProcess")(function* (
 });
 
 export const credential = Effect.fn("gatewayCredential")(function* (kind: string, home: string) {
-  if (kind !== "gatewai" && kind !== "bifrost")
-    return yield* failure("usage: llm-gateway-credential bifrost|gatewai");
+  if (kind !== "gatewai") return yield* failure("usage: llm-gateway-credential gatewai");
   const { config } = yield* readGateway(home);
-  const value = config.credentials[kind];
-  if (!value) return yield* failure(`missing resolved ${kind} credential in gateway config`);
-  return value;
+  return config.credentials.gatewai;
 });
 
 export function main(

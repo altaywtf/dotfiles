@@ -47,10 +47,8 @@ test(
           version: 3,
           credentials: {
             gatewai: validConfig.credentials.gatewai,
-            bifrost: validConfig.credentials.bifrost,
           },
           gatewaiBaseUrl: "https://gatewai.example/v1",
-          bifrostBaseUrl: "https://bifrost.example/v1",
           grokBin,
         })}\n`,
         { mode: 0o600 },
@@ -184,10 +182,8 @@ test(
         version: 3,
         credentials: {
           gatewai: validConfig.credentials.gatewai,
-          bifrost: validConfig.credentials.bifrost,
         },
         gatewaiBaseUrl: "https://gatewai.example/v1",
-        bifrostBaseUrl: "https://bifrost.example/v1",
         ...(grok ? { grokBin } : {}),
       })}\n`;
 

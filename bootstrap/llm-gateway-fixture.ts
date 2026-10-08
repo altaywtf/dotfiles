@@ -14,10 +14,6 @@ export function fixturePath(bin: string): string {
 
 export const validConfig = {
   version: 3 as const,
-  credentials: {
-    gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
-    bifrost: "sk-bf-11111111-1111-4111-8111-111111111111",
-  },
+  credentials: { gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD" },
   gatewaiBaseUrl: "https://gatewai.example/v1",
-  bifrostBaseUrl: "https://bifrost.example/v1",
 };
