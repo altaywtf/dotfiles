@@ -180,10 +180,10 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 4.0.0
-        version: 4.0.0(effect@4.0.0)(redis@6.2.1)
+        version: 4.0.0(effect@4.0.1)(redis@6.2.1)
       effect:
-        specifier: 4.0.0
-        version: 4.0.0
+        specifier: 4.0.1
+        version: 4.0.1
       smol-toml:
         specifier: 1.9.0
         version: 1.9.0
@@ -1468,8 +1468,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  effect@4.0.0:
-    resolution: {integrity: sha512-ooc1TG5t+FfzgYnFz2ff6BBKyZ7EwBRVXC7c4RhQUAD6/TZ2gTXXMeb4WX7a19ozQo4J73/QW+S00YAIresoMQ==}
+  effect@4.0.1:
+    resolution: {integrity: sha512-b1VlQG9g8fwxE5QnIZuPoOP/0MsqHJSRKxUijjoM80E5q95FXrX5yWtY5XI8G+GJsBQAVSDbLS458z9a++uVvw==}
 
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
@@ -1884,19 +1884,19 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@effect/platform-node-shared@4.0.0(effect@4.0.0)':
+  '@effect/platform-node-shared@4.0.0(effect@4.0.1)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0
+      effect: 4.0.1
       ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0(effect@4.0.0)(redis@6.2.1)':
+  '@effect/platform-node@4.0.0(effect@4.0.1)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0(effect@4.0.0)
-      effect: 4.0.0
+      '@effect/platform-node-shared': 4.0.0(effect@4.0.1)
+      effect: 4.0.1
       redis: 6.2.1
       undici: 8.11.2
     transitivePeerDependencies:
@@ -2608,7 +2608,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  effect@4.0.0: {}
+  effect@4.0.1: {}
 
   es-module-lexer@2.3.2: {}
 
