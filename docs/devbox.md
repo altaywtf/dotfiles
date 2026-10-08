@@ -78,8 +78,7 @@ and URLs:
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
 own optional fields and validation. Enrollment configures Codex and Claude
-through Gatewai and preserves unrelated provider settings. Maintenance drops
-retired Bifrost fields from the gateway config and its Codex provider.
+through Gatewai and preserves unrelated provider settings.
 
 Credentials stay in owner-only configuration or client stores. Enrollment and
 maintenance refuse gateway state other than version 9.

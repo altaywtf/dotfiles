@@ -3,16 +3,12 @@ import { isAbsolute } from "node:path";
 import type { ConfigEdit } from "../codex/config.ts";
 
 const AbsolutePath = Schema.NonEmptyString.pipe(Schema.check(Schema.makeFilter(isAbsolute)));
-// Retired Bifrost fields stay readable so maintenance can drop them from
-// existing enrollments; they never reach a client.
 const GatewayShape = Schema.Struct({
   version: Schema.Literal(3),
   credentials: Schema.Struct({
     gatewai: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{32,}$/))),
-    bifrost: Schema.optionalKey(Schema.String),
   }),
   gatewaiBaseUrl: Schema.NonEmptyString,
-  bifrostBaseUrl: Schema.optionalKey(Schema.String),
   grokBin: Schema.optionalKey(AbsolutePath),
 });
 const GatewayUrl = Schema.String.pipe(
@@ -104,7 +100,6 @@ export function gatewayEdits(config: GatewayConfig, credentialPath: string): Con
       value: 0,
       mergeStrategy: "upsert",
     },
-    { keyPath: "model_providers.bifrost", value: null, mergeStrategy: "replace" },
   ];
 }
 

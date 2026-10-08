@@ -407,8 +407,6 @@ export async function configureGateway(
     ) {
       throw new Error("Claude gateway settings drifted");
     }
-    if (/^\[model_providers\.bifrost[.\]]/m.test(contents))
-      throw new Error("Codex gateway config still has the retired Bifrost provider");
     const result = spawnSync(credentialTarget, ["gatewai"], {
       encoding: "utf8",
       env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
