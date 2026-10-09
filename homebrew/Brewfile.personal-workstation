@@ -32,6 +32,7 @@ cask "raspberry-pi-imager"
 
 # Media utilities
 cask "the-unarchiver"
+cask "spotify"
 cask "vlc"
 
 # Remote desktop
