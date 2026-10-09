@@ -13,7 +13,6 @@ cask "tailscale-app"
 cask "proxyman"
 
 # Communication
-cask "signal"
 cask "telegram"
 cask "zoom"
 cask "basecamp/tap/hey"
