@@ -25,11 +25,7 @@ function allowed(file: string, content: string): boolean {
     case "LICENSE":
       return content.includes("Copyright (c) 2026 uinaf");
     case "renovate.json":
-      return containsAny(content, [
-        "github>uinaf/renovate-config",
-        '"uinaf/ffss"',
-        '"github:uinaf/ffss"',
-      ]);
+      return containsAny(content, ['"uinaf/ffss"', '"github:uinaf/ffss"']);
     case ".github/workflows/verify.yml":
       return containsAny(content, [
         "mise exec github:uinaf/ffss -- slopguard version",
