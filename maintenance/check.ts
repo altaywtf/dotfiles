@@ -122,9 +122,6 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   const declared = {
     ...misePins(join(templates, "mise.toml")),
     ...misePins(join(templates, context.platform, "mise.toml")),
-    ...(context.profileConfig.capabilities.personal
-      ? misePins(join(templates, "personal/mise.toml"))
-      : {}),
   };
   const configured = misePins(
     context.env.MISE_GLOBAL_CONFIG_FILE ||
@@ -277,8 +274,6 @@ function agentProbes(context: MaintenanceContext): Probe[] {
     ["codex", "codex", ["--version"]],
     ["claude", "claude", ["--version"]],
   ];
-  if (profile.capabilities.personal && profile.capabilities.workstation)
-    versions.push(["grok", "grok", ["--version"]]);
   if (profile.installSteps.includes("install-runtimes")) versions.push(["t3", "t3", ["--version"]]);
   const env = {
     PATH: [

@@ -140,19 +140,6 @@
       "output": "Codex typed atomic edits, project trust, and private state modes plus native write integration when Codex is installed"
     },
     {
-      "id": "grok-settings",
-      "domain": "agents",
-      "command": [
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "agents/grok/config.test.ts",
-        "bootstrap/configure-grok.test.ts"
-      ],
-      "output": "Grok permission, update, and privacy defaults plus native key recognition when Grok is installed"
-    },
-    {
       "id": "llm-gateway",
       "domain": "agents",
       "command": [
@@ -161,7 +148,6 @@
         "vp",
         "test",
         "bootstrap/configure-llm-gateway.test.ts",
-        "bootstrap/configure-llm-gateway-grok.test.ts",
         "agents/gateway/adapters.test.ts",
         "agents/gateway/gateway-runtime.test.ts",
         "agents/gateway/enrollment.test.ts"
@@ -376,15 +362,8 @@
     {
       "id": "agent-doctor",
       "domain": "agents",
-      "command": [
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "agents/doctor.test.ts",
-        "agents/grok-mcp-login.test.ts"
-      ],
-      "output": "Per-harness MCP auth reporting, Grok credential-store writes"
+      "command": ["pnpm", "exec", "vp", "test", "agents/doctor.test.ts"],
+      "output": "Per-harness MCP auth reporting"
     },
     {
       "id": "gh-extensions",

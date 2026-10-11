@@ -49,7 +49,7 @@ class FixtureRuntime implements Runtime {
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
-  readonly installedCommands = new Set(["claude", "codex", "grok"]);
+  readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
   readonly profile: string;
@@ -283,16 +283,6 @@ test("plans one marketplace add per marketplace followed by each install", () =>
   );
 });
 
-test("plans one trusted source install for Grok", () => {
-  const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "developer"));
-
-  assert.deepEqual(
-    planHarness("grok", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
-    ["grok plugin install fixture/shared-market --trust"],
-  );
-});
-
 test("plans Claude plugin updates and Codex marketplace upgrades only with --update", () => {
   const { repoDir } = createFixture();
   const plugins = readPlugins(manifestPath(repoDir, "developer"));
@@ -320,12 +310,6 @@ test("plans Claude plugin updates and Codex marketplace upgrades only with --upd
       "codex plugin add second-plugin@shared-market",
     ],
   );
-  assert.deepEqual(
-    planHarness("grok", plugins, { update: true }).map(
-      (planned) => `${planned.command} ${planned.args.join(" ")}`,
-    ),
-    ["grok plugin install fixture/shared-market --trust"],
-  );
 });
 
 test("plans nothing for a harness the entry does not target", () => {
@@ -351,37 +335,13 @@ test("applies the developer layer across every installed harness", () => {
     "plugin add shared-plugin@shared-market",
     "plugin add second-plugin@shared-market",
   ]);
-  assert.deepEqual(harnessCalls(runtime, "grok"), [
-    "plugin list",
-    "plugin install fixture/shared-market --trust",
-  ]);
   assert.match(runtime.stdout.value, /Plugin layers: developer/);
   assert.match(runtime.stdout.value, /Done\./);
 });
 
-test("skips a Grok source its plugin list already contains", () => {
+test("refreshes installed plugins and marketplaces on --update", () => {
   const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([
-      [
-        "grok plugin list",
-        "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n",
-      ],
-    ]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
-  assert.match(runtime.stdout.value, /Grok: fixture\/shared-market is already installed/);
-});
-
-test("refreshes a stale installed plugin or source on --update", () => {
-  const { repoDir, home } = createFixture();
-  const grokList =
-    "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n";
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([["grok plugin list", grokList]]),
-  });
+  const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--update"], runtime), 0);
   assert.deepEqual(harnessCalls(runtime, "claude"), [
@@ -397,26 +357,6 @@ test("refreshes a stale installed plugin or source on --update", () => {
     "plugin add shared-plugin@shared-market",
     "plugin add second-plugin@shared-market",
   ]);
-  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list", "plugin update shared-plugin"]);
-});
-
-test("reports a Grok source that is installed but has no managed name to update", () => {
-  const { repoDir, home } = createFixture();
-  writePluginLock(home, fixtureSharedPlugins);
-  const previous = JSON.parse(readFileSync(pluginLockPath(home), "utf8"));
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([
-      [
-        "grok plugin list",
-        "  other-abc123: other-plugin [git: https://github.com/fixture/shared-market]\n",
-      ],
-    ]),
-  });
-
-  assert.equal(main(["--update"], runtime), 1);
-  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
-  assert.match(runtime.stderr.value, /Grok: fixture\/shared-market could not be refreshed/);
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
 });
 
 test("skips refresh commands after their marketplace add or plugin install fails", () => {
@@ -461,17 +401,13 @@ test("does not prune or advance ownership when a plugin refresh fails", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
-  const grokList =
-    "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n";
 
   for (const [command, stderr] of [
     ["claude plugin update shared-plugin@shared-market -y", "stale cache locked"],
     ["codex plugin marketplace upgrade shared-market", "upgrade failed"],
-    ["grok plugin update shared-plugin", "update failed"],
   ] as const) {
     writePluginLock(home, [...fixtureSharedPlugins, retired]);
     const runtime = new FixtureRuntime(repoDir, home, {
-      outputs: new Map([["grok plugin list", grokList]]),
       failures: new Map([[command, { stdout: "", stderr }]]),
     });
 
@@ -648,7 +584,6 @@ test("removes only plugins dropped from the previous managed lock", () => {
     harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
   );
   assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
-  assert.ok(harnessCalls(runtime, "grok").includes("plugin uninstall retired-plugin --confirm"));
   const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.deepEqual(locked.map(pluginRef), [
     "shared-plugin@shared-market",
@@ -764,12 +699,12 @@ test("rejects a lock that omits explicit harness membership", () => {
 test("records only harnesses whose CLI was present", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("grok");
+  runtime.installedCommands.delete("codex");
 
   assert.equal(main([], runtime), 0);
   const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   for (const plugin of locked) {
-    assert.equal(plugin.harnesses.includes("grok"), false);
+    assert.equal(plugin.harnesses.includes("codex"), false);
     assert.ok(plugin.harnesses.includes("claude"));
   }
 });
@@ -778,11 +713,35 @@ test("keeps previously owned harnesses when that CLI is temporarily absent", () 
   const { repoDir, home } = createFixture();
   writePluginLock(home, fixtureSharedPlugins);
   const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("grok");
+  runtime.installedCommands.delete("codex");
 
   assert.equal(main([], runtime), 0);
   const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.ok(locked[0]?.harnesses.includes("grok"));
+  assert.ok(locked[0]?.harnesses.includes("codex"));
+});
+
+test("drops a retired harness from an existing lock without touching it", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(home, [
+    { ...fixtureSharedPlugins[0], harnesses: ["claude", "codex", "grok"] },
+    { ...fixtureSharedPlugins[1], harnesses: ["claude", "codex"] },
+    { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["grok"] },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0, runtime.stderr.value);
+  assert.equal(
+    runtime.calls.some((call) => call.args.includes("uninstall") || call.args.includes("remove")),
+    false,
+  );
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
+  assert.deepEqual(
+    locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
+    [
+      ["shared-plugin", ["claude", "codex"]],
+      ["second-plugin", ["claude", "codex"]],
+    ],
+  );
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

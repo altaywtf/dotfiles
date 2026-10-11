@@ -19,7 +19,6 @@
       "matchManagers": ["mise"],
       "matchDepNames": [
         "npm:@openai/codex",
-        "npm:@xai-official/grok",
         "npm:t3",
         "gh",
         "jq",

@@ -19,7 +19,6 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-grok",
           "sync-agents"
         ],
         "externalHomebrew": [
@@ -52,7 +51,6 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-grok",
           "sync-agents"
         ]
       },
@@ -78,7 +76,6 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-grok",
           "sync-agents",
           "install-t3-service"
         ]
@@ -100,7 +97,6 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-grok",
           "sync-agents"
         ],
         "externalHomebrew": [
@@ -128,7 +124,6 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-grok",
           "sync-agents",
           "install-t3-service"
         ],

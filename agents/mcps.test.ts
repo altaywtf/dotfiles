@@ -51,7 +51,7 @@ class FixtureRuntime implements Runtime {
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
-  readonly installedCommands = new Set(["claude", "codex", "grok"]);
+  readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
   readonly sequences: Map<string, FixtureResult[]>;
@@ -168,10 +168,6 @@ test("adds each server through the upsert CLIs", () => {
     "mcp get shared-mcp",
     "mcp add shared-mcp --url https://mcp.fixture.test/mcp",
   ]);
-  assert.deepEqual(harnessCalls(runtime, "grok"), [
-    "mcp list --json",
-    "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
-  ]);
   assert.match(runtime.stdout.value, /MCP layers: developer, workstation/);
   assert.match(runtime.stdout.value, /Done\./);
 });
@@ -237,36 +233,6 @@ test("skips a Codex server whose URL already matches", () => {
   assert.match(runtime.stdout.value, /Codex: shared-mcp is already configured/);
 });
 
-function grokList(enabled: boolean): string {
-  return JSON.stringify([
-    { url: "https://mcp.fixture.test/mcp", enabled, name: "shared-mcp", scope: "user" },
-  ]);
-}
-
-test("skips an enabled Grok server whose URL already matches", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([["grok mcp list --json", grokList(true)]]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "grok"), ["mcp list --json"]);
-  assert.match(runtime.stdout.value, /Grok: shared-mcp is already configured/);
-});
-
-test("re-adds a disabled Grok server so the upsert enables it", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([["grok mcp list --json", grokList(false)]]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "grok"), [
-    "mcp list --json",
-    "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
-  ]);
-});
-
 test("downgrades a Codex add whose config landed before its login step failed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
@@ -319,11 +285,11 @@ test("narrows a server to its selected harnesses", () => {
 test("skips a harness whose CLI is not installed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("grok");
+  runtime.installedCommands.delete("codex");
 
   assert.equal(main([], runtime), 0);
-  assert.match(runtime.stdout.value, /Skipping Grok MCP servers: 'grok' is not installed/);
-  assert.deepEqual(harnessCalls(runtime, "grok"), []);
+  assert.match(runtime.stdout.value, /Skipping Codex MCP servers: 'codex' is not installed/);
+  assert.deepEqual(harnessCalls(runtime, "codex"), []);
 });
 
 test("reports every failing command with a redacted diagnostic", () => {
@@ -402,7 +368,6 @@ test("removes only servers dropped from the previous managed lock", () => {
   assert.equal(main([], runtime), 0);
   assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
   assert.ok(harnessCalls(runtime, "codex").includes("mcp remove retired-mcp"));
-  assert.ok(harnessCalls(runtime, "grok").includes("mcp remove -s user retired-mcp"));
   assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")), {
     version: 1,
     servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
@@ -495,12 +460,11 @@ test("rejects a lock that omits explicit harness membership", () => {
 test("records only MCP harnesses whose CLI was present", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("grok");
+  runtime.installedCommands.delete("codex");
 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers[0]?.harnesses, [
     "claude",
-    "codex",
   ]);
 });
 
@@ -518,12 +482,30 @@ test("keeps previously owned MCP harnesses when that CLI is temporarily absent",
   const { repoDir, home } = createFixture();
   writeMcpLock(home, [{ name: "shared-mcp", harnesses: [...HARNESSES] }]);
   const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("grok");
+  runtime.installedCommands.delete("codex");
 
   assert.equal(main([], runtime), 0);
   assert.ok(
-    JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers[0]?.harnesses.includes("grok"),
+    JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers[0]?.harnesses.includes("codex"),
   );
+});
+
+test("drops a retired harness from an existing MCP lock without touching it", () => {
+  const { repoDir, home } = createFixture();
+  writeMcpLock(home, [
+    { name: "shared-mcp", harnesses: ["claude", "codex", "grok"] },
+    { name: "retired-mcp", harnesses: ["grok"] },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0, runtime.stderr.value);
+  assert.equal(
+    runtime.calls.some((call) => call.args.includes("retired-mcp")),
+    false,
+  );
+  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers, [
+    { name: "shared-mcp", harnesses: ["claude", "codex"] },
+  ]);
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
@@ -575,7 +557,7 @@ test("a checkout selecting another checkout's overlay server keeps both harness 
     join(other, "agents", "local.json"),
     JSON.stringify({
       servers: [
-        { name: "machine-mcp", url: "https://machine.fixture.test/mcp", harnesses: ["grok"] },
+        { name: "machine-mcp", url: "https://machine.fixture.test/mcp", harnesses: ["codex"] },
       ],
     }),
     { mode: 0o600 },
@@ -588,5 +570,5 @@ test("a checkout selecting another checkout's overlay server keeps both harness 
       servers: { name: string; harnesses: string[] }[];
     }
   ).servers.find((server) => server.name === "machine-mcp");
-  assert.deepEqual(locked?.harnesses, ["claude", "grok"]);
+  assert.deepEqual(locked?.harnesses, ["claude", "codex"]);
 });

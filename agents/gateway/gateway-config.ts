@@ -1,15 +1,15 @@
 import { Schema } from "effect";
-import { isAbsolute } from "node:path";
 import type { ConfigEdit } from "../codex/config.ts";
 
-const AbsolutePath = Schema.NonEmptyString.pipe(Schema.check(Schema.makeFilter(isAbsolute)));
 const GatewayShape = Schema.Struct({
   version: Schema.Literal(3),
   credentials: Schema.Struct({
     gatewai: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{32,}$/))),
   }),
   gatewaiBaseUrl: Schema.NonEmptyString,
-  grokBin: Schema.optionalKey(AbsolutePath),
+  // Configs written while Grok was supported may still name its binary; apply
+  // rewrites the config without it.
+  grokBin: Schema.optionalKey(Schema.Unknown),
 });
 const GatewayUrl = Schema.String.pipe(
   Schema.check(
@@ -34,7 +34,6 @@ export type GatewayConfig = {
   version: 3;
   credentials: { gatewai: string };
   gatewaiBaseUrl: string;
-  grokBin?: string;
 };
 
 export function parseGatewayConfig(contents: string): GatewayConfig {
@@ -58,7 +57,6 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
     version: value.version,
     credentials: { gatewai: value.credentials.gatewai },
     gatewaiBaseUrl: value.gatewaiBaseUrl,
-    ...(value.grokBin ? { grokBin: value.grokBin } : {}),
   };
 }
 

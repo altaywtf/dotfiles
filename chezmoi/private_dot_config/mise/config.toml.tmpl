@@ -1,10 +1,6 @@
-{{- $profile := includeTemplate "profile" . | fromJson -}}
 {{ includeTemplate "mise.toml" . }}
-{{- /* Layer files repeat the [tools] header so Renovate can parse them alone; drop it here. */}}
+{{- /* The per-OS file repeats the [tools] header so Renovate can parse it alone; drop it here. */}}
 {{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate (printf "%s/mise.toml" .chezmoi.os) .) "" }}
-{{- if $profile.capabilities.personal }}
-{{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate "personal/mise.toml" .) "" }}
-{{- end }}
 {{ includeTemplate "mise-tasks.toml" . }}
 [settings]
 node.npm_shim = false
@@ -14,7 +10,6 @@ trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees", "~/.t3/work
 minimum_release_age = "3d"
 minimum_release_age_excludes = [
   "npm:@openai/codex",
-  "npm:@xai-official/grok",
   "npm:t3",
   "gh",
   "jq",

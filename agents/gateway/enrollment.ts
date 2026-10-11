@@ -29,12 +29,26 @@ type ClientState = {
   codexBackupPath: string | null;
   claudeSettingsExisted: boolean;
   claudeBackupPath: string | null;
-  grokEnabled: boolean;
-  grokConfigExisted: boolean;
-  grokConfigBackupPath: string | null;
-  grokAuthExisted: boolean;
-  grokAuthBackupPath: string | null;
 };
+
+const stateKeys = [
+  "version",
+  "codexConfigExisted",
+  "codexBackupPath",
+  "claudeSettingsExisted",
+  "claudeBackupPath",
+] as const;
+
+// Enrollments made while Grok was supported also carry these keys. Accept and
+// drop them so check, maintenance, and rollback keep working there; the Grok
+// files they describe are no longer restored.
+const legacyGrokStateKeys = [
+  "grokEnabled",
+  "grokConfigExisted",
+  "grokConfigBackupPath",
+  "grokAuthExisted",
+  "grokAuthBackupPath",
+] as const;
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
@@ -103,37 +117,6 @@ function atomicWriteText(target: string, value: string, mode: number): void {
   renameSync(temporary, target);
 }
 
-function captureOptionalBackup(
-  source: string,
-  backup: string,
-  label: string,
-): { existed: boolean; backupPath: string | null } {
-  const existed = existsSync(source);
-  if (existed && existsSync(backup))
-    throw new Error(`refusing to overwrite existing ${label} backup: ${backup}`);
-  if (existed) atomicCopy(source, backup, 0o600);
-  return { existed, backupPath: existed ? backup : null };
-}
-
-function restoreGrok(state: ClientState, grokConfig: string, grokAuth: string): void {
-  if (state.grokConfigExisted) {
-    if (!state.grokConfigBackupPath || !existsSync(state.grokConfigBackupPath))
-      throw new Error("Grok config rollback backup is missing");
-    atomicCopy(state.grokConfigBackupPath, grokConfig, 0o600);
-  } else {
-    rmSync(grokConfig, { force: true });
-  }
-  if (state.grokAuthExisted) {
-    if (!state.grokAuthBackupPath || !existsSync(state.grokAuthBackupPath))
-      throw new Error("Grok auth rollback backup is missing");
-    atomicCopy(state.grokAuthBackupPath, grokAuth, 0o600);
-  } else {
-    rmSync(grokAuth, { force: true });
-  }
-  if (state.grokConfigBackupPath) rmSync(state.grokConfigBackupPath, { force: true });
-  if (state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
-}
-
 function readState(path: string): ClientState {
   const value: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!isRecord(value)) {
@@ -141,18 +124,7 @@ function readState(path: string): ClientState {
   }
   const versioned =
     value.version === 9 &&
-    exactKeys(value, [
-      "version",
-      "codexConfigExisted",
-      "codexBackupPath",
-      "claudeSettingsExisted",
-      "claudeBackupPath",
-      "grokEnabled",
-      "grokConfigExisted",
-      "grokConfigBackupPath",
-      "grokAuthExisted",
-      "grokAuthBackupPath",
-    ]);
+    (exactKeys(value, stateKeys) || exactKeys(value, [...stateKeys, ...legacyGrokStateKeys]));
   if (!versioned)
     throw new Error(
       "LLM gateway state must use version 9; follow the breaking-release migration instructions",
@@ -169,81 +141,13 @@ function readState(path: string): ClientState {
   ) {
     throw new Error("LLM gateway state has invalid Claude settings values");
   }
-  if (typeof value.grokEnabled !== "boolean")
-    throw new Error("LLM gateway state has an invalid Grok value");
-  if (
-    typeof value.grokConfigExisted !== "boolean" ||
-    !(value.grokConfigBackupPath === null || typeof value.grokConfigBackupPath === "string")
-  ) {
-    throw new Error("LLM gateway state has invalid Grok config values");
-  }
-  if (
-    typeof value.grokAuthExisted !== "boolean" ||
-    !(value.grokAuthBackupPath === null || typeof value.grokAuthBackupPath === "string")
-  ) {
-    throw new Error("LLM gateway state has invalid Grok auth values");
-  }
-  return value as ClientState;
-}
-
-const grokGatewayBegin = "# BEGIN dotfiles LLM gateway";
-const grokGatewayEnd = "# END dotfiles LLM gateway";
-const grokGatewayPattern = new RegExp(
-  `${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
-  "g",
-);
-
-function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): string {
-  return [
-    grokGatewayBegin,
-    "[models]",
-    'default = "grok-4.7"',
-    'default_reasoning_effort = "high"',
-    "",
-    "[endpoints]",
-    `models_base_url = ${JSON.stringify(gatewaiBaseUrl)}`,
-    "",
-    "[auth]",
-    `auth_provider_command = ${JSON.stringify(`${credentialPath} gatewai`)}`,
-    'auth_provider_label = "Gatewai"',
-    "auth_token_ttl = 3600",
-    "",
-    '[model."grok-4.7"]',
-    'api_backend = "responses"',
-    grokGatewayEnd,
-  ].join("\n");
-}
-
-function grokUnmarkedGatewayPattern(gatewaiBaseUrl: string, credentialPath: string): RegExp {
-  // Native TOML rewrites can drop comments. Recognize only our exact configured
-  // sections; different values or extra managed-table keys remain conflicts.
-  // Another tool's comment marker may follow a section.
-  // Grok's serializer writes integers with digit separators (3600 -> 3_600).
-  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath)
-    .split("\n")
-    .slice(1, -1)
-    .join("\n")
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    .replace(/(?<== )\d+$/gm, (digits) => digits.split("").join("_?"));
-  return new RegExp(`(?:^|\\n)${body}(?=\\n\\s*(?:\\[|#|$)|$)`, "g");
-}
-
-export function grokGatewaySettings(
-  contents: string,
-  gatewaiBaseUrl: string,
-  credentialPath: string,
-): string {
-  const original = contents
-    .replace(grokGatewayPattern, "")
-    .replace(grokUnmarkedGatewayPattern(gatewaiBaseUrl, credentialPath), "")
-    .trimEnd();
-  for (const section of ["models", "endpoints", "auth", 'model."grok-4.7"']) {
-    const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    if (new RegExp(`^\\s*\\[${escaped}\\]\\s*$`, "m").test(original)) {
-      throw new Error(`Grok config conflicts with gateway section: ${section}`);
-    }
-  }
-  return `${original}${original ? "\n\n" : ""}${grokGatewayBlock(gatewaiBaseUrl, credentialPath)}\n`;
+  return {
+    version: 9,
+    codexConfigExisted: value.codexConfigExisted,
+    codexBackupPath: value.codexBackupPath,
+    claudeSettingsExisted: value.claudeSettingsExisted,
+    claudeBackupPath: value.claudeBackupPath,
+  };
 }
 
 function validateLocalInputs(configPath: string): GatewayConfig {
@@ -256,14 +160,7 @@ function validateLocalInputs(configPath: string): GatewayConfig {
   }
   if (!ownerOnly(configPath))
     throw new Error("gateway config must not be accessible by group or other users");
-  const config = parseGatewayConfig(readFileSync(configPath, "utf8"));
-  if (
-    config.grokBin &&
-    (!existsSync(config.grokBin) || (statSync(config.grokBin).mode & 0o111) === 0)
-  ) {
-    throw new Error("grokBin must be executable");
-  }
-  return config;
+  return parseGatewayConfig(readFileSync(configPath, "utf8"));
 }
 
 function assertInstalledFile(source: string, target: string): void {
@@ -301,13 +198,8 @@ export async function configureGateway(
   const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
   const codexGatewaiTarget = join(home, ".local/libexec/dotfiles/codex-gatewai");
-  const grokHome = join(home, ".grok");
-  const grokConfig = join(grokHome, "config.toml");
-  const grokAuth = join(grokHome, "auth.json");
   const codexBackupPath = `${codexConfig}.llm-gateway.backup`;
   const claudeBackupPath = `${claudeSettings}.llm-gateway.backup`;
-  const grokConfigBackupPath = `${grokConfig}.llm-gateway.backup`;
-  const grokAuthBackupPath = `${grokAuth}.llm-gateway.backup`;
 
   if (mode === "rollback") {
     if (!existsSync(statePath)) {
@@ -331,7 +223,6 @@ export async function configureGateway(
     }
     rmSync(credentialTarget, { force: true });
     rmSync(codexGatewaiTarget, { force: true });
-    if (state.grokEnabled) restoreGrok(state, grokConfig, grokAuth);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
     if (state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
     rmSync(statePath, { force: true });
@@ -368,24 +259,6 @@ export async function configureGateway(
         "codex-gatewai launcher overrides drifted from the Codex gateway config edits",
       );
     }
-    if (config.grokBin) {
-      const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
-      grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget);
-      const blocks = currentGrokConfig.match(grokGatewayPattern);
-      const unmarked = currentGrokConfig
-        .replace(grokGatewayPattern, "")
-        .match(grokUnmarkedGatewayPattern(config.gatewaiBaseUrl, credentialTarget));
-      if (
-        !(
-          (blocks?.length === 1 &&
-            !unmarked &&
-            blocks[0].trimEnd() === grokGatewayBlock(config.gatewaiBaseUrl, credentialTarget)) ||
-          (!blocks && unmarked?.length === 1)
-        )
-      ) {
-        throw new Error("Grok gateway config drifted");
-      }
-    }
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
       'model_provider = "gatewai"',
@@ -421,7 +294,7 @@ export async function configureGateway(
       throw new Error(`gatewai credential helper failed: ${detail}`);
     }
     process.stdout.write(
-      `ok gatewai config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
+      "ok gatewai config, helpers, resolved credentials, Codex and Claude on Gatewai\n",
     );
     return;
   }
@@ -436,73 +309,21 @@ export async function configureGateway(
       throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
     if (codexExisted) atomicCopy(codexConfig, codexBackupPath, 0o600);
     if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
-    const grokConfigState = config.grokBin
-      ? captureOptionalBackup(grokConfig, grokConfigBackupPath, "Grok config")
-      : { existed: false, backupPath: null };
-    const grokAuthState = config.grokBin
-      ? captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth")
-      : { existed: false, backupPath: null };
     atomicWriteJson(statePath, {
       version: 9,
       codexConfigExisted: codexExisted,
       codexBackupPath: codexExisted ? codexBackupPath : null,
       claudeSettingsExisted: claudeExisted,
       claudeBackupPath: claudeExisted ? claudeBackupPath : null,
-      grokEnabled: Boolean(config.grokBin),
-      grokConfigExisted: grokConfigState.existed,
-      grokConfigBackupPath: grokConfigState.backupPath,
-      grokAuthExisted: grokAuthState.existed,
-      grokAuthBackupPath: grokAuthState.backupPath,
     } satisfies ClientState);
-  } else {
-    const state = readState(statePath);
-    // Grok joins or leaves an existing enrollment in place: a full rollback
-    // would also restore the Codex and Claude snapshots and drop everything
-    // added to them since enrollment.
-    if (!state.grokEnabled && config.grokBin) {
-      const grokConfigState = captureOptionalBackup(
-        grokConfig,
-        grokConfigBackupPath,
-        "Grok config",
-      );
-      const grokAuthState = captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth");
-      atomicWriteJson(statePath, {
-        ...state,
-        grokEnabled: true,
-        grokConfigExisted: grokConfigState.existed,
-        grokConfigBackupPath: grokConfigState.backupPath,
-        grokAuthExisted: grokAuthState.existed,
-        grokAuthBackupPath: grokAuthState.backupPath,
-      } satisfies ClientState);
-    } else if (state.grokEnabled && !config.grokBin) {
-      restoreGrok(state, grokConfig, grokAuth);
-      atomicWriteJson(statePath, {
-        ...state,
-        grokEnabled: false,
-        grokConfigExisted: false,
-        grokConfigBackupPath: null,
-        grokAuthExisted: false,
-        grokAuthBackupPath: null,
-      } satisfies ClientState);
-    }
   }
 
   atomicWriteJson(configPath, config);
   atomicWriteJson(statePath, readState(statePath));
   atomicWriteText(credentialTarget, sourceCredential, 0o700);
   atomicWriteText(codexGatewaiTarget, sourceCodexGatewai, 0o700);
-  if (config.grokBin) {
-    const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
-    atomicWriteText(
-      grokConfig,
-      grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget),
-      0o600,
-    );
-  }
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
   atomicWriteJson(claudeSettings, desiredClaudeSettings);
-  process.stdout.write(
-    `configured Codex and Claude gateway routing${config.grokBin ? " plus canonical Grok gateway routing" : ""}\n`,
-  );
+  process.stdout.write("configured Codex and Claude gateway routing\n");
 }

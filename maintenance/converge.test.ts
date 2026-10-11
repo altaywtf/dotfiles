@@ -264,7 +264,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
     "trust-agent-worktrees.ts",
     "install-gh-extensions.ts",
     "configure-codex.ts",
-    "configure-grok.ts",
     "configure-llm-gateway.ts",
   ])
     stub(join(root, "bootstrap", name), name);
@@ -302,11 +301,6 @@ for (const failure of [false, true]) {
       assert.match(steps, /^mise install$/m);
       assert.match(steps, /^mise run dotfiles:runtime-packages$/m);
       assert.match(steps, /^configure-llm-gateway.ts --maintenance$/m);
-      // Gateway restoration can replace Grok's config, so defaults apply after it.
-      assert.ok(
-        steps.indexOf("configure-grok.ts --profile personal-devbox") >
-          steps.indexOf("configure-llm-gateway.ts"),
-      );
       assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^sync.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^mcps.ts --profile personal-devbox$/m);

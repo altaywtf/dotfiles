@@ -3,7 +3,7 @@
     {
       "marketplace": "uinaf/ffss",
       "name": "ffss",
-      "harnesses": ["claude", "codex", "grok"]
+      "harnesses": ["claude", "codex"]
     },
     {
       "marketplace": "openai/codex-plugin-cc",

@@ -119,25 +119,21 @@ const program = Effect.scoped(
     );
     assert.deepEqual(yield* fs.readDirectory(canonicalTarget), []);
 
-    const renderedMise = (os: string, profile = "developer") =>
+    const renderedMise = (os: string) =>
       run("chezmoi", [
         "--source",
         join(repoRoot, "chezmoi"),
         "--destination",
         temporary,
         "--override-data",
-        `{"dotfilesProfile":"${profile}","chezmoi":{"os":"${os}","arch":"arm64"}}`,
+        `{"dotfilesProfile":"developer","chezmoi":{"os":"${os}","arch":"arm64"}}`,
         "cat",
         join(temporary, ".config/mise/config.toml"),
       ]);
     const darwinMise = yield* renderedMise("darwin");
     const linuxMise = yield* renderedMise("linux");
-    const personalMise = yield* renderedMise("darwin", "personal-workstation");
     assert.equal(darwinMise.status, 0, darwinMise.stderr);
     assert.equal(linuxMise.status, 0, linuxMise.stderr);
-    assert.equal(personalMise.status, 0, personalMise.stderr);
-    assert.doesNotMatch(darwinMise.stdout, /^"npm:@xai-official\/grok" = /m);
-    assert.match(personalMise.stdout, /^"npm:@xai-official\/grok" = /m);
     assert.match(
       darwinMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-darwin-/m,
@@ -146,7 +142,7 @@ const program = Effect.scoped(
       linuxMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-linux-/m,
     );
-    for (const rendered of [darwinMise.stdout, linuxMise.stdout, personalMise.stdout])
+    for (const rendered of [darwinMise.stdout, linuxMise.stdout])
       assert.equal(
         rendered.match(/^\[tools\]$/gm)?.length,
         1,
@@ -154,13 +150,7 @@ const program = Effect.scoped(
       );
     // Each template part must stay plain TOML so Renovate's mise manager can
     // parse it; a Go-template directive here silently stops every pin update.
-    for (const part of [
-      "mise.toml",
-      "darwin/mise.toml",
-      "linux/mise.toml",
-      "personal/mise.toml",
-      "mise-tasks.toml",
-    ]) {
+    for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
       const parsed = yield* run("python3", [
         "-c",
         "import sys, tomllib; tomllib.loads(open(sys.argv[1]).read())",

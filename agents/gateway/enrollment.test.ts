@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vite-plus/test";
 
-import { configureGateway, grokGatewaySettings } from "./enrollment.ts";
+import { configureGateway } from "./enrollment.ts";
 
 for (const mode of ["setup", "maintenance"] as const) {
   for (const invalid of ["missing", "symlink", "permissions", "contents"] as const) {
@@ -41,23 +41,3 @@ for (const mode of ["setup", "maintenance"] as const) {
     });
   }
 }
-
-test("unmarked Grok gateway sections followed by another tool's comment are recognized", () => {
-  const credential = "/home/user/.local/libexec/dotfiles/llm-gateway-credential";
-  const unmarked = grokGatewaySettings("", "https://gatewai.example/v1", credential)
-    .replace(/^# .*\n?/gm, "")
-    .trimEnd();
-  const contents = `[ui]\ntheme = "dark"\n\n${unmarked}\n\n# OTHER_TOOL_START\n[mcp_servers.other]\ncommand = "node"\n# OTHER_TOOL_END\n`;
-  const result = grokGatewaySettings(contents, "https://gatewai.example/v1", credential);
-  assert.match(result, /^\[ui\]\ntheme = "dark"\n\n+# OTHER_TOOL_START\n\[mcp_servers\.other\]/);
-  assert.equal(result.match(/\[models\]/g)?.length, 1);
-  assert.throws(
-    () =>
-      grokGatewaySettings(
-        '[models]\ndefault = "other"\n',
-        "https://gatewai.example/v1",
-        credential,
-      ),
-    /conflicts with gateway section: models/,
-  );
-});

@@ -20,5 +20,5 @@ export default {
   // Vite+'s migrator installs this alias to satisfy the bundled tools' peers.
   ignoreDependencies: ["vite"],
   // Native host tools are provisioned outside the npm dependency graph.
-  ignoreBinaries: ["brew", "chezmoi", "codex", "grok", "mise", "plutil", "ruby"],
+  ignoreBinaries: ["brew", "chezmoi", "codex", "mise", "plutil", "ruby"],
 } satisfies KnipConfig;

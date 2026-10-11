@@ -16,10 +16,7 @@ these account defaults.
 [Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
 configuration, and rollback. Setup and maintenance preserve vendor logins.
 The [gateway command](../bootstrap/configure-llm-gateway.ts) exposes apply,
-check, and rollback operations.
-Grok maintenance replaces only the managed gateway block. Adding or removing
-`grokBin` changes the client set in place, so Codex and Claude keep everything
-added since enrollment. Rollback restores the enrollment snapshot.
+check, and rollback operations. Rollback restores the enrollment snapshot.
 
 [Codex project trust](../agents/codex/projects.ts) runs with the Codex defaults
 on setup and maintenance. Personal and devbox profiles trust each Git checkout
@@ -40,12 +37,6 @@ session. Setup replaces drifted values on each run.
 | ----------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; no error reports, `/feedback`, or session surveys                                                       |
 | Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics |
-| Grok        | [Grok configuration](../agents/grok/config.ts)                                  | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads                   |
-
-Grok's launcher runs whatever `~/.grok/bin/grok` links to, and mise installs
-the package without running the postinstall step that restages that link.
-Grok setup moves a stale link aside so the pinned launcher stages its own
-version, restoring it if staging fails.
 
 Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
 fetching, which auto mode, Remote Control, and cross-machine messaging need.
@@ -56,8 +47,6 @@ Model-training choices are account settings, not client configuration.
 [Rule sources](../agents/rules.json) supply the shared text.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
-Grok reads `~/.claude/CLAUDE.md` through its default Claude compatibility,
-so it needs no separate link.
 Edit shared rules at their configured source and private instructions in:
 
 | File                                 | Position            |
@@ -177,10 +166,6 @@ mise run agents:doctor
 Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
-
-Doctor also reports Grok installation drift: any `grok` on `PATH` other than
-the mise pin, a mise shim that dispatches elsewhere, or a global npm install.
-Review its repair command before removing a conflicting installation.
 
 ## Verify
 

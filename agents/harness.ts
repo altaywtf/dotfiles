@@ -1,14 +1,13 @@
 import { type AgentLayer } from "../profiles/model.ts";
 import { type Runtime, writeLine } from "./runtime.ts";
 
-export const HARNESSES = ["claude", "codex", "grok"] as const;
+export const HARNESSES = ["claude", "codex"] as const;
 
 export type Harness = (typeof HARNESSES)[number];
 
 export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = {
   claude: { binary: "claude", label: "Claude Code" },
   codex: { binary: "codex", label: "Codex" },
-  grok: { binary: "grok", label: "Grok" },
 };
 
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -34,6 +33,17 @@ export function readHarnesses(value: unknown, invalidMessage: string): readonly 
     throw new Error(invalidMessage);
   }
   return HARNESSES.filter((harness) => value.includes(harness));
+}
+
+// Locks written while Grok was supported may still list it. Its installs are no
+// longer managed, so a lock entry drops it, and an entry left with no harness is
+// forgotten rather than rejected.
+const RETIRED_HARNESSES: readonly unknown[] = ["grok"];
+
+export function readLockedHarnesses(value: unknown, invalidMessage: string): readonly Harness[] {
+  if (!Array.isArray(value)) throw new Error(invalidMessage);
+  const current = value.filter((harness) => !RETIRED_HARNESSES.includes(harness));
+  return current.length === 0 && value.length > 0 ? [] : readHarnesses(current, invalidMessage);
 }
 
 export function harnessPresent(runtime: Runtime): boolean {

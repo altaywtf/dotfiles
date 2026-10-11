@@ -18,7 +18,6 @@ const InstallStep = Schema.Literals([
   "install-runtimes",
   "install-repository-dependencies",
   "configure-codex",
-  "configure-grok",
   "configure-llm-gateway",
   "sync-agents",
 ]);

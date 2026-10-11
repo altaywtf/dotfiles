@@ -18,6 +18,7 @@ import {
   isSafeName,
   parseSyncArgs,
   readHarnesses,
+  readLockedHarnesses,
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
@@ -46,8 +47,6 @@ export type Plugin = {
 export type PlannedCommand = {
   command: string;
   args: readonly string[];
-  // Set on install commands whose harness installs a whole marketplace repository,
-  // so apply can skip sources its CLI already lists.
   marketplace?: string;
   plugin?: string;
   // Refresh commands must not run after their marketplace add or plugin install failed.
@@ -66,12 +65,6 @@ type HarnessSpec = {
   // `--update` refreshes an already-installed plugin. Claude needs `-y` because
   // apply captures stdout and is therefore not a TTY.
   updateArgs?: (plugin: Plugin) => string[];
-  // Grok installs a source repository once, not a plugin ref, and re-installing
-  // an installed source exits non-zero; apply consults `plugin list` first.
-  installsMarketplace?: {
-    listArgs: readonly string[];
-    installed(listOutput: string, plugin: Plugin): boolean;
-  };
 };
 
 const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
@@ -86,16 +79,6 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", plugin.marketplace],
     upgradeMarketplaceArgs: (plugin) => ["plugin", "marketplace", "upgrade", plugin.marketplaceId],
     installArgs: (plugin) => ["plugin", "add", pluginRef(plugin)],
-  },
-  grok: {
-    ...HARNESS_INFO.grok,
-    installArgs: (plugin) => ["plugin", "install", plugin.marketplace, "--trust"],
-    updateArgs: (plugin) => ["plugin", "update", plugin.name],
-    installsMarketplace: {
-      listArgs: ["plugin", "list"],
-      installed: (listOutput, plugin) =>
-        listOutput.includes(`git: https://github.com/${plugin.marketplace}]`),
-    },
   },
 };
 
@@ -250,7 +233,7 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     marketplace: value.marketplace,
     marketplaceId: value.marketplaceId,
     name: value.name,
-    harnesses: readHarnesses(
+    harnesses: readLockedHarnesses(
       value.harnesses,
       `Invalid managed plugins lock at ${lockPath}: ${value.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
     ),
@@ -276,7 +259,9 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
     );
   }
 
-  const plugins = parsed.plugins.map((plugin: unknown) => readLockedPlugin(plugin, lockPath));
+  const plugins = parsed.plugins
+    .map((plugin: unknown) => readLockedPlugin(plugin, lockPath))
+    .filter((plugin) => plugin.harnesses.length > 0);
   const refs = plugins.map(pluginRef);
   if (new Set(refs).size !== refs.length) {
     throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);
@@ -295,8 +280,6 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
       return ["plugin", "uninstall", "-y", pluginRef(plugin)];
     case "codex":
       return ["plugin", "remove", pluginRef(plugin)];
-    case "grok":
-      return ["plugin", "uninstall", plugin.name, "--confirm"];
   }
 }
 
@@ -382,22 +365,6 @@ export function planHarness(
     return planned;
   }
 
-  if (spec.installsMarketplace !== undefined) {
-    const installed = new Set<string>();
-    for (const plugin of selected) {
-      if (installed.has(plugin.marketplace)) {
-        continue;
-      }
-      installed.add(plugin.marketplace);
-      planned.push({
-        command: spec.binary,
-        args: installArgs(plugin),
-        marketplace: plugin.marketplace,
-      });
-    }
-    return planned;
-  }
-
   for (const plugin of selected) {
     planned.push({
       command: spec.binary,
@@ -422,64 +389,6 @@ export function planHarness(
   return planned;
 }
 
-function grokListedPluginName(listOutput: string, plugin: Plugin): string | undefined {
-  return listOutput.includes(`: ${plugin.name} [git: https://github.com/${plugin.marketplace}]`)
-    ? plugin.name
-    : undefined;
-}
-
-function refreshInstalledMarketplace(
-  runtime: Runtime,
-  spec: HarnessSpec,
-  selected: readonly Plugin[],
-  marketplace: string,
-  listOutput: string,
-  failures: PluginFailure[],
-): void {
-  const names = [
-    ...new Set(
-      selected
-        .filter((plugin) => plugin.marketplace === marketplace)
-        .map((plugin) => grokListedPluginName(listOutput, plugin))
-        .filter((name): name is string => name !== undefined),
-    ),
-  ];
-  if (names.length === 0) {
-    failures.push({
-      diagnostic: `${marketplace} is already installed, but Grok did not report a managed plugin name to update`,
-      summary: `${spec.label}: ${marketplace} could not be refreshed`,
-    });
-    return;
-  }
-
-  const updateArgs = spec.updateArgs;
-  if (updateArgs === undefined) {
-    failures.push({
-      diagnostic: `${marketplace} is already installed, and ${spec.label} has no non-interactive update command`,
-      summary: `${spec.label}: ${marketplace} could not be refreshed`,
-    });
-    return;
-  }
-
-  for (const name of names) {
-    const plugin = selected.find(
-      (candidate) => candidate.marketplace === marketplace && candidate.name === name,
-    );
-    if (plugin === undefined) {
-      continue;
-    }
-    const args = updateArgs(plugin);
-    writeLine(runtime.stdout, `${spec.label}: ${spec.binary} ${args.join(" ")}`);
-    const result = runtime.run(spec.binary, args, { stdout: "capture", stderr: "capture" });
-    if (result.status !== 0) {
-      failures.push({
-        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
-        summary: `${spec.label}: ${args.join(" ")} (exit ${result.status})`,
-      });
-    }
-  }
-}
-
 function applyHarness(
   runtime: Runtime,
   harness: Harness,
@@ -500,23 +409,6 @@ function applyHarness(
     return;
   }
 
-  let installedSources = "";
-  const guard = spec.installsMarketplace;
-  if (guard !== undefined) {
-    const listed = runtime.run(spec.binary, [...guard.listArgs], {
-      stdout: "capture",
-      stderr: "capture",
-    });
-    if (listed.status !== 0) {
-      failures.push({
-        diagnostic: sanitizeDiagnostic(`${listed.stdout}\n${listed.stderr}`),
-        summary: `${spec.label}: ${guard.listArgs.join(" ")} (exit ${listed.status})`,
-      });
-      return;
-    }
-    installedSources = listed.stdout;
-  }
-
   const blockedMarketplaces = new Set<string>();
   const blockedPlugins = new Set<string>();
   for (const planned of planHarness(harness, plugins, { update })) {
@@ -526,24 +418,6 @@ function applyHarness(
         (planned.plugin !== undefined && blockedPlugins.has(planned.plugin)))
     ) {
       continue;
-    }
-    if (guard !== undefined && planned.marketplace !== undefined) {
-      const plugin = selected.find((candidate) => candidate.marketplace === planned.marketplace);
-      if (plugin !== undefined && guard.installed(installedSources, plugin)) {
-        if (update) {
-          refreshInstalledMarketplace(
-            runtime,
-            spec,
-            selected,
-            planned.marketplace,
-            installedSources,
-            failures,
-          );
-          continue;
-        }
-        writeLine(runtime.stdout, `${spec.label}: ${planned.marketplace} is already installed`);
-        continue;
-      }
     }
     writeLine(runtime.stdout, `${spec.label}: ${planned.command} ${planned.args.join(" ")}`);
     const result = runtime.run(planned.command, planned.args, {

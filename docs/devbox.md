@@ -89,8 +89,7 @@ maintenance refuse gateway state other than version 9.
 ```
 
 Gateway setup and maintenance preserve existing vendor logins; sign out through
-each client's own command when you no longer need one. Grok enrollment backs up
-its previous authentication for rollback.
+each client's own command when you no longer need one.
 
 ### Client Troubleshooting
 
@@ -110,7 +109,8 @@ its previous authentication for rollback.
 ```
 
 - Restores saved client configuration; removes helpers.
-- Restores the saved Grok login when one existed before enrollment.
+- Leaves Grok files from older enrollments in place, including their
+  `.llm-gateway.backup` copies under `~/.grok`.
 
 ## System Services
 

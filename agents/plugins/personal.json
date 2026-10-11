@@ -4,7 +4,7 @@
       "marketplace": "altaywtf/agent-skills",
       "marketplaceId": "altaywtf",
       "name": "altaywtf",
-      "harnesses": ["claude", "codex", "grok"]
+      "harnesses": ["claude", "codex"]
     }
   ]
 }

@@ -15,7 +15,7 @@ import {
   harnessPresent,
   isSafeName,
   parseSyncArgs,
-  readHarnesses,
+  readLockedHarnesses,
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
@@ -84,7 +84,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     }
     return {
       name: server.name,
-      harnesses: readHarnesses(
+      harnesses: readLockedHarnesses(
         "harnesses" in server ? server.harnesses : undefined,
         `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
       ),
@@ -94,7 +94,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
   if (new Set(names).size !== names.length) {
     throw new Error(`Invalid managed MCP lock at ${lockPath}: server names must be unique`);
   }
-  return servers;
+  return servers.filter((server) => server.harnesses.length > 0);
 }
 
 function writeServerLock(
@@ -129,8 +129,6 @@ function mcpRemoveArgs(harness: Harness, name: string): string[] {
       return ["mcp", "remove", "-s", "user", name];
     case "codex":
       return ["mcp", "remove", name];
-    case "grok":
-      return ["mcp", "remove", "-s", "user", name];
   }
 }
 
@@ -151,75 +149,6 @@ function runPlanned(
     return false;
   }
   return true;
-}
-
-// `grok mcp add` upserts and re-enables a disabled server but has no `get`, so
-// converge through `list --json`: an enabled user-scope entry with the same URL
-// is a no-op. An unreadable list falls back to the upsert.
-function enabledGrokUrls(runtime: Runtime): ReadonlySet<string> {
-  const listed = runtime.run("grok", ["mcp", "list", "--json"], {
-    stdout: "capture",
-    stderr: "capture",
-  });
-  if (listed.status !== 0) {
-    return new Set();
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(listed.stdout);
-  } catch {
-    return new Set();
-  }
-  if (!Array.isArray(parsed)) {
-    return new Set();
-  }
-  const configured = new Set<string>();
-  for (const entry of parsed) {
-    if (
-      typeof entry === "object" &&
-      entry !== null &&
-      "name" in entry &&
-      typeof entry.name === "string" &&
-      "url" in entry &&
-      typeof entry.url === "string" &&
-      "scope" in entry &&
-      entry.scope === "user" &&
-      "enabled" in entry &&
-      entry.enabled === true
-    ) {
-      configured.add(`${entry.name} ${entry.url}`);
-    }
-  }
-  return configured;
-}
-
-function applyGrok(runtime: Runtime, servers: readonly McpServer[], failures: McpFailure[]): void {
-  const label = "Grok";
-  const selected = servers.filter((server) => server.harnesses.includes("grok"));
-
-  if (!runtime.commandExists("grok")) {
-    writeLine(runtime.stdout, `Skipping ${label} MCP servers: 'grok' is not installed`);
-    return;
-  }
-  if (selected.length === 0) {
-    writeLine(runtime.stdout, `No ${label} MCP servers are selected for this profile`);
-    return;
-  }
-
-  const configured = enabledGrokUrls(runtime);
-  for (const server of selected) {
-    if (configured.has(`${server.name} ${server.url}`)) {
-      writeLine(runtime.stdout, `${label}: ${server.name} is already configured`);
-      continue;
-    }
-    runPlanned(
-      runtime,
-      label,
-      "grok",
-      ["mcp", "add", "-t", "http", "-s", "user", server.name, server.url],
-      failures,
-    );
-  }
 }
 
 // `codex mcp add` upserts the config but then probes the server and can start an
@@ -395,10 +324,8 @@ function apply(runtime: Runtime, options: McpOptions): number {
   for (const harness of HARNESSES) {
     if (harness === "claude") {
       applyClaude(runtime, servers, failures);
-    } else if (harness === "codex") {
-      applyCodex(runtime, servers, failures);
     } else {
-      applyGrok(runtime, servers, failures);
+      applyCodex(runtime, servers, failures);
     }
   }
 
