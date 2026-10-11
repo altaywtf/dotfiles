@@ -164,7 +164,9 @@ from different checkouts run one at a time.
 
 ## MCP Sync
 
-Executor and other OAuth servers expire their sessions per harness.
+The Executor server ships in the personal `altaywtf` plugin, not these
+manifests; sign in through each harness's MCP menu. Manifest OAuth servers
+expire their sessions per harness.
 [Doctor](../agents/doctor.ts) checks every installed harness and prints a repair
 command per row:
 

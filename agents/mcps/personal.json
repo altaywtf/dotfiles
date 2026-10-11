@@ -1,9 +1,3 @@
 {
-  "servers": [
-    {
-      "name": "uinaf-executor",
-      "url": "https://executor.zebroid-skate.ts.net/mcp",
-      "harnesses": ["claude", "codex", "grok"]
-    }
-  ]
+  "servers": []
 }

@@ -39,8 +39,6 @@ function allowed(file: string, content: string): boolean {
       return content.includes("uinaf/ffss");
     case "agents/rules.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
-    case "agents/mcps/personal.json":
-      return content.includes("uinaf-executor");
     case "verify/profiles.ts":
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
