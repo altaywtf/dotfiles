@@ -1,3 +1,10 @@
 {
-  "plugins": []
+  "plugins": [
+    {
+      "marketplace": "altaywtf/agent-skills",
+      "marketplaceId": "altaywtf",
+      "name": "altaywtf",
+      "harnesses": ["claude", "codex", "grok"]
+    }
+  ]
 }

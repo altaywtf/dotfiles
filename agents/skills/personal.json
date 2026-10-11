@@ -1,10 +1,6 @@
 {
   "skills": [
     {
-      "name": "playbooks",
-      "source": "altaywtf/agent-skills"
-    },
-    {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
     },
@@ -15,10 +11,6 @@
     {
       "name": "putio-sdk-dev",
       "source": "putdotio/agent-skills"
-    },
-    {
-      "name": "zebroid-fleet",
-      "source": "altaywtf/agent-skills"
     }
   ]
 }
