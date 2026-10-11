@@ -222,12 +222,6 @@
       "platform": "darwin"
     },
     {
-      "id": "tizen-archives",
-      "domain": "bootstrap",
-      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/tizen/pack.test.ts"],
-      "output": "Owner-only signing archives, exclusive publication, and failed archive cleanup"
-    },
-    {
       "id": "chrome-state",
       "domain": "bootstrap",
       "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/chrome-state.test.ts"],

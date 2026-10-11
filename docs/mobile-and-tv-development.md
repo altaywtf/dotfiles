@@ -73,16 +73,6 @@ bundle exec pod install
 
 ## Tizen
 
+Install the Tizen Studio CLI and back up or restore its signing state with
+[taizn](https://github.com/putdotio/taizn) (`taizn sdk install|backup|restore`).
 Keep certificates, profiles, archives, and device keys out of Git.
-Archives are staged privately and published with mode `0600`. Packing refuses
-to replace an existing output path; choose a new filename for each backup.
-
-| Operation                                          | Helper                                                                           |
-| -------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Install and verify CLI tools                       | [install.ts](../bootstrap/darwin/tizen/install.ts)                               |
-| Archive certificates (`--full` includes SDK state) | [pack.ts](../bootstrap/darwin/tizen/pack.ts)                                     |
-| Restore an archive                                 | [restore.ts](../bootstrap/darwin/tizen/restore.ts) `/path/to/archive.tar.gz`     |
-| Restore a recovery attachment                      | [restore-from-1password.ts](../bootstrap/darwin/tizen/restore-from-1password.ts) |
-
-- The 1Password helper requires `TIZEN_1PASSWORD_REFERENCE` from the operator.
-- Use `--show-pkgs` only when needed: Samsung's catalog download can hang.
