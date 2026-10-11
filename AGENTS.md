@@ -49,7 +49,7 @@ are shared by synchronization and read-only inventory.
 
 ## Boundaries
 
-- Never commit secrets, keys, certificates, local config, generated env files, Tizen archives, or device keys. Never invent identities or credential references.
+- Never commit secrets, keys, certificates, local config, generated env files, or device keys. Never invent identities or credential references.
 - Never copy or summarize coding-agent auth, approvals, sessions, caches, worktrees, browser profiles, app state, or secret-manager sessions into Git.
 - Keep service tokens out of shell startup, plists, supervisor configs, and tracked or generated env files. Follow [identity provisioning](docs/identities.md).
 - Keep examples public-safe. Installed names and prose are vendor-neutral; owner names appear only in real external coordinates. No private hosts, users, workspaces, repositories, or credential coordinates, except personal-layer agent sources that only personal profiles install.

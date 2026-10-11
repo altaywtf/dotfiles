@@ -720,30 +720,6 @@ test("keeps previously owned harnesses when that CLI is temporarily absent", () 
   assert.ok(locked[0]?.harnesses.includes("codex"));
 });
 
-test("drops a retired harness from an existing lock without touching it", () => {
-  const { repoDir, home } = createFixture();
-  writePluginLock(home, [
-    { ...fixtureSharedPlugins[0], harnesses: ["claude", "codex", "grok"] },
-    { ...fixtureSharedPlugins[1], harnesses: ["claude", "codex"] },
-    { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["grok"] },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0, runtime.stderr.value);
-  assert.equal(
-    runtime.calls.some((call) => call.args.includes("uninstall") || call.args.includes("remove")),
-    false,
-  );
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.deepEqual(
-    locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
-    [
-      ["shared-plugin", ["claude", "codex"]],
-      ["second-plugin", ["claude", "codex"]],
-    ],
-  );
-});
-
 test("the executable TypeScript entrypoint runs the CLI", () => {
   const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "plugins.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });

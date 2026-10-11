@@ -490,24 +490,6 @@ test("keeps previously owned MCP harnesses when that CLI is temporarily absent",
   );
 });
 
-test("drops a retired harness from an existing MCP lock without touching it", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(home, [
-    { name: "shared-mcp", harnesses: ["claude", "codex", "grok"] },
-    { name: "retired-mcp", harnesses: ["grok"] },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0, runtime.stderr.value);
-  assert.equal(
-    runtime.calls.some((call) => call.args.includes("retired-mcp")),
-    false,
-  );
-  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers, [
-    { name: "shared-mcp", harnesses: ["claude", "codex"] },
-  ]);
-});
-
 test("the executable TypeScript entrypoint runs the CLI", () => {
   const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "mcps.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });

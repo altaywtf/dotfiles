@@ -35,17 +35,6 @@ export function readHarnesses(value: unknown, invalidMessage: string): readonly 
   return HARNESSES.filter((harness) => value.includes(harness));
 }
 
-// Locks written while Grok was supported may still list it. Its installs are no
-// longer managed, so a lock entry drops it, and an entry left with no harness is
-// forgotten rather than rejected.
-const RETIRED_HARNESSES: readonly unknown[] = ["grok"];
-
-export function readLockedHarnesses(value: unknown, invalidMessage: string): readonly Harness[] {
-  if (!Array.isArray(value)) throw new Error(invalidMessage);
-  const current = value.filter((harness) => !RETIRED_HARNESSES.includes(harness));
-  return current.length === 0 && value.length > 0 ? [] : readHarnesses(current, invalidMessage);
-}
-
 export function harnessPresent(runtime: Runtime): boolean {
   return HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));
 }

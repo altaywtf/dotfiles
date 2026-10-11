@@ -18,7 +18,6 @@ import {
   isSafeName,
   parseSyncArgs,
   readHarnesses,
-  readLockedHarnesses,
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
@@ -233,7 +232,7 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     marketplace: value.marketplace,
     marketplaceId: value.marketplaceId,
     name: value.name,
-    harnesses: readLockedHarnesses(
+    harnesses: readHarnesses(
       value.harnesses,
       `Invalid managed plugins lock at ${lockPath}: ${value.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
     ),
@@ -259,9 +258,7 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
     );
   }
 
-  const plugins = parsed.plugins
-    .map((plugin: unknown) => readLockedPlugin(plugin, lockPath))
-    .filter((plugin) => plugin.harnesses.length > 0);
+  const plugins = parsed.plugins.map((plugin: unknown) => readLockedPlugin(plugin, lockPath));
   const refs = plugins.map(pluginRef);
   if (new Set(refs).size !== refs.length) {
     throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);

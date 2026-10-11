@@ -2,15 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "vite-plus/test";
@@ -28,10 +20,6 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
     /unknown field/,
-  );
-  assert.deepEqual(
-    parseGatewayConfig(JSON.stringify({ ...validConfig, grokBin: "/usr/local/bin/grok" })),
-    validConfig,
   );
   assert.throws(
     () =>
@@ -239,77 +227,6 @@ rm -f "$HOME/.claude/.credentials.json"
         originalClaudeAuth,
       );
       assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  },
-);
-
-test(
-  "an enrollment from when Grok was supported keeps working and leaves Grok files alone",
-  { skip: !codexInstalled },
-  () => {
-    const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-legacy-"));
-    try {
-      const home = join(root, "home");
-      const codexHome = join(home, ".codex");
-      const configDir = join(home, ".config/dotfiles");
-      const gatewayConfig = join(configDir, "llm-gateway.json");
-      const statePath = join(configDir, "llm-gateway-state.json");
-      const grokConfig = join(home, ".grok/config.toml");
-      const grokBackup = `${grokConfig}.llm-gateway.backup`;
-      const originalCodex = 'model = "gpt-6-astra"\n';
-      for (const directory of [codexHome, configDir, dirname(grokConfig)])
-        mkdirSync(directory, { recursive: true });
-      writeFileSync(join(codexHome, "config.toml"), originalCodex, { mode: 0o600 });
-      writeFileSync(
-        gatewayConfig,
-        JSON.stringify({ ...validConfig, grokBin: join(root, "missing-grok") }),
-        { mode: 0o600 },
-      );
-      const env = {
-        ...process.env,
-        HOME: home,
-        CODEX_HOME: codexHome,
-        LLM_GATEWAY_CONFIG: gatewayConfig,
-        PATH: fixturePath(join(root, "bin")),
-      };
-      const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
-
-      const apply = run();
-      assert.equal(apply.status, 0, apply.stderr);
-      assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), validConfig);
-      writeFileSync(
-        statePath,
-        JSON.stringify({
-          ...JSON.parse(readFileSync(statePath, "utf8")),
-          grokEnabled: true,
-          grokConfigExisted: true,
-          grokConfigBackupPath: grokBackup,
-          grokAuthExisted: false,
-          grokAuthBackupPath: null,
-        }),
-        { mode: 0o600 },
-      );
-      writeFileSync(grokConfig, "# gateway-managed\n", { mode: 0o600 });
-      writeFileSync(grokBackup, "# original\n", { mode: 0o600 });
-
-      const check = run("--check");
-      assert.equal(check.status, 0, check.stderr);
-      const maintenance = run("--maintenance");
-      assert.equal(maintenance.status, 0, maintenance.stderr);
-      assert.equal(
-        Object.keys(JSON.parse(readFileSync(statePath, "utf8"))).some((key) =>
-          key.startsWith("grok"),
-        ),
-        false,
-      );
-      const rollback = run("--rollback");
-      assert.equal(rollback.status, 0, rollback.stderr);
-      assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
-      assert.equal(existsSync(statePath), false);
-      assert.equal(readFileSync(grokConfig, "utf8"), "# gateway-managed\n");
-      assert.equal(readFileSync(grokBackup, "utf8"), "# original\n");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

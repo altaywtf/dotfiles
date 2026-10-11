@@ -7,9 +7,6 @@ const GatewayShape = Schema.Struct({
     gatewai: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{32,}$/))),
   }),
   gatewaiBaseUrl: Schema.NonEmptyString,
-  // Configs written while Grok was supported may still name its binary; apply
-  // rewrites the config without it.
-  grokBin: Schema.optionalKey(Schema.Unknown),
 });
 const GatewayUrl = Schema.String.pipe(
   Schema.check(

@@ -15,7 +15,7 @@ import {
   harnessPresent,
   isSafeName,
   parseSyncArgs,
-  readLockedHarnesses,
+  readHarnesses,
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
@@ -84,7 +84,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     }
     return {
       name: server.name,
-      harnesses: readLockedHarnesses(
+      harnesses: readHarnesses(
         "harnesses" in server ? server.harnesses : undefined,
         `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
       ),
@@ -94,7 +94,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
   if (new Set(names).size !== names.length) {
     throw new Error(`Invalid managed MCP lock at ${lockPath}: server names must be unique`);
   }
-  return servers.filter((server) => server.harnesses.length > 0);
+  return servers;
 }
 
 function writeServerLock(

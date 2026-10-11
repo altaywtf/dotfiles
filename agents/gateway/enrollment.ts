@@ -39,17 +39,6 @@ const stateKeys = [
   "claudeBackupPath",
 ] as const;
 
-// Enrollments made while Grok was supported also carry these keys. Accept and
-// drop them so check, maintenance, and rollback keep working there; the Grok
-// files they describe are no longer restored.
-const legacyGrokStateKeys = [
-  "grokEnabled",
-  "grokConfigExisted",
-  "grokConfigBackupPath",
-  "grokAuthExisted",
-  "grokAuthBackupPath",
-] as const;
-
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
@@ -122,9 +111,7 @@ function readState(path: string): ClientState {
   if (!isRecord(value)) {
     throw new Error("LLM gateway state has an invalid shape");
   }
-  const versioned =
-    value.version === 9 &&
-    (exactKeys(value, stateKeys) || exactKeys(value, [...stateKeys, ...legacyGrokStateKeys]));
+  const versioned = value.version === 9 && exactKeys(value, stateKeys);
   if (!versioned)
     throw new Error(
       "LLM gateway state must use version 9; follow the breaking-release migration instructions",

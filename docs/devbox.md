@@ -109,8 +109,6 @@ each client's own command when you no longer need one.
 ```
 
 - Restores saved client configuration; removes helpers.
-- Leaves Grok files from older enrollments in place, including their
-  `.llm-gateway.backup` copies under `~/.grok`.
 
 ## System Services
 
