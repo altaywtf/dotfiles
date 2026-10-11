@@ -29,7 +29,7 @@ import {
 export { type Runtime } from "./runtime.ts";
 
 // renovate: datasource=npm depName=skills
-export const DEFAULT_SKILLS_CLI_VERSION = "1.7.1";
+export const DEFAULT_SKILLS_CLI_VERSION = "1.7.2";
 
 type Agent = "claude-code" | "codex";
 
