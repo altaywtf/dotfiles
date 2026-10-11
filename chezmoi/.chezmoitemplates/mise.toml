@@ -1,10 +1,10 @@
 [tools]
 node = "24.21.0"
-bun = "1.4.2"
+bun = "1.4.3"
 python = "3.15.0"
 java = "temurin-25"
 ruby = "4.0.7"
-uv = "0.12.23"
+uv = "0.13.0"
 go = "1.27.2"
 pnpm = "12.10.1"
 # rustup-managed toolchain. mise honors a repository's rust-toolchain.toml only
@@ -30,4 +30,4 @@ awscli = "2.37.12"
 glab = "1.122.0"
 git-filter-repo = "2.47.0"
 just = "1.58.0"
-cargo-binstall = "1.25.2"
+cargo-binstall = "1.25.3"
