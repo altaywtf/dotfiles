@@ -1,0 +1,10 @@
+{{- /* Re-append blocks other tools keep between "# >>> NAME (managed) >>>" and
+"# <<< NAME (managed) <<<" lines, so apply and diff leave them alone. */ -}}
+{{- $start := `(?m)^# >>> .+ \(managed\) >>>$` -}}
+{{- $blocks := regexFindAll `(?ms)^# >>> .+? \(managed\) >>>$.*?^# <<< .+? \(managed\) <<<$` .current -1 -}}
+{{- if ne (len (regexFindAll $start .current -1)) (len $blocks) -}}
+{{- fail (printf "%s has a \"# >>> ... (managed) >>>\" line without its \"# <<< ... (managed) <<<\" end" .path) -}}
+{{- end -}}
+{{- range $blocks }}
+{{ . }}
+{{ end -}}

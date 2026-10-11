@@ -1,0 +1,3 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- includeTemplate "zshrc" . -}}
+{{- includeTemplate "zsh-managed-blocks" (dict "current" .chezmoi.stdin "path" "~/.zshrc") -}}

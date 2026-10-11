@@ -44,7 +44,7 @@ sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
 avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
 ```
 
-The [shell template](../chezmoi/dot_zshrc.tmpl) selects `ANDROID_HOME` from
+The [shell template](../chezmoi/.chezmoitemplates/zshrc) selects `ANDROID_HOME` from
 the installed SDK paths. Verify:
 
 ```zsh

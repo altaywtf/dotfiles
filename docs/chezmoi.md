@@ -54,6 +54,11 @@ node verify/home-fixture.ts
 - Create `zshenv.local` manually with mode `0600`. The shell reads it only as
   a readable regular file; symlinks at the file or its `dotfiles` directory
   are ignored. Keep service tokens out of shell startup.
+- Apply keeps blocks other tools add to `~/.zshenv` and `~/.zshrc` between
+  `# >>> NAME (managed) >>>` and `# <<< NAME (managed) <<<` lines, re-appended
+  after the [managed content](../chezmoi/.chezmoitemplates/zsh-managed-blocks).
+  Everything else in those files is replaced. A start line without its end
+  fails apply and leaves the file untouched.
 - `TELEPORT_ADD_KEYS_TO_AGENT=no` can prevent Teleport from adding keys to an
   incompatible SSH agent.
 - The [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
