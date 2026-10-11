@@ -15,7 +15,6 @@ rust = "1.99.0"
 "npm:@openai/codex" = "0.162.1"
 # T3 Code's CLI installs its background service; the service updates itself.
 "npm:t3" = "0.0.45"
-"npm:@xai-official/grok" = "1.0.50"
 
 gh = "2.102.0"
 jq = "1.8.2"

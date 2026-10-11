@@ -122,6 +122,9 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   const declared = {
     ...misePins(join(templates, "mise.toml")),
     ...misePins(join(templates, context.platform, "mise.toml")),
+    ...(context.profileConfig.capabilities.personal
+      ? misePins(join(templates, "personal/mise.toml"))
+      : {}),
   };
   const configured = misePins(
     context.env.MISE_GLOBAL_CONFIG_FILE ||

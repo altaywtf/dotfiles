@@ -18,6 +18,7 @@ cask "zoom"
 cask "basecamp/tap/hey"
 
 # Agent tools
+cask "amp-app"
 cask "uinaf/tap/slopwake"
 
 # Cloud tooling

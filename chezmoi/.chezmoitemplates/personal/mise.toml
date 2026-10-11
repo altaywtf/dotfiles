@@ -1,0 +1,4 @@
+[tools]
+# Coding agents installed only by personal profiles. Amp's CLI comes from its
+# own installer: the Amp app resolves a mise shim to the mise binary and fails.
+"npm:@xai-official/grok" = "1.0.50"
