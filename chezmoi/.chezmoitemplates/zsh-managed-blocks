@@ -1,10 +1,15 @@
 {{- /* Re-append blocks other tools keep between "# >>> NAME (managed) >>>" and
 "# <<< NAME (managed) <<<" lines, so apply and diff leave them alone. */ -}}
-{{- $start := `(?m)^# >>> .+ \(managed\) >>>$` -}}
-{{- $blocks := regexFindAll `(?ms)^# >>> .+? \(managed\) >>>$.*?^# <<< .+? \(managed\) <<<$` .current -1 -}}
+{{- $start := `(?m)^# >>> [^\n]+ \(managed\) >>>$` -}}
+{{- $blocks := regexFindAll `(?ms)^# >>> [^\n]+? \(managed\) >>>$.*?^# <<< [^\n]+? \(managed\) <<<$` .current -1 -}}
+{{- $unterminated := printf "%s has a \"# >>> NAME (managed) >>>\" line without its \"# <<< NAME (managed) <<<\" end" .path -}}
 {{- if ne (len (regexFindAll $start .current -1)) (len $blocks) -}}
-{{- fail (printf "%s has a \"# >>> ... (managed) >>>\" line without its \"# <<< ... (managed) <<<\" end" .path) -}}
+{{- fail $unterminated -}}
 {{- end -}}
-{{- range $blocks }}
+{{- range $blocks -}}
+{{- $name := regexReplaceAll `(?s)^# >>> ([^\n]+?) \(managed\) >>>\n.*$` . "${1}" -}}
+{{- if ne $name (regexReplaceAll `(?s)^.*\n# <<< ([^\n]+?) \(managed\) <<<$` . "${1}") -}}
+{{- fail $unterminated -}}
+{{- end }}
 {{ . }}
 {{ end -}}

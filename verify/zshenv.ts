@@ -127,14 +127,21 @@ const program = Effect.scoped(
       });
       yield* fs.writeFileString(target, managed);
       yield* unchanged(managed);
-      yield* fs.writeFileString(target, `stale\n\n${block}\nstale\n`);
+      yield* fs.writeFileString(
+        target,
+        `stale\n# >>> conda initialize >>>\nconda\n# <<< conda initialize <<<\n\n${block}\nstale\n`,
+      );
       yield* apply(target);
       yield* unchanged(`${managed}\n${block}\n`);
-      const unterminated = `${managed}# >>> fixture tool (managed) >>>\nexport FIXTURE_TOOL=1\n`;
-      yield* fs.writeFileString(target, unterminated);
-      const failed = yield* chezmoi("apply", target);
-      if (failed.status === 0 || (yield* fs.readFileString(target)) !== unterminated)
-        return yield* fail(`${name}: apply replaced an unterminated managed block`);
+      for (const unterminated of [
+        `${managed}# >>> fixture tool (managed) >>>\nexport FIXTURE_TOOL=1\n`,
+        `${managed}# >>> fixture tool (managed) >>>\n# <<< other tool (managed) <<<\n`,
+      ]) {
+        yield* fs.writeFileString(target, unterminated);
+        const failed = yield* chezmoi("apply", target);
+        if (failed.status === 0 || (yield* fs.readFileString(target)) !== unterminated)
+          return yield* fail(`${name}: apply replaced an unterminated managed block`);
+      }
     }
     yield* fs.writeFileString(join(home, ".zshenv"), `stale\n\n${block}\n`);
     yield* apply(join(home, ".zshenv"));

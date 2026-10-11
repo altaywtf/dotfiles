@@ -57,7 +57,7 @@ node verify/home-fixture.ts
 - Apply keeps blocks other tools add to `~/.zshenv` and `~/.zshrc` between
   `# >>> NAME (managed) >>>` and `# <<< NAME (managed) <<<` lines, re-appended
   after the [managed content](../chezmoi/.chezmoitemplates/zsh-managed-blocks).
-  Everything else in those files is replaced. A start line without its end
+  Everything else in those files is replaced. A start line without its matching end
   fails apply and leaves the file untouched.
 - `TELEPORT_ADD_KEYS_TO_AGENT=no` can prevent Teleport from adding keys to an
   incompatible SSH agent.
