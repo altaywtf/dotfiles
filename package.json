@@ -11,14 +11,14 @@
     "typecheck": "vp check --no-fmt --no-lint"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.1",
-    "effect": "4.0.1",
+    "@effect/platform-node": "4.0.2",
+    "effect": "4.0.2",
     "smol-toml": "1.9.0"
   },
   "devDependencies": {
     "@types/node": "24.19.1",
     "esbuild": "0.28.2",
-    "knip": "6.39.0",
+    "knip": "6.40.0",
     "typescript": "7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
