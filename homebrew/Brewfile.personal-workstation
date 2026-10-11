@@ -39,4 +39,3 @@ cask "spotify"
 cask "vlc"
 
 # Remote desktop
-cask "parsec"
