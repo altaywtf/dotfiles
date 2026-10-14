@@ -7,10 +7,12 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
-import { acquireDirectoryLock, type LockOptions } from "../lib/lock.ts";
+import { acquireDirectoryLock, sleepSync, type LockOptions } from "../lib/lock.ts";
 
 // Concurrent manual and scheduled convergence wait for the checkout owner.
 const lockWaitMs = 15 * 60_000;
+// GitHub intermittently refuses SSH or drops connections; a fetch is idempotent.
+const fetchRetryDelaysMs = [5_000, 20_000];
 
 class UpdateFailure extends Error {
   readonly exitCode: number;
@@ -46,7 +48,11 @@ function run(repo: string, command: string, args: string[], capture = false): st
 // Local work blocks a fast-forward without making the checkout unusable.
 class LocalWork extends UpdateFailure {}
 
-export function syncCheckout(repo: string, label = "dotfiles checkout"): string {
+export function syncCheckout(
+  repo: string,
+  label = "dotfiles checkout",
+  sleep: (ms: number) => void = sleepSync,
+): string {
   const git = (...args: string[]) => run(repo, "git", args, true);
   const probe = (...args: string[]) =>
     spawnSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -58,7 +64,16 @@ export function syncCheckout(repo: string, label = "dotfiles checkout"): string 
   if (!branch) throw new UpdateFailure(`${label} has no default branch on origin`);
   const head = () => probe("symbolic-ref", "-q", "HEAD").stdout.trim();
   const before = { revision: git("rev-parse", "HEAD"), head: head() };
-  git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
+  for (const delay of [...fetchRetryDelaysMs, undefined]) {
+    try {
+      git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
+      break;
+    } catch (error) {
+      if (!(error instanceof UpdateFailure) || delay === undefined) throw error;
+      console.warn(`${label} ${error.message}; retrying in ${delay / 1000}s`);
+      sleep(delay);
+    }
+  }
   if (git("rev-parse", "HEAD") !== before.revision || head() !== before.head) {
     throw new UpdateFailure(
       `${label} HEAD or branch changed during fetch; retry when the checkout is idle`,
@@ -142,12 +157,12 @@ function privately<T>(update: () => T): T {
   }
 }
 
-export function converge(repo: string, lockOptions: LockOptions = {}, home = homedir()): void {
-  const release = acquireCheckoutLock(repo, lockOptions);
+export function converge(repo: string, options: LockOptions = {}, home = homedir()): void {
+  const release = acquireCheckoutLock(repo, options);
   try {
     let revision: string;
     try {
-      revision = syncCheckout(repo);
+      revision = syncCheckout(repo, undefined, options.sleep);
     } catch (error) {
       if (!(error instanceof LocalWork)) throw error;
       console.warn(`Kept ${repo}: ${error.message}; convergence skipped`);
@@ -156,7 +171,9 @@ export function converge(repo: string, lockOptions: LockOptions = {}, home = hom
     const failed: string[] = [];
     for (const checkout of ruleSourceCheckouts(home, repo)) {
       try {
-        const advanced = privately(() => syncCheckout(checkout, "agent rule checkout"));
+        const advanced = privately(() =>
+          syncCheckout(checkout, "agent rule checkout", options.sleep),
+        );
         console.log(`Agent rule checkout ${checkout} at ${advanced}`);
       } catch (error) {
         if (error instanceof LocalWork) console.warn(`Kept ${checkout}: ${error.message}`);

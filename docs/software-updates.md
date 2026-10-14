@@ -67,6 +67,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   disables Homebrew developer mode before updates so they follow stable tags.
 - Concurrent convergence runs serialize through a [checkout lock](../lib/lock.ts).
   Live or ambiguous owners retain the lock.
+- Checkout fetches retry twice, after 5 and 20 seconds, before failing
+  the step.
 - Failed steps retry on the next run. Package/configuration changes are not
   rolled back; Topgrade reports independent steps separately.
 

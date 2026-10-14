@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -108,12 +109,35 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   const { repo, upstream } = fixture(t);
   const before = git(repo, "rev-parse", "HEAD");
   rmSync(upstream, { recursive: true });
-  assert.throws(() => syncCheckout(repo));
+  const slept: number[] = [];
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms)));
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(slept, [5_000, 20_000]);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
   mkdirSync(lock); // metadata-free lock: the owner is unknown, so it is kept
   assert.throws(() => converge(repo, { waitMs: 0, log: () => {} }), /lock unavailable/);
   assert.ok(existsSync(lock));
+});
+
+test("a fetch that fails transiently is retried and the checkout advances", (t) => {
+  const { root, repo, upstream, advance } = fixture(t);
+  const next = advance();
+  const away = join(root, "away");
+  renameSync(upstream, away);
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    syncCheckout(repo, undefined, () => renameSync(away, upstream));
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(git(repo, "rev-parse", "HEAD"), next);
 });
 
 test("a stale checkout lock is reclaimed and a live one is awaited with backoff", (t) => {
@@ -209,7 +233,16 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
         else process.env[key] = value;
     });
     if (state === "unreachable") {
-      assert.throws(() => converge(repo, {}, home), /agent rule checkouts not updated/);
+      const warn = console.warn;
+      console.warn = () => {};
+      try {
+        assert.throws(
+          () => converge(repo, { sleep: () => {} }, home),
+          /agent rule checkouts not updated/,
+        );
+      } finally {
+        console.warn = warn;
+      }
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
       assert.equal(readFileSync(rendered, "utf8"), "first\n");
     } else if (state === "dirty") {

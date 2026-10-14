@@ -60,7 +60,7 @@ export function lockOwnerAlive(lock: string, probe: LockProbe = {}): boolean {
   return ownerFileAlive(join(lock, ownerFileName), probe);
 }
 
-function sleepSync(ms: number): void {
+export function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
