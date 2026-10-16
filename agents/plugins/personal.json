@@ -5,6 +5,12 @@
       "marketplaceId": "altaywtf",
       "name": "altaywtf",
       "harnesses": ["claude", "codex"]
+    },
+    {
+      "marketplace": "putdotio/agent-skills",
+      "marketplaceId": "putio",
+      "name": "putio-dev",
+      "harnesses": ["claude", "codex"]
     }
   ]
 }

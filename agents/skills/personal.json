@@ -3,14 +3,6 @@
     {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
-    },
-    {
-      "name": "putio-frontend-dev",
-      "source": "putdotio/agent-skills"
-    },
-    {
-      "name": "putio-sdk-dev",
-      "source": "putdotio/agent-skills"
     }
   ]
 }
