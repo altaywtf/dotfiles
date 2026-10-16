@@ -145,6 +145,10 @@ from different checkouts run one at a time.
 - Plugin and MCP removals awaiting a missing CLI remain owned until it returns.
 - Failed installs or removals leave that sync's lock unchanged; earlier successful
   commands may already have changed the host. Fix the reported failure and rerun.
+- A Claude plugin already synced from claude.ai (`<name>@synced` in
+  `claude plugin list --json`) is left to claude.ai: the sync skips its Claude
+  install and removes an owned local copy, which would otherwise shadow it.
+  Codex has no account sync, so its installs are unchanged.
 
 ## MCP Sync
 

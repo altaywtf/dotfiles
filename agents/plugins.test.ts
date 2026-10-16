@@ -166,7 +166,24 @@ function manifestPath(repoDir: string, layer: string): string {
 }
 
 function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
-  return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
+  return runtime.calls
+    .filter((call) => call.command === binary)
+    .map((call) => call.args.join(" "))
+    .filter((call) => call !== SYNCED_LIST);
+}
+
+const SYNCED_LIST = "plugin list --json";
+
+function syncedOutputs(names: readonly string[]): ReadonlyMap<string, string> {
+  return new Map([
+    [
+      `claude ${SYNCED_LIST}`,
+      JSON.stringify([
+        { id: "shared-plugin@shared-market", scope: "user", enabled: true },
+        ...names.map((name) => ({ id: `${name}@synced`, scope: "synced", enabled: true })),
+      ]),
+    ],
+  ]);
 }
 
 function pluginLockPath(home: string): string {
@@ -589,6 +606,39 @@ test("removes only plugins dropped from the previous managed lock", () => {
     "shared-plugin@shared-market",
     "second-plugin@shared-market",
   ]);
+});
+
+test("leaves a plugin synced from claude.ai to Claude and still installs it in Codex", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(home, fixtureSharedPlugins);
+  const runtime = new FixtureRuntime(repoDir, home, { outputs: syncedOutputs(["shared-plugin"]) });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install second-plugin@shared-market",
+    "plugin uninstall -y shared-plugin@shared-market",
+  ]);
+  assert.ok(harnessCalls(runtime, "codex").includes("plugin add shared-plugin@shared-market"));
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
+  assert.deepEqual(
+    locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
+    [
+      ["shared-plugin", ["codex"]],
+      ["second-plugin", ["claude", "codex"]],
+    ],
+  );
+});
+
+test("installs every selected plugin when Claude cannot list synced plugins", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([[`claude ${SYNCED_LIST}`, { stdout: "", stderr: "boom" }]]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin install shared-plugin@shared-market"));
+  assert.match(runtime.stdout.value, /could not read synced plugins/);
 });
 
 test("keeps a dropped plugin in the lock when its harness CLI is missing", () => {

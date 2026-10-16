@@ -435,6 +435,68 @@ function applyHarness(
   }
 }
 
+// Claude loads plugins enabled on claude.ai as `<name>@synced`, and a same-named
+// marketplace install shadows them, so the sync yields those names to claude.ai.
+function readSyncedClaudePlugins(runtime: Runtime): ReadonlySet<string> {
+  const synced = new Set<string>();
+  if (!runtime.commandExists(HARNESS_SPECS.claude.binary)) {
+    return synced;
+  }
+
+  const result = runtime.run(HARNESS_SPECS.claude.binary, ["plugin", "list", "--json"], {
+    stdout: "capture",
+    stderr: "capture",
+  });
+  let parsed: unknown;
+  try {
+    if (result.status !== 0) {
+      throw new Error(`exit ${result.status}`);
+    }
+    parsed = JSON.parse(result.stdout);
+    if (!Array.isArray(parsed)) {
+      throw new Error("expected an array");
+    }
+  } catch (error) {
+    writeLine(
+      runtime.stdout,
+      `Claude: could not read synced plugins (${errorMessage(error)}); installing every selected plugin`,
+    );
+    return synced;
+  }
+
+  for (const entry of parsed) {
+    if (
+      typeof entry === "object" &&
+      entry !== null &&
+      "id" in entry &&
+      typeof entry.id === "string" &&
+      entry.id.endsWith("@synced") &&
+      !("enabled" in entry && entry.enabled === false)
+    ) {
+      synced.add(entry.id.slice(0, -"@synced".length));
+    }
+  }
+  return synced;
+}
+
+function yieldSyncedClaudePlugins(
+  runtime: Runtime,
+  plugins: readonly Plugin[],
+  synced: ReadonlySet<string>,
+): Plugin[] {
+  return plugins.flatMap((plugin) => {
+    if (!plugin.harnesses.includes("claude") || !synced.has(plugin.name)) {
+      return [plugin];
+    }
+    writeLine(
+      runtime.stdout,
+      `Claude: ${pluginRef(plugin)} is synced from claude.ai; not installing`,
+    );
+    const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
+    return harnesses.length > 0 ? [{ ...plugin, harnesses }] : [];
+  });
+}
+
 type PluginOptions = {
   profile?: string;
   update: boolean;
@@ -449,10 +511,15 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, plugins } = readLayeredPlugins(repoDir, profileName, profile.agentLayers);
+  const layered = readLayeredPlugins(repoDir, profileName, profile.agentLayers);
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
-  writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);
+  writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
+  const plugins = yieldSyncedClaudePlugins(
+    runtime,
+    layered.plugins,
+    readSyncedClaudePlugins(runtime),
+  );
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
