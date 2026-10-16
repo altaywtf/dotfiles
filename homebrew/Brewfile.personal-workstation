@@ -18,9 +18,6 @@ cask "zoom"
 cask "basecamp/tap/hey"
 
 # Agent tools
-# Amp's CLI comes from its own installer: the app resolves a mise shim to the
-# mise binary and fails.
-cask "amp-app"
 cask "uinaf/tap/slopwake"
 
 # Cloud tooling
