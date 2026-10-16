@@ -274,8 +274,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
   const log = join(root, "steps");
   const bin = join(root, "bin");
   mkdirSync(bin);
-  mkdirSync(join(root, ".config/dotfiles"), { recursive: true });
-  writeFileSync(join(root, ".config/dotfiles/llm-gateway.json"), "{}", { mode: 0o600 });
   mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
   writeFileSync(
     join(root, "chezmoi/.chezmoidata/profiles.json"),
@@ -296,7 +294,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
     "trust-agent-worktrees.ts",
     "install-gh-extensions.ts",
     "configure-codex.ts",
-    "configure-llm-gateway.ts",
   ])
     stub(join(root, "bootstrap", name), name);
   for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
@@ -307,7 +304,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
       ...process.env,
       HOME: root,
       DOTFILES_INSTALL_REPO_ROOT: root,
-      LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"),
       TEST_LOG: log,
       PATH: `${bin}:${process.env.PATH}`,
     },
@@ -331,7 +327,6 @@ for (const failure of [false, true]) {
     else {
       assert.match(steps, /^mise install$/m);
       assert.match(steps, /^mise run dotfiles:runtime-packages$/m);
-      assert.match(steps, /^configure-llm-gateway.ts --maintenance$/m);
       assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^sync.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^mcps.ts --profile personal-devbox$/m);

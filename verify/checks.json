@@ -140,21 +140,6 @@
       "output": "Codex typed atomic edits, project trust, and private state modes plus native write integration when Codex is installed"
     },
     {
-      "id": "llm-gateway",
-      "domain": "agents",
-      "command": [
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/configure-llm-gateway.test.ts",
-        "agents/gateway/adapters.test.ts",
-        "agents/gateway/gateway-runtime.test.ts",
-        "agents/gateway/enrollment.test.ts"
-      ],
-      "output": "Standalone Effect gateway adapters, ACP framing and lifecycle, credential isolation, provider routing, check, and exact rollback"
-    },
-    {
       "id": "agent-rule-sources",
       "domain": "agents",
       "command": ["pnpm", "exec", "vp", "test", "agents/rules.test.ts"],

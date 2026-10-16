@@ -493,11 +493,11 @@ test("npm inventory distinguishes outdated packages from error envelopes", async
   }
 });
 
-test("SSH agent probes preserve the installed gateway wrapper outside the inherited PATH", async (t) => {
+test("SSH agent probes preserve the installed wrapper outside the inherited PATH", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-ssh-probe-"));
   t.onTestFinished(() => rm(home, { recursive: true, force: true }));
   await mkdir(join(home, ".local/bin"), { recursive: true });
-  await writeFile(join(home, ".local/bin/claude"), "#!/bin/sh\necho gateway-wrapper-version\n", {
+  await writeFile(join(home, ".local/bin/claude"), "#!/bin/sh\necho wrapper-version\n", {
     mode: 0o700,
   });
   const { runProcess } = await import("./probes.ts");
@@ -513,7 +513,7 @@ test("SSH agent probes preserve the installed gateway wrapper outside the inheri
       command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
   );
   assert.equal(snapshot.probes.version_claude.status, "ok");
-  assert.equal(snapshot.probes.version_claude.value, "gateway-wrapper-version");
+  assert.equal(snapshot.probes.version_claude.value, "wrapper-version");
   await rm(join(home, ".local/bin/claude"));
   const missing = await collectMaintenanceSnapshot(
     {

@@ -50,7 +50,6 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-llm-gateway",
           "sync-agents"
         ]
       },
@@ -75,7 +74,6 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-llm-gateway",
           "sync-agents"
         ]
       },
@@ -122,7 +120,6 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-llm-gateway",
           "sync-agents"
         ],
         "externalHomebrew": [

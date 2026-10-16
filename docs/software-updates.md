@@ -63,8 +63,7 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   under umask `077`, so files Git rewrites stay owner-only.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
-  Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
-  are preserved.
+  Runtime versions follow declarations; coding-client logins are preserved.
 - Homebrew updates run as its prefix owner. The [Topgrade template](../chezmoi/private_dot_config/topgrade.toml.tmpl)
   disables Homebrew developer mode before updates so they follow stable tags.
 - Concurrent convergence runs serialize through a [checkout lock](../lib/lock.ts).

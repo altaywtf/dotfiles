@@ -4,19 +4,14 @@ The selected [profile](profiles.md) controls global rules, skills, plugins,
 and MCP servers.
 
 [Codex configuration](../agents/codex/config.ts) owns native configuration writes
-and managed defaults, including the model and reasoning effort; gateway setup
-preserves them. These defaults also apply when Codex uses ChatGPT login;
-the ChatGPT app has its own model selection.
+and managed defaults, including the model and reasoning effort. Codex signs in
+with `codex login` and Claude Code with `claude auth login`; the ChatGPT app has
+its own model selection.
 
 [Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml)
 sets the reviewer engine, model, and reasoning effort for ffss workflows.
 Repository configuration, environment variables, and explicit flags can override
 these account defaults.
-
-[Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
-configuration, and rollback. Setup and maintenance preserve vendor logins.
-The [gateway command](../bootstrap/configure-llm-gateway.ts) exposes apply,
-check, and rollback operations. Rollback restores the enrollment snapshot.
 
 [Codex project trust](../agents/codex/projects.ts) runs with the Codex defaults
 on setup and maintenance. Personal and devbox profiles trust each Git checkout
@@ -169,7 +164,7 @@ with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
 ## Verify
 
-The `agents` domain covers harness settings, gateways, rules, skills, plugins,
+The `agents` domain covers harness settings, rules, skills, plugins,
 and MCP integration. The `config` domain covers the remaining managed-home
 configuration.
 

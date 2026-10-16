@@ -53,57 +53,6 @@ calls:
 The password is decrypted in the askpass process. A narrow sudoers allowlist
 remains the authorization boundary.
 
-## Opt-In Coding LLM Gateway
-
-Personal profiles require `~/.config/dotfiles/llm-gateway.json`, mode `0600`.
-Standard profiles can enroll explicitly. Obtain resolved credentials from the
-owning private system. Start with this example and replace the credentials
-and URLs:
-
-```json
-{
-  "version": 3,
-  "credentials": {
-    "gatewai": "<resolved Gatewai key>"
-  },
-  "gatewaiBaseUrl": "https://gatewai.example/v1"
-}
-```
-
-[`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
-own optional fields and validation. Enrollment configures Codex and Claude
-through Gatewai and preserves unrelated provider settings.
-
-Credentials stay in owner-only configuration or client stores. Enrollment and
-maintenance refuse gateway state other than version 9.
-
-```zsh
-./bootstrap/configure-llm-gateway.ts
-./bootstrap/configure-llm-gateway.ts --check
-```
-
-Gateway setup and maintenance preserve existing vendor logins; sign out through
-each client's own command when you no longer need one.
-
-### Client Troubleshooting
-
-- **Codex:** `codex login status` can report `Not logged in` with working
-  command-based gateway auth. A live check is
-  `echo ok | codex exec --ephemeral --skip-git-repo-check -` (uses provider quota).
-  Harnesses using `--ignore-user-config` must launch
-  `~/.local/libexec/dotfiles/codex-gatewai` to retain gateway routing.
-- **Claude:** enrollment refuses conflicting `ANTHROPIC_API_KEY`,
-  `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex settings. Resolve those deliberately
-  before retrying.
-
-### Rollback
-
-```zsh
-./bootstrap/configure-llm-gateway.ts --rollback
-```
-
-- Restores saved client configuration; removes helpers.
-
 ## System Services
 
 Install system services only when the owner asks; otherwise Colima starts on
@@ -159,8 +108,7 @@ the new one passes every check below.
 2. Follow [Bootstrap](bootstrap.md) as the new Homebrew owner with the old
    host's profile.
 3. Create a new SSH key and [age identity](identities.md#move-or-retire-a-deployment)
-   with a verified recovery copy. Obtain a separate gateway credential from its
-   owner; do not copy the old host's.
+   with a verified recovery copy.
 4. On the old host, push or deliberately archive unpushed branches, stashes,
    worktrees, and ignored work. Clone repositories on the new host from their
    remotes, including every repository registry the workspace route does not
@@ -171,5 +119,5 @@ the new one passes every check below.
 6. Run [verification](#verification), then each moved repository's own build
    and test gate on the new host.
 
-Then retire the old host's services, updater, gateway credential, and age
+Then retire the old host's services, updater, and age
 recipient separately, each with its own proof.

@@ -1,7 +1,6 @@
 import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { KnipConfig } from "knip";
-import { gatewayHelpers } from "./agents/gateway/bundle.ts";
 
 // CLI commands are also invoked by mise, schedulers, templates, and operators.
 const commands = globSync("**/*.ts", {
@@ -14,7 +13,7 @@ const commands = globSync("**/*.ts", {
 );
 
 export default {
-  entry: [...commands, ...gatewayHelpers.map((name) => `agents/gateway/${name}.ts`)],
+  entry: commands,
   project: ["**/*.ts", "!chezmoi/**"],
   includeEntryExports: true,
   // Vite+'s migrator installs this alias to satisfy the bundled tools' peers.

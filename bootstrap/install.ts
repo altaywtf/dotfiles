@@ -68,10 +68,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
       ]);
     case "configure-codex":
       return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
-    case "configure-llm-gateway":
-      return yield* execute(step, bootstrap("configure-llm-gateway.ts"), [
-        maintenance ? "--maintenance" : "--setup",
-      ]);
     case "sync-agents":
       for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
         yield* execute(`${step} ${name}`, resolve(repoRoot, "agents", name), [

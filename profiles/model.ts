@@ -17,7 +17,6 @@ const InstallStep = Schema.Literals([
   "install-runtimes",
   "install-repository-dependencies",
   "configure-codex",
-  "configure-llm-gateway",
   "sync-agents",
 ]);
 const ProfileConfig = Schema.Struct({
