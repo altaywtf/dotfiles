@@ -1,6 +1,10 @@
+{{- $profile := includeTemplate "profile" . | fromJson }}
 {{ includeTemplate "mise.toml" . }}
-{{- /* The per-OS file repeats the [tools] header so Renovate can parse it alone; drop it here. */}}
+{{- /* The sibling files repeat the [tools] header so Renovate can parse them alone; drop it here. */}}
 {{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate (printf "%s/mise.toml" .chezmoi.os) .) "" }}
+{{- if not $profile.capabilities.workstation }}
+{{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate "headless/mise.toml" .) "" }}
+{{- end }}
 {{ includeTemplate "mise-tasks.toml" . }}
 [settings]
 node.npm_shim = false

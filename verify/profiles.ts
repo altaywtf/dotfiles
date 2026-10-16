@@ -150,7 +150,13 @@ const program = Effect.scoped(
       );
     // Each template part must stay plain TOML so Renovate's mise manager can
     // parse it; a Go-template directive here silently stops every pin update.
-    for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
+    for (const part of [
+      "mise.toml",
+      "darwin/mise.toml",
+      "linux/mise.toml",
+      "headless/mise.toml",
+      "mise-tasks.toml",
+    ]) {
       const parsed = yield* run("python3", [
         "-c",
         "import sys, tomllib; tomllib.loads(open(sys.argv[1]).read())",

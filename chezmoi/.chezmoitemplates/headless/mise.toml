@@ -1,0 +1,5 @@
+[tools]
+# Profiles without the T3 Code desktop app (Brewfile.workstation) take its CLI
+# from npm; the app installs its own `t3`. The CLI installs the background
+# service, and the service updates itself.
+"npm:t3" = "0.1.0"

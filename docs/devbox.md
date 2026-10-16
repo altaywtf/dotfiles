@@ -131,7 +131,7 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
 installs the T3 Code service there by default. `devbox` hosts are scoped,
 on-demand boxes and install it only with `T3_SERVICE=1` in
 [local configuration](#local-configuration). Workstations run no service; the
-T3 desktop app is the server there. Unattended maintenance does not enroll new
+T3 desktop app is the server there and installs its own `t3` from its settings. Unattended maintenance does not enroll new
 services. T3 owns later updates; the
 [installation step](../bootstrap/install-t3-service.ts) preserves existing
 units unless `T3_SERVICE=0` asks for removal through `t3 service uninstall`. Inspect it with:

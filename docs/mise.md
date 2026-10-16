@@ -4,7 +4,8 @@
 [The profile template](../chezmoi/.chezmoitemplates/mise.toml) and its
 [darwin](../chezmoi/.chezmoitemplates/darwin/mise.toml) and
 [linux](../chezmoi/.chezmoitemplates/linux/mise.toml) siblings own installed
-runtime and tool pins; [mise-tasks.toml](../chezmoi/.chezmoitemplates/mise-tasks.toml)
+runtime and tool pins, and [headless](../chezmoi/.chezmoitemplates/headless/mise.toml)
+adds the T3 Code CLI to profiles without the desktop app; [mise-tasks.toml](../chezmoi/.chezmoitemplates/mise-tasks.toml)
 owns the packages installed inside those runtimes. Chezmoi concatenates them
 into `~/.config/mise/config.toml`. Keep task entries as command delegations;
 parsing and policy belong to the [domain owners](../AGENTS.md#layout).
