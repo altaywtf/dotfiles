@@ -194,7 +194,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, false);
-        assert.equal(actual.attribution, undefined);
+        assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
         assert.equal(actual.permissions?.[managedMode], "auto");
         assert.deepEqual({ ...actual.env, ...managedEnv }, actual.env);
         finish();
