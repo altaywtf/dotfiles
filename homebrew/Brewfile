@@ -19,6 +19,7 @@ tap "teamookla/speedtest", trusted: true
 
 # Development CLI
 brew "git-crypt"
+brew "typos-cli"
 brew "watchman"
 
 # Platform development
