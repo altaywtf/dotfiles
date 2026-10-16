@@ -1,7 +1,7 @@
 {
   "plugins": [
     {
-      "marketplace": "altaywtf/agent-skills",
+      "marketplace": "altaywtf/agent-plugin",
       "marketplaceId": "altaywtf",
       "name": "altaywtf",
       "harnesses": ["claude", "codex"]
