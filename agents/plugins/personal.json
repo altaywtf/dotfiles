@@ -1,13 +1,13 @@
 {
   "plugins": [
     {
-      "marketplace": "altaywtf/agent-plugin",
+      "marketplace": "altaywtf/altaywtf-agent-plugin",
       "marketplaceId": "altaywtf",
       "name": "altaywtf",
       "harnesses": ["claude", "codex"]
     },
     {
-      "marketplace": "putdotio/agent-skills",
+      "marketplace": "putdotio/putio-dev-agent-plugin",
       "marketplaceId": "putio",
       "name": "putio-dev",
       "harnesses": ["claude", "codex"]
