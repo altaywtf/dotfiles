@@ -5,7 +5,7 @@ and [mise templates](../chezmoi/.chezmoitemplates/) own the shared toolchain;
 projects can override runtime versions.
 
 Simulator runtimes, Android SDK packages, emulator images, and first-run GUI
-setup stay manual. Keep CocoaPods and Fastlane in the application’s `Gemfile`.
+setup stay manual.
 
 ## Xcode and tvOS Simulator
 

@@ -43,11 +43,8 @@ For a real secret:
 
 ## Repository and Scope Policy
 
-- [Repository scan selection](../audit/repo.ts) owns local scan scope. In CI,
-  the last step of the [`verify` job](../.github/workflows/verify.yml) runs the
-  shared push-time scan on each push to `main`; in this public repository it
-  lints changed workflows and leaves secrets to GitHub secret scanning and push
-  protection.
+- [Repository scan selection](../audit/repo.ts) owns local scan scope;
+  [Contributing](../CONTRIBUTING.md#deliver) covers what CI scans.
 - In a linked worktree, the TruffleHog filesystem pass scans only tracked and
   unignored files, so dependency trees such as `node_modules` stay out.
   Ignored files are not scanned.
