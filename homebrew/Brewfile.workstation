@@ -8,7 +8,7 @@ cask "google-chrome"
 cask "helium-browser"
 cask "slack"
 cask "claude"
-cask "t3-code"
+cask "chatgpt"
 cask "zed"
 
 # Hardware security
