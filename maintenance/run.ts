@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { BoundedCommand } from "./bounded-command.ts";
+import { awaitFullWake } from "./darwin/wake.ts";
 import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
 const Job = Schema.Literal("software-update");
@@ -236,6 +237,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
       return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
+    if (process.platform === "darwin" && !(yield* awaitFullWake())) return;
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
   }).pipe(
     Effect.provide(BoundedCommand.layer),

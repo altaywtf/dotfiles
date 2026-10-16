@@ -23,6 +23,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 - Applying dotfiles does not enable updates; enrollment is explicit.
 - macOS missed sleep events coalesce on wake; powered-off machines wait until
   startup. Linux catches up after downtime.
+- A macOS slot that fires in DarkWake waits for a full wake and gives up after
+  5.5 hours, before the next slot; the Mac is never kept awake for an update.
 - Linux `maintenance:enable` needs the rendered units and systemd lingering
   (`sudo loginctl enable-linger <user>`, an administrator step); without
   lingering the timer stops at logout and `maintenance:status` fails. Console
