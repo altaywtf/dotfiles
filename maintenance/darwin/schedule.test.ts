@@ -532,10 +532,6 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
         "github_cli_extensions",
         "custom_commands",
       ]);
-      assert.ok(
-        !config.includes("t3-server"),
-        "the updater must not push T3 Code to other hosts; T3 Code manages its own server updates",
-      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });

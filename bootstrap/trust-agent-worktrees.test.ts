@@ -41,7 +41,6 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-worktree-trust-"));
   const codexHome = join(root, "codex");
   const claudeHome = join(root, "claude");
-  const t3BaseDir = join(root, "t3");
   const worktrees = join(codexHome, "worktrees");
   const bin = join(root, "bin");
   const log = join(root, "mise.log");
@@ -49,7 +48,6 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
     join(worktrees, "mise.toml"),
     join(worktrees, "project", ".mise.toml"),
     join(worktrees, "project", "checkout", "mise.toml"),
-    join(t3BaseDir, "worktrees", "project", "checkout", "mise.toml"),
   ].sort();
   const excluded = join(
     worktrees,
@@ -64,7 +62,6 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
     mkdirSync(join(worktrees, "project", "checkout", "node_modules", "dependency"), {
       recursive: true,
     });
-    mkdirSync(join(t3BaseDir, "worktrees", "project", "checkout"), { recursive: true });
     mkdirSync(bin);
     for (const path of [...expected, excluded]) writeFileSync(path, "[tools]\n");
     const mise = join(bin, "mise");
@@ -91,7 +88,6 @@ exit 1
         HOME: root,
         CODEX_HOME: codexHome,
         CLAUDE_HOME: claudeHome,
-        T3_BASE_DIR: t3BaseDir,
         MISE_LOG: log,
       },
     });

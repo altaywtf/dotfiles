@@ -277,12 +277,12 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
       await utimes(join(f.home, path), when, when).catch(() => undefined);
     return artifact;
   };
-  await repo(".t3/worktrees/pnpm/review");
+  await repo(".claude/worktrees/pnpm/review");
   await repo("projects/org/active");
   await repo("projects/org/untagged");
   await mkdir(join(f.home, "projects/org/tracked"), { recursive: true });
   execFileSync("/usr/bin/git", ["init", "-q", join(f.home, "projects/org/tracked")]);
-  const idle = await build(".t3/worktrees/pnpm/review/target", 10);
+  const idle = await build(".claude/worktrees/pnpm/review/target", 10);
   await repo("projects/org/python");
   await repo("projects/org/nested");
   const kept = await Promise.all([
@@ -297,9 +297,9 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   assert.match(dry.stdout, /idle for 3 days: .*review\/target\n/);
   await Promise.all([idle, ...kept].map((path) => access(path)));
   assert.equal((await f.run(true)).status, 0);
-  await assert.rejects(access(join(f.home, ".t3/worktrees/pnpm/review/target")), {
+  await assert.rejects(access(join(f.home, ".claude/worktrees/pnpm/review/target")), {
     code: "ENOENT",
   });
-  await access(join(f.home, ".t3/worktrees/pnpm/review/.gitignore"));
+  await access(join(f.home, ".claude/worktrees/pnpm/review/.gitignore"));
   await Promise.all(kept.map((path) => access(path)));
 });

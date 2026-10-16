@@ -35,7 +35,6 @@ const emptyMiseRoot = mkdtempSync(join(tmpdir(), "maintenance-empty-mise-"));
 for (const directory of [
   "chezmoi/.chezmoitemplates/linux",
   "chezmoi/.chezmoitemplates/darwin",
-  "chezmoi/.chezmoitemplates/headless",
   ".config/mise",
 ])
   mkdirSync(join(emptyMiseRoot, directory), { recursive: true });
@@ -43,7 +42,6 @@ for (const file of [
   "chezmoi/.chezmoitemplates/mise.toml",
   "chezmoi/.chezmoitemplates/linux/mise.toml",
   "chezmoi/.chezmoitemplates/darwin/mise.toml",
-  "chezmoi/.chezmoitemplates/headless/mise.toml",
   ".config/mise/config.toml",
 ])
   writeFileSync(join(emptyMiseRoot, file), "[tools]\n");
@@ -595,9 +593,7 @@ for (const inventoryAvailable of [true, false]) {
 async function pinContext() {
   const root = await mkdtemp(join(tmpdir(), "maintenance-mise-pins-"));
   await mkdir(join(root, "chezmoi/.chezmoitemplates/linux"), { recursive: true });
-  await mkdir(join(root, "chezmoi/.chezmoitemplates/headless"), { recursive: true });
   await mkdir(join(root, ".config/mise"), { recursive: true });
-  await writeFile(join(root, "chezmoi/.chezmoitemplates/headless/mise.toml"), "[tools]\n");
   await writeFile(join(root, "chezmoi/.chezmoitemplates/mise.toml"), '[tools]\nnode = "24.21.0"\n');
   await writeFile(
     join(root, "chezmoi/.chezmoitemplates/linux/mise.toml"),
@@ -713,36 +709,6 @@ test("unavailable, failed, absent and malformed installed pin inspections remain
   );
   assert.equal(snapshot.summary.status, "incomplete");
   assert.equal(snapshot.probes.mise_convergence.status, "failed");
-});
-
-test("T3 CLI version uses the same managed executable path as the other harness probes", async () => {
-  const snapshot = await collectMaintenanceSnapshot(
-    {
-      ...context(),
-      profileConfig: {
-        ...profileConfig,
-        capabilities: { ...profileConfig.capabilities, workstation: false },
-        agentLayers: [],
-      },
-    },
-    async (command, args, options) => {
-      if (command === "t3") {
-        assert.deepEqual(args, ["--version"]);
-        assert.ok(options.env.PATH?.startsWith(join(context().home, ".local/bin")));
-        return result("t3 v0.0.45\n");
-      }
-      return result("{}");
-    },
-  );
-  assert.equal(snapshot.probes.version_t3?.value, "t3 v0.0.45");
-});
-
-test("workstations leave the T3 CLI to the desktop app", async () => {
-  const snapshot = await collectMaintenanceSnapshot(
-    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
-    async () => result("{}"),
-  );
-  assert.equal(snapshot.probes.version_t3, undefined);
 });
 
 test("converged runtime selectors and source pins do not invent an upgrade", async (t) => {

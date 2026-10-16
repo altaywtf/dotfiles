@@ -36,9 +36,7 @@ probed by `./dotfiles check devbox`:
 
 - Tailscale installed and joined.
 - systemd lingering for the user: `sudo loginctl enable-linger <user>`. The
-  [maintenance timer](software-updates.md) and the
-  [T3 Code service](devbox.md#system-services), on by default for
-  `personal-devbox`, stop at logout without it.
+  [maintenance timer](software-updates.md) stops at logout without it.
 
 Tool pins live in the [mise configuration](mise.md#runtime-pins).
 `age` and `sops` stay host packages on both platforms because the
@@ -234,7 +232,7 @@ For package-only refreshes, use [Software updates](software-updates.md).
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                                                                                   |
 | Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                                                                                   |
-| A systemd user service cannot find `codex`, `claude`, or another mise tool | Apply dotfiles to refresh the user manager's `PATH`, then [restart the running T3 service](devbox.md#refresh-a-linux-services-path) and rerun the profile check.                                                                                    |
+| A systemd user service cannot find `codex`, `claude`, or another mise tool | Apply dotfiles to refresh the user manager's `PATH`, then rerun the profile check.                                                                                                                                                                  |
 | Homebrew drift                                                             | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes packages outside the selected profile and local Brewfile. |
 | Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                 |
 | GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                             |

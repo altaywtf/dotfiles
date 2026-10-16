@@ -10,7 +10,7 @@ test("workload classification needs specific evidence and never emits argv", asy
 11 1 21-01:02:03 /sdk/bin/java GradleWorkerMain 'Gradle Test Executor 1' secret-value
 12 99 21-01:02:03 /sdk/bin/java GradleWorkerMain 'Gradle Test Executor 2'
 13 1 02:00 /bin/node /private/tmp/test-daemon.ts --token=secret-value
-14 1 02:00 /bin/node /app/t3/server.js --token=secret-value
+14 1 02:00 /bin/node /app/agent/server.js --token=secret-value
 15 1 02:00 /bin/node /app/codex/server.js
 16 1 02:00 /bin/bun /app/production.ts
 17 1 02:00 /bin/postgres -D /tmp/test-db

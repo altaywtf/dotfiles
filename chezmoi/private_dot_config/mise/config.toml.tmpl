@@ -1,20 +1,15 @@
-{{- $profile := includeTemplate "profile" . | fromJson }}
 {{ includeTemplate "mise.toml" . }}
 {{- /* The sibling files repeat the [tools] header so Renovate can parse them alone; drop it here. */}}
 {{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate (printf "%s/mise.toml" .chezmoi.os) .) "" }}
-{{- if not $profile.capabilities.workstation }}
-{{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate "headless/mise.toml" .) "" }}
-{{- end }}
 {{ includeTemplate "mise-tasks.toml" . }}
 [settings]
 node.npm_shim = false
 idiomatic_version_file_enable_tools = ["java", "rust"]
-trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees", "~/.t3/worktrees"]
+trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees"]
 # Match the shared three-day Renovate gate for runtimes, package managers, and held tools.
 minimum_release_age = "3d"
 minimum_release_age_excludes = [
   "npm:@openai/codex",
-  "npm:t3",
   "gh",
   "jq",
   "ripgrep",

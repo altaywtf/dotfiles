@@ -122,9 +122,6 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   const declared = {
     ...misePins(join(templates, "mise.toml")),
     ...misePins(join(templates, context.platform, "mise.toml")),
-    ...(context.profileConfig.capabilities.workstation
-      ? {}
-      : misePins(join(templates, "headless/mise.toml"))),
   };
   const configured = misePins(
     context.env.MISE_GLOBAL_CONFIG_FILE ||
@@ -270,15 +267,12 @@ function summaryLine(result: RawCommandResult) {
 }
 
 function agentProbes(context: MaintenanceContext): Probe[] {
-  const profile = context.profileConfig;
   const versions: Array<[string, string, string[]]> = [
     ["node", "node", ["--version"]],
     ["npm", "npm", ["--version"]],
     ["codex", "codex", ["--version"]],
     ["claude", "claude", ["--version"]],
   ];
-  // Workstations take `t3` from the desktop app, which installs it on request.
-  if (!profile.capabilities.workstation) versions.push(["t3", "t3", ["--version"]]);
   const env = {
     PATH: [
       join(context.home, ".local/bin"),

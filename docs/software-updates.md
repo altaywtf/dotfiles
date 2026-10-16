@@ -251,7 +251,7 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
   cached applicability, live-scan decisions, and incomplete/timed-out probes.
   On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
   inventories remain.
-- Coding-agent version probes, including T3 Code, use the user's managed
+- Coding-agent version probes use the user's managed
   `~/.local/bin` wrappers and mise shims even in noninteractive SSH sessions.
 - Mise convergence compares the shared and platform template pins with the
   global configuration and installed tools. Unapplied pins and missing

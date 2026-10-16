@@ -48,7 +48,6 @@ const program = Effect.scoped(
       ["--user", "example", "--colima", "--openclaw-wrapper", "/tmp/wrapper"],
       ["--user", "example", "--openclaw"],
       ["--user", "example", "--allow-openclaw-restart"],
-      ["--user", "example", "--t3-code", "--t3-version", "1.2.3"],
     ]) {
       const rejected = yield* runInstaller(args);
       assert.equal(rejected.status, 2);

@@ -186,12 +186,6 @@ const program = Effect.gen(function* () {
         "tailscale status --peers=false",
         ...(darwin ? ["xcodes version"] : []),
       ]);
-      yield* command(process.execPath, [
-        join(repoRoot, "bootstrap/install-t3-service.ts"),
-        "--profile",
-        profile,
-        "--check",
-      ]);
     }
   });
   const homebrew = Effect.gen(function* () {

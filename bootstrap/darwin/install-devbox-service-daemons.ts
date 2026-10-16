@@ -27,9 +27,7 @@ Options:
                       Target user's persistent dotfiles checkout; required for updates.
 
 The installer must run as root on macOS. It creates root-owned system
-LaunchDaemons that drop privileges to the selected user. A T3 Code server is
-not a system daemon: install it as the user with \`t3 service install\` so the
-desktop app can update it.`;
+LaunchDaemons that drop privileges to the selected user.`;
 
 const InstallerOptions = Schema.Struct({
   user: Schema.NonEmptyString,

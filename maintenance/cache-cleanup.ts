@@ -31,7 +31,7 @@ const codexCaches = [
 // sweep does not wait for worktree removal. Other tools tag live environments
 // too (uv virtualenvs, Tuist dependencies), so only Cargo and SwiftPM output at
 // a checkout root qualifies, and only when Git confirms the path is ignored.
-const buildRoots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees", "projects"];
+const buildRoots = [".codex/worktrees", ".claude/worktrees", "projects"];
 const buildNames = new Set(["target", ".build"]);
 const buildIdleDays = 3;
 const cacheTagSignature = "Signature: 8a477f597d28d172789f06886806bc55";

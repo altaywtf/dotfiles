@@ -11,7 +11,6 @@ const Capabilities = Schema.Struct({
 const AgentLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
 const InstallStep = Schema.Literals([
   "apply-dotfiles",
-  "install-t3-service",
   "install-oh-my-zsh",
   "trust-agent-worktrees",
   "install-gh-extensions",

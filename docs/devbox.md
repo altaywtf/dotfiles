@@ -25,13 +25,7 @@ Optional per-user settings live in `~/.config/dotfiles/devbox.env`, mode `0600`:
 
 ```sh
 DEVBOX_USER=example
-T3_SERVICE=1
 ```
-
-`T3_SERVICE` overrides the profile's
-[T3 Code background service](#system-services) default: `T3_SERVICE=0` opts a
-`personal-devbox` user out and removes an installed service on the next apply,
-and `T3_SERVICE=1` opts a `devbox` user in.
 
 - Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
   of shell startup, plists, and supervisor configuration.
@@ -126,54 +120,6 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
   not ship it. Make it exit 0 when `colima status` succeeds and otherwise run
   `colima start` with the host's sizing.
 - Reference owner-only wrappers or files; never embed secrets.
-
-`personal-devbox` hosts are durable home machines, so `./dotfiles apply`
-installs the T3 Code service there by default. `devbox` hosts are scoped,
-on-demand boxes and install it only with `T3_SERVICE=1` in
-[local configuration](#local-configuration). Workstations run no service; the
-T3 desktop app is the server there and installs its own `t3` from its settings. Unattended maintenance does not enroll new
-services. T3 owns later updates; the
-[installation step](../bootstrap/install-t3-service.ts) preserves existing
-units unless `T3_SERVICE=0` asks for removal through `t3 service uninstall`. Inspect it with:
-
-```zsh
-t3 service status
-```
-
-`./dotfiles check` proves the unit exists wherever the service is wanted and
-is gone after `T3_SERVICE=0`. On Linux it also checks lingering and the running
-service's `PATH`. The systemd user
-manager does not read shell startup files; for missing tools, follow
-[bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering
-as an administrator: `sudo loginctl enable-linger <user>`.
-
-Keep `--base-dir` stable across updates; see the upstream
-[background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
-
-### Refresh a Linux Service's PATH
-
-Applying dotfiles updates the systemd user manager's `PATH`. An already-running
-T3 service keeps its old environment until restarted; apply warns about it but
-does not restart the service. After that warning, or when the profile check
-reports missing mise shims, run these commands as the service's Unix user from
-the dotfiles checkout:
-
-```sh
-systemctl --user restart t3code.service
-systemctl --user is-active t3code.service
-./dotfiles check
-```
-
-Restarting can interrupt connected T3 sessions; finish active work first.
-`daemon-reload` alone does not refresh a running process's environment.
-
-### macOS Service Sessions
-
-On macOS, keep the user logged in and the Mac awake; the LaunchAgent stops at
-logout. Installing over SSH for a user with no GUI session writes the
-LaunchAgent but cannot start it; the step reports the deferred start and the
-service comes up at that user's next login, so a green apply does not by
-itself prove the service is running.
 
 ## Software Updates and Cleanup
 

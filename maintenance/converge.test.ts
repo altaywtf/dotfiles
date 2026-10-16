@@ -293,7 +293,6 @@ function runInstall(t: TestContext, args: string[], failure = false) {
   for (const name of [
     "apply-dotfiles.ts",
     "install-oh-my-zsh.ts",
-    "install-t3-service.ts",
     "trust-agent-worktrees.ts",
     "install-gh-extensions.ts",
     "configure-codex.ts",
@@ -328,7 +327,6 @@ for (const failure of [false, true]) {
       assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
     else assert.doesNotMatch(steps, /brew-bundle/);
     assert.doesNotMatch(steps, /--retire-auth/);
-    assert.doesNotMatch(steps, /install-t3-service/);
     if (failure) assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
     else {
       assert.match(steps, /^mise install$/m);
@@ -340,9 +338,3 @@ for (const failure of [false, true]) {
     }
   });
 }
-
-test("setup hands the profile to the T3 service step", (t) => {
-  const { status, stderr, steps } = runInstall(t, ["--profile", "personal-devbox"]);
-  assert.equal(status, 0, stderr);
-  assert.match(steps, /^install-t3-service.ts --profile personal-devbox$/m);
-});

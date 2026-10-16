@@ -39,15 +39,15 @@ node verify/home-fixture.ts
 
 ## Local Overrides
 
-| Path                                                  | Use                                                                                          |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `~/.ssh/config.local`                                 | Host-specific SSH directives                                                                 |
-| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                                                             |
-| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                                                   |
-| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                                                          |
-| `~/.config/dotfiles/claude-automode.json`             | Private Claude [auto mode](agents.md) rules                                                  |
-| `~/.config/dotfiles/codex.rules`                      | Private Codex [command rules](agents.md)                                                     |
-| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service override |
+| Path                                                  | Use                                                       |
+| ----------------------------------------------------- | --------------------------------------------------------- |
+| `~/.ssh/config.local`                                 | Host-specific SSH directives                              |
+| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                          |
+| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                |
+| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                       |
+| `~/.config/dotfiles/claude-automode.json`             | Private Claude [auto mode](agents.md) rules               |
+| `~/.config/dotfiles/codex.rules`                      | Private Codex [command rules](agents.md)                  |
+| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration) |
 
 - SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
   their own fragments rather than modifying `~/.ssh/config`.

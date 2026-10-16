@@ -398,12 +398,6 @@
       "output": "Fail-closed full-history secret scan"
     },
     {
-      "id": "linux-service-lifecycle",
-      "domain": "bootstrap",
-      "command": ["pnpm", "exec", "vp", "test", "bootstrap/install-t3-service.test.ts"],
-      "output": "Linux timer lifecycle, T3 opt-in and service checks, and headless installation evidence"
-    },
-    {
       "id": "homebrew-layers",
       "domain": "homebrew",
       "command": ["pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],

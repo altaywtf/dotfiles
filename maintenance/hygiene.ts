@@ -80,8 +80,8 @@ export async function hygiene(
   try {
     // Eligibility rests entirely on the per-worktree checks below, which retain
     // anything dirty, busy, protected, detached, or not yet in the remote default.
-    const roots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees", "projects"].map(
-      (path) => join(home, path),
+    const roots = [".codex/worktrees", ".claude/worktrees", "projects"].map((path) =>
+      join(home, path),
     );
     const next: Record<string, { head: string; since: number }> = {};
     const reports: Record<string, Entry[]> = {};

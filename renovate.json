@@ -19,7 +19,6 @@
       "matchManagers": ["mise"],
       "matchDepNames": [
         "npm:@openai/codex",
-        "npm:t3",
         "gh",
         "jq",
         "ripgrep",

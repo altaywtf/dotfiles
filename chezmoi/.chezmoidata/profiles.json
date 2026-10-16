@@ -76,8 +76,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "sync-agents",
-          "install-t3-service"
+          "sync-agents"
         ]
       },
       "workstation": {
@@ -124,8 +123,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "sync-agents",
-          "install-t3-service"
+          "sync-agents"
         ],
         "externalHomebrew": [
           {

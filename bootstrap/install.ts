@@ -47,10 +47,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
   switch (step) {
     case "apply-dotfiles":
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
-    case "install-t3-service":
-      // Unattended maintenance never installs a new background service.
-      if (maintenance) return;
-      return yield* execute(step, bootstrap("install-t3-service.ts"), ["--profile", profile]);
     case "install-oh-my-zsh":
       return yield* execute(step, bootstrap("install-oh-my-zsh.ts"), []);
     case "trust-agent-worktrees":
