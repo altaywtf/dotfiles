@@ -1,3 +1,0 @@
-{{- $rules := .data.personalAgentRules -}}
-{{- $target := replace "{host}" .data.chezmoi.hostname (index $rules.links .link) -}}
-{{- joinPath .data.chezmoi.homeDir $rules.checkout $target -}}

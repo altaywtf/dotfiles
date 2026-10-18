@@ -159,6 +159,7 @@ const program = Effect.gen(function* () {
     ],
     dryRun: args.dryRun,
   };
+  yield* validateLocalAgentRules(configDir, args.dryRun);
   yield* refreshAgentRules(repoRoot, agentRulesPath, {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
   });
@@ -169,10 +170,6 @@ const program = Effect.gen(function* () {
   const applyArgs = [...context.baseArgs, "--force", "apply"];
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");
-  // chezmoi renders targets in path order, and the Claude and Codex targets
-  // sort before the private rule links they read; link those first.
-  yield* runCommand("chezmoi", [...applyArgs, "--parent-dirs", configDir], "inherit");
-  yield* validateLocalAgentRules(configDir, args.dryRun);
   yield* runCommand("chezmoi", applyArgs, "inherit");
   yield* disableDevboxPhotoAnalysis(profile, process.getuid?.() ?? -1, args.dryRun);
   yield* convergeUserManager(home, args.dryRun);

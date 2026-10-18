@@ -2,15 +2,12 @@ import assert from "node:assert/strict";
 import {
   appendFileSync,
   chmodSync,
-  existsSync,
   mkdirSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
@@ -132,37 +129,4 @@ test("requires fetched machine-local rules instead of a repository copy", () => 
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /agent-rules\.md/);
-});
-
-test("links personal rules from the agent plugin checkout on personal profiles only", () => {
-  const { config, home } = createFixture();
-  const checkout = join(home, "projects/altaywtf/altaywtf-agent-plugin");
-  const targets = {
-    "agents.start.md": join(checkout, "rules/agents.md"),
-    "agents.end.md": join(checkout, `rules/agents.${hostname().split(".")[0]}.md`),
-    "claude-automode.json": join(checkout, "permissions/claude-automode.json"),
-    "codex.rules": join(checkout, "permissions/codex.rules"),
-  };
-  mkdirSync(join(checkout, "rules"), { recursive: true });
-  mkdirSync(join(checkout, "permissions"), { recursive: true });
-  writeFileSync(targets["agents.start.md"], "## Plugin start rule\n", { mode: 0o600 });
-  writeFileSync(targets["agents.end.md"], "## Plugin host rule\n", { mode: 0o600 });
-  writeFileSync(targets["claude-automode.json"], "{}\n", { mode: 0o600 });
-  writeFileSync(targets["codex.rules"], "", { mode: 0o600 });
-
-  runChezmoi(home, config, "apply");
-  for (const link of Object.keys(targets)) {
-    assert.equal(existsSync(join(home, ".config/dotfiles", link)), false);
-  }
-
-  runWrapper(home, "personal-workstation");
-  for (const [link, target] of Object.entries(targets)) {
-    assert.equal(readlinkSync(join(home, ".config/dotfiles", link)), target);
-  }
-  const rules = assertManagedRules(home);
-  assert.match(rules, /^## Plugin start rule\n/);
-  assert.match(rules, /## Plugin host rule\n$/);
-  const settings = JSON.parse(readFileSync(join(home, ".claude/settings.json"), "utf8"));
-  assert.deepEqual(settings.autoMode, {});
-  assert.equal(runChezmoi(home, config, "diff", undefined, "personal-workstation"), "");
 });
