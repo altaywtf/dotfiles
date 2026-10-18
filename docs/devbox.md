@@ -55,8 +55,7 @@ remains the authorization boundary.
 
 ## System Services
 
-Install system services only when the owner asks; otherwise Colima starts on
-demand. On macOS, install Colima's boot service from an authorized administrator
+Colima starts on demand; install system services when the owner asks for them. On macOS, install Colima's boot service from an authorized administrator
 account for the user who owns Colima:
 
 ```zsh
@@ -68,7 +67,7 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
 - The service runs the user's own `~/.local/bin/colima-ensure`; dotfiles does
   not ship it. Make it exit 0 when `colima status` succeeds and otherwise run
   `colima start` with the host's sizing.
-- Reference owner-only wrappers or files; never embed secrets.
+- Reference secrets through owner-only wrappers or files.
 
 ## Software Updates and Cleanup
 
@@ -113,7 +112,8 @@ the new one passes every check below.
    worktrees, and ignored work. Clone repositories on the new host from their
    remotes, including every repository registry the workspace route does not
    cover. Clone in full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
-   SSH. Never copy coding-agent logins, sessions, caches, or browser profiles.
+   SSH. Sign in to coding agents and browsers afresh; their logins, sessions,
+   caches, and profiles stay on the old host.
 5. Enroll [headless updates](software-updates.md#headless-devbox-updates) and
    any requested [system services](#system-services).
 6. Run [verification](#verification), then each moved repository's own build

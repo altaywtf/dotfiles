@@ -66,9 +66,8 @@ node verify/home-fixture.ts
 
 ## Source Boundaries
 
-- Keep private identities, host data, credentials, and local overrides out of Git.
 - Use `private_` for owner-only files and directories.
-- Do not use `exact_` at home-directory scope or import live app/auth state with
-  `chezmoi add`.
-- Add lifecycle scripts only when an explicit bootstrap requirement needs them;
-  keep package lists and runtime installation in their existing owners.
+- `exact_` at home-directory scope deletes unmanaged files. Live app and auth
+  state stays out of `chezmoi add`.
+- Package lists and runtime installation have their own owners; add a lifecycle
+  script only for an explicit bootstrap requirement.

@@ -76,8 +76,8 @@ Git access permits fetching ciphertext; the recipient policy permits decryption.
 
 Keep one human-controlled item per deployment or workload, with separately
 labeled key attachments. An independent recovery identity has its own item and
-must not be installed on an unattended deployment. Unattended workloads must
-not access the recovery system.
+stays with humans: unattended deployments and workloads reach neither it nor
+the recovery system.
 
 ### 1Password Item Convention
 

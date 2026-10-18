@@ -41,7 +41,7 @@ are shared by synchronization and read-only inventory.
 - Edit tracked sources at the domain owner above; preserve Chezmoi's required file layout.
 - Keep repository-local instructions, secrets, and services with their consumer. Linux host packages and provisioning belong to the host, not here.
 - Pin binary-release tools in the [mise templates](chezmoi/.chezmoitemplates/mise.toml) and their OS siblings. Keep them plain TOML for Renovate. [Homebrew](homebrew/) owns compiled packages, GUI apps, system services, and tools called by fixed privileged paths.
-- Preserve standalone operation; do not require a companion workspace manager.
+- Keep the repository standalone; it runs without a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell limited to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
@@ -49,10 +49,10 @@ are shared by synchronization and read-only inventory.
 
 ## Boundaries
 
-- Never commit secrets, keys, certificates, local config, generated env files, or device keys. Never invent identities or credential references.
-- Never copy or summarize coding-agent auth, approvals, sessions, caches, worktrees, browser profiles, app state, or secret-manager sessions into Git.
+- Git holds no secrets, keys, certificates, local config, generated env files, or device keys. Identities and credential references come from the operator.
+- Coding-agent auth, approvals, sessions, caches, worktrees, browser profiles, app state, and secret-manager sessions stay out of Git, summaries included.
 - Keep service tokens out of shell startup, plists, supervisor configs, and tracked or generated env files. Follow [identity provisioning](docs/identities.md).
-- Keep examples public-safe. Installed names and prose are vendor-neutral; owner names appear only in real external coordinates. No private hosts, users, workspaces, repositories, or credential coordinates, except personal-layer agent sources that only personal profiles install.
+- Keep examples public-safe. Installed names and prose are vendor-neutral; owner names appear only in real external coordinates. Private hosts, users, workspaces, repositories, and credential coordinates appear only in personal-layer agent sources that only personal profiles install.
 
 ## Verify and Deliver
 
