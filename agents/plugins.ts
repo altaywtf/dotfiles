@@ -14,7 +14,6 @@ import {
   type Harness,
   HARNESS_INFO,
   HARNESSES,
-  harnessPresent,
   isSafeName,
   parseSyncArgs,
   readHarnesses,
@@ -283,6 +282,7 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
 function removeStalePlugins(
   runtime: Runtime,
   stale: readonly Plugin[],
+  available: readonly Harness[],
   failures: PluginFailure[],
 ): Plugin[] {
   const leftover: Plugin[] = [];
@@ -297,6 +297,10 @@ function removeStalePlugins(
           runtime.stdout,
           `Skipping ${spec.label} plugin removal: '${spec.binary}' is not installed`,
         );
+        continue;
+      }
+      if (!available.includes(harness)) {
+        leftoverHarnesses.push(harness);
         continue;
       }
 
@@ -390,6 +394,7 @@ function applyHarness(
   runtime: Runtime,
   harness: Harness,
   plugins: readonly Plugin[],
+  available: readonly Harness[],
   failures: PluginFailure[],
   update: boolean,
 ): void {
@@ -398,6 +403,9 @@ function applyHarness(
 
   if (!runtime.commandExists(spec.binary)) {
     writeLine(runtime.stdout, `Skipping ${spec.label} plugins: '${spec.binary}' is not installed`);
+    return;
+  }
+  if (!available.includes(harness)) {
     return;
   }
 
@@ -435,15 +443,43 @@ function applyHarness(
   }
 }
 
+// A signed-out Claude, such as one under launchd without keychain access, lists
+// no plugins, so planning against it would install copies that shadow synced ones.
+function claudeSignedIn(runtime: Runtime): boolean {
+  const result = runtime.run(HARNESS_SPECS.claude.binary, ["auth", "status"], {
+    stdout: "capture",
+    stderr: "capture",
+  });
+  let parsed: unknown;
+  try {
+    if (result.status !== 0) {
+      throw new Error(`exit ${result.status}`);
+    }
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    writeLine(
+      runtime.stdout,
+      `Claude: could not read sign-in status (${errorMessage(error)}); leaving plugins unchanged`,
+    );
+    return false;
+  }
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("loggedIn" in parsed) ||
+    parsed.loggedIn !== true
+  ) {
+    writeLine(runtime.stdout, "Claude: not signed in for this run; leaving plugins unchanged");
+    return false;
+  }
+  return true;
+}
+
 type ClaudeInstall = { id: string; scope?: string };
 
 // Claude loads plugins enabled on claude.ai as `<name>@synced`, and a same-named
 // marketplace install shadows them, so the sync yields those names to claude.ai.
 function readClaudeInstalls(runtime: Runtime): readonly ClaudeInstall[] {
-  if (!runtime.commandExists(HARNESS_SPECS.claude.binary)) {
-    return [];
-  }
-
   const result = runtime.run(HARNESS_SPECS.claude.binary, ["plugin", "list", "--json"], {
     stdout: "capture",
     stderr: "capture",
@@ -574,7 +610,12 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
-  const installs = readClaudeInstalls(runtime);
+  const available = HARNESSES.filter(
+    (harness) =>
+      runtime.commandExists(HARNESS_INFO[harness].binary) &&
+      (harness !== "claude" || claudeSignedIn(runtime)),
+  );
+  const installs = available.includes("claude") ? readClaudeInstalls(runtime) : [];
   const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, syncedClaudePlugins(installs));
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
@@ -582,14 +623,14 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],
     selected: plugins,
-    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
+    available,
     keyOf: pluginRef,
   });
 
   const failures: PluginFailure[] = [];
   const unshadowed = removeShadowingClaudeInstalls(runtime, layered.plugins, installs, failures);
   for (const harness of HARNESSES) {
-    applyHarness(runtime, harness, plugins, failures, options.update);
+    applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
 
   if (failures.length > 0) {
@@ -597,7 +638,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   }
 
   if (previouslyManaged === undefined) {
-    if (!harnessPresent(runtime)) {
+    if (available.length === 0) {
       writeLine(runtime.stdout, "No managed plugins lock found; skipping ownership initialization");
       writeLine(runtime.stdout, "Done.");
       return 0;
@@ -618,7 +659,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
     return harnesses.length > 0 ? [{ ...plugin, harnesses }] : [];
   });
-  const deferred = removeStalePlugins(runtime, removals, failures);
+  const deferred = removeStalePlugins(runtime, removals, available, failures);
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }

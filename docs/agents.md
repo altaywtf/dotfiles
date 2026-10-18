@@ -157,6 +157,10 @@ from different checkouts run one at a time.
   install and uninstalls any same-named user-scope local copy, owned or not,
   which would otherwise shadow it.
   Codex has no account sync, so its installs are unchanged.
+- A Claude that is not signed in for the run (`loggedIn` in `claude auth status`
+  is not true, or the status is unreadable) lists no synced plugins, as under
+  the scheduled updater without keychain access. The sync then leaves Claude
+  plugins and their lock entries unchanged and still syncs Codex.
 
 ## MCP Sync
 
