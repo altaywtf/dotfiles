@@ -1,7 +1,4 @@
 {
   "version": 1,
-  "sources": [
-    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/agents.md",
-    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/agents.ffss.md"
-  ]
+  "sources": ["https://raw.githubusercontent.com/uinaf/ffss/main/rules/agents.md"]
 }
