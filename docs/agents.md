@@ -49,6 +49,13 @@ Edit shared rules at their configured source and private instructions in:
 | `~/.config/dotfiles/agents.start.md` | Before shared rules |
 | `~/.config/dotfiles/agents.end.md`   | After shared rules  |
 
+- To keep these files in a private directory, store it once with
+  `./dotfiles apply PROFILE --rules-source DIR`; it is saved in
+  `~/.config/dotfiles/rules-source`. Each apply then links `agents.start.md`
+  to `DIR/agents.md`, `agents.end.md` to `DIR/agents.<short hostname>.md`,
+  and `claude-automode.json` and `codex.rules` to the same names in `DIR`,
+  for each file that exists, before anything reads them. It refuses to replace
+  a regular file and removes its own links to files `DIR` no longer has.
 - Fragments are optional, literal Markdown. Each file or resolved symlink target
   must be a regular file owned by the current user with no group or other write
   access. Apply restricts a group- or other-readable target, such as one a

@@ -2,9 +2,11 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
+import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
+import { saveRulesSource } from "../agents/rules-source.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -13,7 +15,7 @@ const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
 const defaultProfile = "developer";
 const usage = `Usage: ./dotfiles diff|check [PROFILE]
-       ./dotfiles apply [PROFILE] [--switch-profile]
+       ./dotfiles apply [PROFILE] [--switch-profile] [--rules-source DIR]
 
   diff   Preview per-user convergence
   apply  Converge the selected per-user profile
@@ -21,6 +23,7 @@ const usage = `Usage: ./dotfiles diff|check [PROFILE]
 
 PROFILE defaults to the stored ~/.config/dotfiles/profile, then ${defaultProfile}.
 apply refuses a PROFILE other than the stored one unless --switch-profile is given.
+--rules-source stores DIR as this machine's private agent rules source.
 Homebrew packages, identities, secrets, and host-wide settings remain separate.`;
 
 const delegate = Effect.fn("delegateDotfilesCommand")(function* (
@@ -50,12 +53,20 @@ const program = Effect.gen(function* () {
     return;
   }
   const switchProfile = argv.includes("--switch-profile");
-  const args = argv.filter((argument) => argument !== "--switch-profile");
+  const rulesSourceIndex = argv.indexOf("--rules-source");
+  const rulesSource = rulesSourceIndex === -1 ? undefined : argv[rulesSourceIndex + 1];
+  const args = argv.filter(
+    (argument, index) =>
+      argument !== "--switch-profile" &&
+      (rulesSourceIndex === -1 || (index !== rulesSourceIndex && index !== rulesSourceIndex + 1)),
+  );
+  const optionCount = (switchProfile ? 1 : 0) + (rulesSourceIndex === -1 ? 0 : 2);
   if (
     args.length < 1 ||
     args.length > 2 ||
-    argv.length - args.length > 1 ||
-    (switchProfile && args[0] !== "apply")
+    argv.length - args.length !== optionCount ||
+    ((switchProfile || rulesSourceIndex !== -1) && args[0] !== "apply") ||
+    (rulesSourceIndex !== -1 && (!rulesSource || rulesSource.startsWith("--")))
   ) {
     yield* Console.error(usage);
     return yield* fail("invalid operator arguments", 2);
@@ -102,6 +113,8 @@ const program = Effect.gen(function* () {
         profile,
       );
     case "apply":
+      if (rulesSource !== undefined)
+        yield* saveRulesSource(resolve(homedir(), ".config/dotfiles"), rulesSource);
       return yield* delegate(
         "bootstrap/install.ts",
         ["--profile", profile, ...(switchProfile ? ["--switch-profile"] : [])],

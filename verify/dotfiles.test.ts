@@ -135,6 +135,27 @@ test("operator command validates and delegates every profile", async () => {
     assert.equal(switched.status, 0, switched.stderr);
     assert.equal(readFileSync(log, "utf8"), "install.ts --profile workstation --switch-profile\n");
     assert.equal((await run(["diff", "workstation", "--switch-profile"], log)).status, 2);
+    const rulesSource = join(fixture, "rules");
+    mkdirSync(rulesSource);
+    writeFileSync(log, "");
+    const withRules = await run(["apply", "workstation", "--rules-source", rulesSource], log);
+    assert.equal(withRules.status, 0, withRules.stderr);
+    assert.equal(readFileSync(log, "utf8"), "install.ts --profile workstation\n");
+    assert.equal(
+      readFileSync(join(home, ".config/dotfiles/rules-source"), "utf8"),
+      `${rulesSource}\n`,
+    );
+    writeFileSync(log, "");
+    assert.equal(
+      (await run(["diff", "workstation", "--rules-source", rulesSource], log)).status,
+      2,
+    );
+    assert.equal((await run(["apply", "workstation", "--rules-source"], log)).status, 2);
+    assert.notEqual(
+      (await run(["apply", "workstation", "--rules-source", join(fixture, "missing")], log)).status,
+      0,
+    );
+    assert.equal(readFileSync(log, "utf8"), "");
     const failed = await run(["apply", "workstation"], log, 29);
     assert.equal(failed.status, 29);
     assert.match(failed.stderr, /bootstrap\/install\.ts failed/);
