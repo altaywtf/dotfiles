@@ -616,7 +616,8 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       (harness !== "claude" || claudeSignedIn(runtime)),
   );
   const installs = available.includes("claude") ? readClaudeInstalls(runtime) : [];
-  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, syncedClaudePlugins(installs));
+  const synced = syncedClaudePlugins(installs);
+  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, synced);
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
@@ -652,8 +653,9 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return 0;
   }
 
+  // claude.ai owns a synced plugin in Claude, so dropping Claude from its lock needs no uninstall.
   const removals = ownership.removals.flatMap((plugin) => {
-    if (!unshadowed.has(pluginRef(plugin))) {
+    if (!unshadowed.has(pluginRef(plugin)) && !synced.has(plugin.name)) {
       return [plugin];
     }
     const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");

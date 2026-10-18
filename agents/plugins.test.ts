@@ -640,6 +640,25 @@ test("leaves a plugin synced from claude.ai to Claude and still installs it in C
   );
 });
 
+test("drops Claude ownership of a synced plugin that has no local install left", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(home, fixtureSharedPlugins);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: listOutputs(["shared-plugin@synced"]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.ok(!harnessCalls(runtime, "claude").some((call) => call.startsWith("plugin uninstall")));
+  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
+  assert.deepEqual(
+    locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
+    [
+      ["shared-plugin", ["codex"]],
+      ["second-plugin", ["claude", "codex"]],
+    ],
+  );
+});
+
 test("uninstalls a local Claude install that shadows a selected synced plugin", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
