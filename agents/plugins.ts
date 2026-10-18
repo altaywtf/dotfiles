@@ -616,7 +616,8 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       (harness !== "claude" || claudeSignedIn(runtime)),
   );
   const installs = available.includes("claude") ? readClaudeInstalls(runtime) : [];
-  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, syncedClaudePlugins(installs));
+  const synced = syncedClaudePlugins(installs);
+  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, synced);
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
@@ -652,8 +653,17 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return 0;
   }
 
+  // A synced plugin with no user-scope install left needs no uninstall; claude.ai owns it in
+  // Claude. `plugin uninstall` acts on user scope only, so other scopes don't count.
+  const installed = new Set(
+    installs
+      .filter((install) => install.scope === undefined || install.scope === "user")
+      .map((install) => install.id),
+  );
   const removals = ownership.removals.flatMap((plugin) => {
-    if (!unshadowed.has(pluginRef(plugin))) {
+    const ref = pluginRef(plugin);
+    const syncedOnly = synced.has(plugin.name) && !installed.has(ref);
+    if (!unshadowed.has(ref) && !syncedOnly) {
       return [plugin];
     }
     const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
