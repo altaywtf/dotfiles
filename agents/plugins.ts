@@ -653,8 +653,13 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return 0;
   }
 
-  // A synced plugin with no local install left needs no uninstall; claude.ai owns it in Claude.
-  const installed = new Set(installs.map((install) => install.id));
+  // A synced plugin with no user-scope install left needs no uninstall; claude.ai owns it in
+  // Claude. `plugin uninstall` acts on user scope only, so other scopes don't count.
+  const installed = new Set(
+    installs
+      .filter((install) => install.scope === undefined || install.scope === "user")
+      .map((install) => install.id),
+  );
   const removals = ownership.removals.flatMap((plugin) => {
     const ref = pluginRef(plugin);
     const syncedOnly = synced.has(plugin.name) && !installed.has(ref);
