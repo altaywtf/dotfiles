@@ -435,12 +435,13 @@ function applyHarness(
   }
 }
 
+type ClaudeInstall = { id: string; scope?: string };
+
 // Claude loads plugins enabled on claude.ai as `<name>@synced`, and a same-named
 // marketplace install shadows them, so the sync yields those names to claude.ai.
-function readSyncedClaudePlugins(runtime: Runtime): ReadonlySet<string> {
-  const synced = new Set<string>();
+function readClaudeInstalls(runtime: Runtime): readonly ClaudeInstall[] {
   if (!runtime.commandExists(HARNESS_SPECS.claude.binary)) {
-    return synced;
+    return [];
   }
 
   const result = runtime.run(HARNESS_SPECS.claude.binary, ["plugin", "list", "--json"], {
@@ -461,22 +462,80 @@ function readSyncedClaudePlugins(runtime: Runtime): ReadonlySet<string> {
       runtime.stdout,
       `Claude: could not read synced plugins (${errorMessage(error)}); installing every selected plugin`,
     );
-    return synced;
+    return [];
   }
 
-  for (const entry of parsed) {
+  return parsed.flatMap((entry: unknown): ClaudeInstall[] => {
     if (
-      typeof entry === "object" &&
-      entry !== null &&
-      "id" in entry &&
-      typeof entry.id === "string" &&
-      entry.id.endsWith("@synced") &&
-      !("enabled" in entry && entry.enabled === false)
+      typeof entry !== "object" ||
+      entry === null ||
+      !("id" in entry) ||
+      typeof entry.id !== "string" ||
+      ("enabled" in entry && entry.enabled === false)
     ) {
-      synced.add(entry.id.slice(0, -"@synced".length));
+      return [];
+    }
+    const scope = "scope" in entry && typeof entry.scope === "string" ? entry.scope : undefined;
+    return [{ id: entry.id, scope }];
+  });
+}
+
+function syncedClaudePlugins(installs: readonly ClaudeInstall[]): ReadonlySet<string> {
+  return new Set(
+    installs
+      .filter((install) => install.id.endsWith("@synced"))
+      .map((install) => install.id.slice(0, -"@synced".length)),
+  );
+}
+
+// Uninstalls user-scope marketplace installs that shadow a selected synced plugin.
+// Returns the refs it removed so ownership pruning does not uninstall them twice.
+function removeShadowingClaudeInstalls(
+  runtime: Runtime,
+  plugins: readonly Plugin[],
+  installs: readonly ClaudeInstall[],
+  failures: PluginFailure[],
+): ReadonlySet<string> {
+  const synced = syncedClaudePlugins(installs);
+  const names = new Set(
+    plugins
+      .filter((plugin) => plugin.harnesses.includes("claude") && synced.has(plugin.name))
+      .map((plugin) => plugin.name),
+  );
+  const removed = new Set<string>();
+
+  for (const install of installs) {
+    const separator = install.id.lastIndexOf("@");
+    const name = install.id.slice(0, separator);
+    const marketplaceId = install.id.slice(separator + 1);
+    if (
+      separator <= 0 ||
+      marketplaceId === "synced" ||
+      !names.has(name) ||
+      (install.scope !== undefined && install.scope !== "user")
+    ) {
+      continue;
+    }
+
+    writeLine(
+      runtime.stdout,
+      `Claude: ${install.id} shadows ${name}@synced from claude.ai; uninstalling`,
+    );
+    const args = ["plugin", "uninstall", "-y", install.id];
+    const result = runtime.run(HARNESS_SPECS.claude.binary, args, {
+      stdout: "capture",
+      stderr: "capture",
+    });
+    if (result.status === 0) {
+      removed.add(install.id);
+    } else {
+      failures.push({
+        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
+        summary: `${HARNESS_SPECS.claude.label}: ${args.join(" ")} (exit ${result.status})`,
+      });
     }
   }
-  return synced;
+  return removed;
 }
 
 function yieldSyncedClaudePlugins(
@@ -515,11 +574,8 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
-  const plugins = yieldSyncedClaudePlugins(
-    runtime,
-    layered.plugins,
-    readSyncedClaudePlugins(runtime),
-  );
+  const installs = readClaudeInstalls(runtime);
+  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, syncedClaudePlugins(installs));
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
@@ -531,6 +587,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   });
 
   const failures: PluginFailure[] = [];
+  const unshadowed = removeShadowingClaudeInstalls(runtime, layered.plugins, installs, failures);
   for (const harness of HARNESSES) {
     applyHarness(runtime, harness, plugins, failures, options.update);
   }
@@ -554,7 +611,14 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return 0;
   }
 
-  const deferred = removeStalePlugins(runtime, ownership.removals, failures);
+  const removals = ownership.removals.flatMap((plugin) => {
+    if (!unshadowed.has(pluginRef(plugin))) {
+      return [plugin];
+    }
+    const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
+    return harnesses.length > 0 ? [{ ...plugin, harnesses }] : [];
+  });
+  const deferred = removeStalePlugins(runtime, removals, failures);
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }

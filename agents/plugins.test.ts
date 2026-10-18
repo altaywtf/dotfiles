@@ -174,16 +174,23 @@ function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
 
 const SYNCED_LIST = "plugin list --json";
 
-function syncedOutputs(names: readonly string[]): ReadonlyMap<string, string> {
+function listOutputs(ids: readonly string[]): ReadonlyMap<string, string> {
   return new Map([
     [
       `claude ${SYNCED_LIST}`,
-      JSON.stringify([
-        { id: "shared-plugin@shared-market", scope: "user", enabled: true },
-        ...names.map((name) => ({ id: `${name}@synced`, scope: "synced", enabled: true })),
-      ]),
+      JSON.stringify(
+        ids.map((id) => ({
+          id,
+          scope: id.endsWith("@synced") ? "synced" : "user",
+          enabled: true,
+        })),
+      ),
     ],
   ]);
+}
+
+function syncedOutputs(names: readonly string[]): ReadonlyMap<string, string> {
+  return listOutputs(["shared-plugin@shared-market", ...names.map((name) => `${name}@synced`)]);
 }
 
 function pluginLockPath(home: string): string {
@@ -615,9 +622,9 @@ test("leaves a plugin synced from claude.ai to Claude and still installs it in C
 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin uninstall -y shared-plugin@shared-market",
     "plugin marketplace add fixture/shared-market",
     "plugin install second-plugin@shared-market",
-    "plugin uninstall -y shared-plugin@shared-market",
   ]);
   assert.ok(harnessCalls(runtime, "codex").includes("plugin add shared-plugin@shared-market"));
   const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
@@ -628,6 +635,56 @@ test("leaves a plugin synced from claude.ai to Claude and still installs it in C
       ["second-plugin", ["claude", "codex"]],
     ],
   );
+});
+
+test("uninstalls a local Claude install that shadows a selected synced plugin", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: listOutputs([
+      "shared-plugin@synced",
+      "shared-plugin@other-market",
+      "unrelated@unrelated-market",
+      "unrelated@synced",
+    ]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin uninstall -y shared-plugin@other-market",
+    "plugin marketplace add fixture/shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
+  assert.match(
+    runtime.stdout.value,
+    /Claude: shared-plugin@other-market shadows shared-plugin@synced from claude\.ai; uninstalling/,
+  );
+});
+
+test("uninstalls nothing when a synced plugin has no local install", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: listOutputs(["shared-plugin@synced"]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
+});
+
+test("keeps a local Claude install that no synced plugin shadows", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: listOutputs(["shared-plugin@shared-market"]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install shared-plugin@shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
 });
 
 test("installs every selected plugin when Claude cannot list synced plugins", () => {
