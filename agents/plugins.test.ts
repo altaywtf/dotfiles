@@ -659,6 +659,20 @@ test("drops Claude ownership of a synced plugin that has no local install left",
   );
 });
 
+test("still uninstalls a retired local install that a synced plugin shadows", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: listOutputs(["retired-plugin@retired-market", "retired-plugin@synced"]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
+  );
+});
+
 test("uninstalls a local Claude install that shadows a selected synced plugin", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
