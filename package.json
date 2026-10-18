@@ -11,8 +11,8 @@
     "typecheck": "vp check --no-fmt --no-lint"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.3",
-    "effect": "4.0.3",
+    "@effect/platform-node": "4.0.5",
+    "effect": "4.0.5",
     "smol-toml": "1.9.1"
   },
   "devDependencies": {
