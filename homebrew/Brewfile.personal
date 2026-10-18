@@ -7,6 +7,5 @@ tap "putdotio/tap", trusted: true
 cask "uinaf/tap/slopguard"
 brew "asc"
 brew "openclaw/tap/crabbox"
-brew "openclaw/tap/discrawl"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
