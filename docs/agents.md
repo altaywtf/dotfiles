@@ -49,6 +49,10 @@ Edit shared rules at their configured source and private instructions in:
 | `~/.config/dotfiles/agents.start.md` | Before shared rules |
 | `~/.config/dotfiles/agents.end.md`   | After shared rules  |
 
+- Personal profiles link the fragments, `claude-automode.json`, and
+  `codex.rules` from the [personal rules source](../chezmoi/.chezmoidata/personal-agent-rules.json)
+  checkout when each target exists; other profiles manage these files by hand.
+  The apply wrapper links them before rendering anything that reads them.
 - Fragments are optional, literal Markdown. Each file or resolved symlink target
   must be a regular file owned by the current user with no group or other write
   access. Apply restricts a group- or other-readable target, such as one a

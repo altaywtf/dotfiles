@@ -16,3 +16,9 @@ Library
 .config/systemd/user/dotfiles-software-update.timer
 Library/LaunchAgents/local.dotfiles.software-update.plist
 {{ end }}
+{{ range $link, $_ := .personalAgentRules.links }}
+{{ $target := includeTemplate "personal-agent-rule" (dict "data" $ "link" $link) }}
+{{ if or (not $profile.capabilities.personal) (not (stat $target)) }}
+.config/dotfiles/{{ $link }}
+{{ end }}
+{{ end }}

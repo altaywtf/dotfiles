@@ -1,0 +1,11 @@
+{
+  "personalAgentRules": {
+    "checkout": "projects/altaywtf/altaywtf-agent-plugin",
+    "links": {
+      "agents.start.md": "rules/agents.md",
+      "agents.end.md": "rules/agents.{host}.md",
+      "claude-automode.json": "permissions/claude-automode.json",
+      "codex.rules": "permissions/codex.rules"
+    }
+  }
+}
