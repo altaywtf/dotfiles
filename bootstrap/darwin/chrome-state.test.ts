@@ -150,7 +150,10 @@ test("Chrome profiles enable vertical tabs in every user profile", async () => {
     const second = join(root, "Profile 1/Preferences");
     const system = join(root, "System Profile/Preferences");
     writeFileSync(first, '{"vertical_tabs":{"enabled":false,"collapsed":true},"keep":"dünya"}');
-    writeFileSync(second, '{"vertical_tabs":{"enabled":true}}');
+    writeFileSync(
+      second,
+      '{"vertical_tabs":{"enabled":true},"tab_search":{"pinned_to_tabstrip":false}}',
+    );
     writeFileSync(system, "{}");
     writeFileSync(join(root, "BrowserMetrics-spare.pma"), "");
     chmodSync(first, 0o640);
@@ -158,6 +161,7 @@ test("Chrome profiles enable vertical tabs in every user profile", async () => {
     assert.deepEqual(JSON.parse(readFileSync(first, "utf8")), {
       vertical_tabs: { enabled: true, collapsed: true },
       keep: "dünya",
+      tab_search: { pinned_to_tabstrip: false },
     });
     assert.equal(statSync(first).mode & 0o777, 0o640);
     assert.equal(readFileSync(system, "utf8"), "{}");
@@ -173,7 +177,10 @@ test("Chrome profiles seed Default and reject malformed preferences", async () =
   try {
     assert.deepEqual(await updateChromeProfiles(root, "enable"), { checked: 1, updated: 1 });
     const path = join(root, "Default/Preferences");
-    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), { vertical_tabs: { enabled: true } });
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), {
+      vertical_tabs: { enabled: true },
+      tab_search: { pinned_to_tabstrip: false },
+    });
     writeFileSync(path, '{"vertical_tabs":[]}');
     await assert.rejects(updateChromeProfiles(root, "enable"), /must be a JSON object/);
     assert.equal(readFileSync(path, "utf8"), '{"vertical_tabs":[]}');

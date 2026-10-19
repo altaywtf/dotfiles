@@ -28,7 +28,8 @@ const usage = `Usage:
 Disables Google Lens and its "Ask Google" toolbar chip for every Chrome profile
 through macOS-managed Chrome policy, and enables Chrome's native vertical tabs
 in the local Chrome "Local State" file and in every profile's Preferences
-file, seeding Default when no profile exists yet. Quit Chrome before running this script
+file, where it also unpins the Tab groups and Tab search buttons. It seeds
+Default when no profile exists yet. Quit Chrome before running this script
 so Chrome does not overwrite the Local State change on exit; policies refresh
 in a running Chrome.
 
@@ -112,7 +113,7 @@ const program = Effect.gen(function* () {
   }
   const profiles = yield* updateChromeProfilesEffect(dirname(statePath), mode);
   yield* Console.log(
-    `${mode === "enable" ? "enabled" : "cleared"} vertical tabs in ${profiles.updated} of ${profiles.checked} Chrome profiles`,
+    `${mode === "enable" ? "applied" : "cleared"} vertical tabs and tab search pin in ${profiles.updated} of ${profiles.checked} Chrome profiles`,
   );
   const summary = flagOverrides
     .map((flag) => (mode === "enable" ? flag.value : flag.name))

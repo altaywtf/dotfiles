@@ -77,8 +77,14 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function* 
   yield* writeAtomically(path, `${JSON.stringify(data)}\n`);
 });
 
-// Chrome keeps the vertical tab strip as a per-profile preference
-// (prefs::kVerticalTabsEnabled); no enterprise policy sets it.
+// Chrome keeps these as per-profile preferences and no enterprise policy sets
+// them: prefs::kVerticalTabsEnabled shows the vertical tab strip, and unpinning
+// prefs::kTabSearchPinnedToTabstrip hides its Tab groups and Tab search buttons.
+export const profilePreferences = [
+  { group: "vertical_tabs", key: "enabled", value: true },
+  { group: "tab_search", key: "pinned_to_tabstrip", value: false },
+] as const;
+
 export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(function* (
   root: string,
   mode: Mode,
@@ -102,12 +108,16 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
       try: () => object(JSON.parse(source), `${path} contents`),
       catch: (error) => error,
     });
-    const verticalTabs =
-      data.vertical_tabs === undefined ? {} : object(data.vertical_tabs, '"vertical_tabs"');
-    if (mode === "enable" ? verticalTabs.enabled === true : !("enabled" in verticalTabs)) continue;
-    if (mode === "enable") verticalTabs.enabled = true;
-    else delete verticalTabs.enabled;
-    data.vertical_tabs = verticalTabs;
+    let changed = false;
+    for (const { group, key, value } of profilePreferences) {
+      const section = data[group] === undefined ? {} : object(data[group], `"${group}"`);
+      if (mode === "enable" ? section[key] === value : !(key in section)) continue;
+      if (mode === "enable") section[key] = value;
+      else delete section[key];
+      data[group] = section;
+      changed = true;
+    }
+    if (!changed) continue;
     yield* writeAtomically(path, JSON.stringify(data));
     updated += 1;
   }

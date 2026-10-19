@@ -157,7 +157,9 @@ the result, even with this flag set.
   the unused bundled App Store apps; uninstall may prompt for a password.
 - Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
   Lens policies and vertical tabs. It enables the `vertical-tabs` flag and sets
-  `vertical_tabs.enabled` in every existing profile's `Preferences`, or seeds
+  `vertical_tabs.enabled` in every existing profile's `Preferences`, unpinning
+  the Tab groups and Tab search buttons through `tab_search.pinned_to_tabstrip`,
+  or seeds
   `Default` before first launch. Chrome has no policy for this, so rerun the
   script after adding a profile.
 - For simulators, SDKs, and signing certificates, follow
