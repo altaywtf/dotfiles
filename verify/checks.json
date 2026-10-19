@@ -389,12 +389,6 @@
       "output": "Evaluated per-profile Homebrew layers and composed manifest parity"
     },
     {
-      "id": "helium-preferences",
-      "domain": "bootstrap",
-      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/configure-helium.test.ts"],
-      "output": "Helium all-profile vertical tabs, disabled noise flags, external extensions, preservation, fresh profile, running-browser deferral, and malformed data"
-    },
-    {
       "id": "linux-maintenance-schedule",
       "domain": "maintenance",
       "command": ["pnpm", "exec", "vp", "test", "maintenance/linux/schedule.test.ts"],
