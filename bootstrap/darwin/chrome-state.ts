@@ -77,6 +77,45 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function* 
   yield* writeAtomically(path, `${JSON.stringify(data)}\n`);
 });
 
+type Preference = { group: string; key: string; value: boolean };
+
+function applyPreferences(
+  data: Record<string, unknown>,
+  preferences: readonly Preference[],
+  mode: Mode,
+): boolean {
+  let changed = false;
+  for (const { group, key, value } of preferences) {
+    const section = data[group] === undefined ? {} : object(data[group], `"${group}"`);
+    if (mode === "enable" ? section[key] === value : !(key in section)) continue;
+    if (mode === "enable") section[key] = value;
+    else delete section[key];
+    data[group] = section;
+    changed = true;
+  }
+  return changed;
+}
+
+// prefs::kConfirmToQuitEnabled is browser-wide; turning it off drops the
+// hold-Command-Q-to-quit prompt.
+export const localStatePreferences = [
+  { group: "browser", key: "confirm_to_quit", value: false },
+] as const;
+
+export const updateChromeLocalStatePreferencesEffect = Effect.fn(
+  "updateChromeLocalStatePreferences",
+)(function* (path: string, mode: Mode) {
+  const fs = yield* FileSystem.FileSystem;
+  const source = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "{}";
+  const data = yield* Effect.try({
+    try: () => object(JSON.parse(source), `${path} contents`),
+    catch: (error) => error,
+  });
+  if (!applyPreferences(data, localStatePreferences, mode)) return false;
+  yield* writeAtomically(path, `${JSON.stringify(data)}\n`);
+  return true;
+});
+
 // Chrome keeps these as per-profile preferences and no enterprise policy sets
 // them: prefs::kVerticalTabsEnabled shows the vertical tab strip, and unpinning
 // prefs::kTabSearchPinnedToTabstrip hides its Tab groups and Tab search buttons.
@@ -108,16 +147,7 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
       try: () => object(JSON.parse(source), `${path} contents`),
       catch: (error) => error,
     });
-    let changed = false;
-    for (const { group, key, value } of profilePreferences) {
-      const section = data[group] === undefined ? {} : object(data[group], `"${group}"`);
-      if (mode === "enable" ? section[key] === value : !(key in section)) continue;
-      if (mode === "enable") section[key] = value;
-      else delete section[key];
-      data[group] = section;
-      changed = true;
-    }
-    if (!changed) continue;
+    if (!applyPreferences(data, profilePreferences, mode)) continue;
     yield* writeAtomically(path, JSON.stringify(data));
     updated += 1;
   }

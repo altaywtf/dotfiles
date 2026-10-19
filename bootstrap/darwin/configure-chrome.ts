@@ -3,7 +3,10 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
 import { dirname, resolve } from "node:path";
-import { updateChromeProfilesEffect } from "./chrome-state.ts";
+import {
+  updateChromeLocalStatePreferencesEffect,
+  updateChromeProfilesEffect,
+} from "./chrome-state.ts";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
@@ -28,14 +31,15 @@ const usage = `Usage:
 Disables Google Lens and its "Ask Google" toolbar chip for every Chrome profile
 through macOS-managed Chrome policy, and enables Chrome's native vertical tabs
 in the local Chrome "Local State" file and in every profile's Preferences
-file, where it also unpins the Tab groups and Tab search buttons. It seeds
+file, where it also unpins the Tab groups and Tab search buttons, and turns
+off the hold-Command-Q-to-quit prompt. It seeds
 Default when no profile exists yet. Quit Chrome before running this script
 so Chrome does not overwrite the Local State change on exit; policies refresh
 in a running Chrome.
 
 Options:
   --state PATH       Chrome Local State path
-  --disable          remove the flag override, profile settings, and Lens policies
+  --disable          remove the flag override, Chrome settings, and Lens policies
   --allow-running    write even when Chrome appears to be running
   -h, --help`;
 
@@ -111,6 +115,10 @@ const program = Effect.gen(function* () {
       return yield* fail(`Chrome Local State update for ${flag.name} exited ${result.status}`);
     }
   }
+  const quitPrompt = yield* updateChromeLocalStatePreferencesEffect(statePath, mode);
+  yield* Console.log(
+    `${mode === "enable" ? "disabled" : "restored"} Chrome hold-to-quit prompt${quitPrompt ? "" : " (unchanged)"}`,
+  );
   const profiles = yield* updateChromeProfilesEffect(dirname(statePath), mode);
   yield* Console.log(
     `${mode === "enable" ? "applied" : "cleared"} vertical tabs and tab search pin in ${profiles.updated} of ${profiles.checked} Chrome profiles`,

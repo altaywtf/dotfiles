@@ -18,7 +18,11 @@ import { join } from "node:path";
 import { test } from "vite-plus/test";
 import { Effect, FileSystem, PlatformError } from "effect";
 
-import { updateChromeProfilesEffect, updateChromeStateEffect } from "./chrome-state.ts";
+import {
+  updateChromeLocalStatePreferencesEffect,
+  updateChromeProfilesEffect,
+  updateChromeStateEffect,
+} from "./chrome-state.ts";
 
 function updateChromeState(
   path: string,
@@ -184,6 +188,30 @@ test("Chrome profiles seed Default and reject malformed preferences", async () =
     writeFileSync(path, '{"vertical_tabs":[]}');
     await assert.rejects(updateChromeProfiles(root, "enable"), /must be a JSON object/);
     assert.equal(readFileSync(path, "utf8"), '{"vertical_tabs":[]}');
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("Chrome Local State turns off the quit prompt and restores it", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-quit-"));
+  const run = (path: string, mode: "enable" | "disable") =>
+    Effect.runPromise(
+      updateChromeLocalStatePreferencesEffect(path, mode).pipe(Effect.provide(NodeServices.layer)),
+    );
+  try {
+    const path = join(root, "Local State");
+    writeFileSync(path, '{"browser":{"confirm_to_quit":true,"enabled_labs_experiments":["a@1"]}}');
+    assert.equal(await run(path, "enable"), true);
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).browser, {
+      confirm_to_quit: false,
+      enabled_labs_experiments: ["a@1"],
+    });
+    assert.equal(await run(path, "enable"), false);
+    assert.equal(await run(path, "disable"), true);
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).browser, {
+      enabled_labs_experiments: ["a@1"],
+    });
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

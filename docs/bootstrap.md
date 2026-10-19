@@ -156,12 +156,12 @@ the result, even with this flag set.
 - On `personal-workstation`, run `./bootstrap/darwin/app-store/personal.ts` to remove
   the unused bundled App Store apps; uninstall may prompt for a password.
 - Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
-  Lens policies and vertical tabs. It enables the `vertical-tabs` flag and sets
-  `vertical_tabs.enabled` in every existing profile's `Preferences`, unpinning
-  the Tab groups and Tab search buttons through `tab_search.pinned_to_tabstrip`,
-  or seeds
-  `Default` before first launch. Chrome has no policy for this, so rerun the
-  script after adding a profile.
+  Lens policies and Chrome settings. In `Local State` it enables the
+  `vertical-tabs` flag and turns off the hold-⌘Q-to-quit prompt
+  (`browser.confirm_to_quit`). In every profile's `Preferences`, or a seeded
+  `Default` before first launch, it sets `vertical_tabs.enabled` and unpins the
+  Tab groups and Tab search buttons (`tab_search.pinned_to_tabstrip`). Chrome
+  has no policy for these, so rerun the script after adding a profile.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 
