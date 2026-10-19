@@ -152,6 +152,7 @@ test("Chrome profiles enable vertical tabs in every user profile", async () => {
     writeFileSync(first, '{"vertical_tabs":{"enabled":false,"collapsed":true},"keep":"dünya"}');
     writeFileSync(second, '{"vertical_tabs":{"enabled":true}}');
     writeFileSync(system, "{}");
+    writeFileSync(join(root, "BrowserMetrics-spare.pma"), "");
     chmodSync(first, 0o640);
     assert.deepEqual(await updateChromeProfiles(root, "enable"), { checked: 2, updated: 1 });
     assert.deepEqual(JSON.parse(readFileSync(first, "utf8")), {
