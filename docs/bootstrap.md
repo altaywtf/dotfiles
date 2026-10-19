@@ -156,7 +156,10 @@ the result, even with this flag set.
 - On `personal-workstation`, run `./bootstrap/darwin/app-store/personal.ts` to remove
   the unused bundled App Store apps; uninstall may prompt for a password.
 - Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
-  Lens policies and the vertical-tabs setting.
+  Lens policies and vertical tabs. It enables the `vertical-tabs` flag and sets
+  `vertical_tabs.enabled` in every existing profile's `Preferences`, or seeds
+  `Default` before first launch. Chrome has no policy for this, so rerun the
+  script after adding a profile.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 

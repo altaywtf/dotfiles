@@ -210,7 +210,7 @@
       "id": "chrome-state",
       "domain": "bootstrap",
       "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/chrome-state.test.ts"],
-      "output": "Atomic Chrome Local State updates and malformed-input preservation",
+      "output": "Atomic Chrome Local State and per-profile vertical tabs updates, fresh profile seeding, and malformed-input preservation",
       "platform": "darwin"
     },
     {

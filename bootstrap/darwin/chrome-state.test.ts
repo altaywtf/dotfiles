@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { test } from "vite-plus/test";
 import { Effect, FileSystem, PlatformError } from "effect";
 
-import { updateChromeStateEffect } from "./chrome-state.ts";
+import { updateChromeProfilesEffect, updateChromeStateEffect } from "./chrome-state.ts";
 
 function updateChromeState(
   path: string,
@@ -131,6 +131,51 @@ test("Chrome state preserves existing data when reads fail", async () => {
       /PermissionDenied/,
     );
     assert.equal(readFileSync(path, "utf8"), original);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+function updateChromeProfiles(root: string, mode: "enable" | "disable") {
+  return Effect.runPromise(
+    updateChromeProfilesEffect(root, mode).pipe(Effect.provide(NodeServices.layer)),
+  );
+}
+
+test("Chrome profiles enable vertical tabs in every user profile", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
+  try {
+    for (const name of ["Default", "Profile 1", "System Profile"]) mkdirSync(join(root, name));
+    const first = join(root, "Default/Preferences");
+    const second = join(root, "Profile 1/Preferences");
+    const system = join(root, "System Profile/Preferences");
+    writeFileSync(first, '{"vertical_tabs":{"enabled":false,"collapsed":true},"keep":"dünya"}');
+    writeFileSync(second, '{"vertical_tabs":{"enabled":true}}');
+    writeFileSync(system, "{}");
+    chmodSync(first, 0o640);
+    assert.deepEqual(await updateChromeProfiles(root, "enable"), { checked: 2, updated: 1 });
+    assert.deepEqual(JSON.parse(readFileSync(first, "utf8")), {
+      vertical_tabs: { enabled: true, collapsed: true },
+      keep: "dünya",
+    });
+    assert.equal(statSync(first).mode & 0o777, 0o640);
+    assert.equal(readFileSync(system, "utf8"), "{}");
+    assert.deepEqual(await updateChromeProfiles(root, "disable"), { checked: 2, updated: 2 });
+    assert.deepEqual(JSON.parse(readFileSync(first, "utf8")).vertical_tabs, { collapsed: true });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("Chrome profiles seed Default and reject malformed preferences", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
+  try {
+    assert.deepEqual(await updateChromeProfiles(root, "enable"), { checked: 1, updated: 1 });
+    const path = join(root, "Default/Preferences");
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), { vertical_tabs: { enabled: true } });
+    writeFileSync(path, '{"vertical_tabs":[]}');
+    await assert.rejects(updateChromeProfiles(root, "enable"), /must be a JSON object/);
+    assert.equal(readFileSync(path, "utf8"), '{"vertical_tabs":[]}');
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
