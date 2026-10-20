@@ -47,7 +47,7 @@ function assertDefaults(contents: string): void {
     assert.ok(section?.split("\n").includes(line), `${table} must contain ${line}`);
   }
   assert.match(features, /^goals = true$/m);
-  assert.match(features, /^memories = false$/m);
+  assert.match(features, /^memories = true$/m);
   assert.doesNotMatch(root, /^service_tier\s*=/m);
   assert.doesNotMatch(features, /^fast_mode\s*=/m);
   assert.match(contents, /^\[features\.context_management\]$/m);

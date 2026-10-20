@@ -83,7 +83,7 @@ function managedEdits(): ConfigEdit[] {
       mergeStrategy: "upsert",
     },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
-    { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
+    { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
   ];
 }
 
