@@ -71,7 +71,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
-          MISE_VERSION: "v2026.10.11"
+          MISE_VERSION: "v2026.10.15"
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"
@@ -167,7 +167,7 @@ jobs:
           echo "user-id=${user_id}" >> "$GITHUB_OUTPUT"
 
       - name: Create semantic release
-        uses: cycjimmy/semantic-release-action@03595b5eaf44910cf239ff20904cc52d410f97d4 # v8.1.2
+        uses: cycjimmy/semantic-release-action@d9bf53a078bd2f86aaffaec796dbb3d28f1b6f34 # v8.1.3
         with:
           semantic_version: 25.0.9
           extra_plugins: |
