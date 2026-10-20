@@ -98,9 +98,7 @@ function applyPreferences(
 
 // prefs::kConfirmToQuitEnabled is browser-wide; turning it off drops the
 // hold-Command-Q-to-quit prompt.
-export const localStatePreferences = [
-  { group: "browser", key: "confirm_to_quit", value: false },
-] as const;
+const localStatePreferences = [{ group: "browser", key: "confirm_to_quit", value: false }] as const;
 
 export const updateChromeLocalStatePreferencesEffect = Effect.fn(
   "updateChromeLocalStatePreferences",
@@ -119,7 +117,7 @@ export const updateChromeLocalStatePreferencesEffect = Effect.fn(
 // Chrome keeps these as per-profile preferences and no enterprise policy sets
 // them: prefs::kVerticalTabsEnabled shows the vertical tab strip, and unpinning
 // prefs::kTabSearchPinnedToTabstrip hides its Tab groups and Tab search buttons.
-export const profilePreferences = [
+const profilePreferences = [
   { group: "vertical_tabs", key: "enabled", value: true },
   { group: "tab_search", key: "pinned_to_tabstrip", value: false },
 ] as const;
