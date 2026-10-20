@@ -5,6 +5,14 @@
       "source": "mattpocock/skills"
     },
     {
+      "name": "create-formal-verification-skill",
+      "source": "cursor/plugins"
+    },
+    {
+      "name": "create-verification-skill",
+      "source": "cursor/plugins"
+    },
+    {
       "name": "diagnosing-bugs",
       "source": "mattpocock/skills"
     },
@@ -15,6 +23,14 @@
     {
       "name": "handoff",
       "source": "mattpocock/skills"
+    },
+    {
+      "name": "maintain-formal-verification-skill",
+      "source": "cursor/plugins"
+    },
+    {
+      "name": "maintain-verification-skill",
+      "source": "cursor/plugins"
     },
     {
       "name": "writing-for-agents",
