@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { runApply } from "./home-fixture.ts";
 
 type Settings = Record<string, unknown> & {
+  autoMemoryDirectory?: string;
   autoMemoryEnabled?: boolean;
   env?: Record<string, unknown>;
   modelSettings?: Record<string, Record<string, unknown>>;
@@ -35,6 +36,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedMode = "defaultMode";
+const memoryDirectory = "~/.claude/memory";
 const managedEnv = {
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
   DISABLE_ERROR_REPORTING: "1",
@@ -185,6 +187,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             effortLevel: undefined,
             outputStyle: undefined,
             attribution: undefined,
+            autoMemoryDirectory: memoryDirectory,
             autoMemoryEnabled: true,
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
@@ -194,6 +197,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, true);
+        assert.equal(actual.autoMemoryDirectory, memoryDirectory);
         assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
         assert.equal(actual.permissions?.[managedMode], "auto");
         assert.deepEqual({ ...actual.env, ...managedEnv }, actual.env);
@@ -212,6 +216,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   const path = settingsPath(fixtureRoot);
   const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
   assert.equal(written.autoMemoryEnabled, true);
+  assert.equal(written.autoMemoryDirectory, memoryDirectory);
   assert.equal(written.permissions?.[managedMode], "auto");
   assert.deepEqual(written.env, managedEnv);
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
@@ -236,6 +241,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
   assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, true);
+  assert.equal((JSON.parse(firstContents) as Settings).autoMemoryDirectory, memoryDirectory);
   assert.equal((JSON.parse(firstContents) as Settings).model, "claude-opus-5-5[1m]");
   assert.equal(
     (JSON.parse(firstContents) as Settings).modelSettings?.["claude-opus-5-5"]?.effortLevel,

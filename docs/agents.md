@@ -30,7 +30,7 @@ session. Setup replaces drifted values on each run.
 
 | Harness     | Owner                                                                           | Managed defaults                                                                                                   |
 | ----------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; no error reports, `/feedback`, or session surveys                                                       |
+| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; auto memory for every project in `~/.claude/memory`; no error reports, `/feedback`, or session surveys  |
 | Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics |
 
 Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
