@@ -10,7 +10,7 @@ import { fail, runMain } from "../lib/program.ts";
 // other dependency: Renovate moves the revision, maintenance converges to it,
 // and the framework's own updater stays disabled in .zshrc.
 // renovate: datasource=git-refs depName=https://github.com/ohmyzsh/ohmyzsh branch=master
-const OH_MY_ZSH_REVISION = "964ddf789b022b6958b27d02d7fa54f552de21e9";
+const OH_MY_ZSH_REVISION = "2100c630ba4bd67bb48802c3e7da893a4fdaa1a0";
 
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
