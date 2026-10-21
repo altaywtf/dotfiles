@@ -30,7 +30,7 @@ import {
   writeLine,
 } from "./runtime.ts";
 
-export { type Harness, HARNESSES } from "./harness.ts";
+export { HARNESSES } from "./harness.ts";
 
 // `owner/repo` as accepted by the marketplace-add subcommands.
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -42,7 +42,7 @@ export type Plugin = {
   harnesses: readonly Harness[];
 };
 
-export type PlannedCommand = {
+type PlannedCommand = {
   command: string;
   args: readonly string[];
   marketplace?: string;
@@ -328,7 +328,7 @@ function removeStalePlugins(
   return leftover;
 }
 
-export function planHarness(
+function planHarness(
   harness: Harness,
   plugins: readonly Plugin[],
   options: { update?: boolean } = {},

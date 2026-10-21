@@ -33,10 +33,17 @@ test("on-demand updates reuse the loaded service without killing its current wor
       Effect.provide(NodeServices.layer),
     ),
   );
-  assert.deepEqual(calls, [
-    ["launchctl", "print", `gui/501/${updateLabel}`],
-    ["launchctl", "kickstart", `gui/501/${updateLabel}`],
-  ]);
+  const kickstarts = calls.filter(([, subcommand]) => subcommand === "kickstart");
+  assert.deepEqual(
+    kickstarts.map((call) => call.at(-1)),
+    [`gui/501/${updateLabel}`],
+  );
+  assert.equal(kickstarts[0]?.includes("-k"), false);
+  // Only read-only inspection and a plain kickstart leave the running job alone.
+  assert.deepEqual(
+    calls.filter(([, subcommand]) => subcommand !== "print" && subcommand !== "kickstart"),
+    [],
+  );
 });
 
 const systemService = `system/${updateLabel}.fixture`;

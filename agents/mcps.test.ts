@@ -357,42 +357,56 @@ test("initializes a missing ownership lock without removing unowned servers", ()
   );
 });
 
-test("removes only servers dropped from the previous managed lock", () => {
+test("prunes dropped servers on present harnesses and defers absent ones until their CLI returns", () => {
   const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    ...fixtureSharedServers,
+    { name: "second-mcp", url: "https://second.fixture.test/mcp" },
+  ]);
   writeMcpLock(home, [
     { name: "shared-mcp", harnesses: [...HARNESSES] },
     { name: "retired-mcp", harnesses: [...HARNESSES] },
   ]);
-  const runtime = new FixtureRuntime(repoDir, home);
+  const removals = (runtime: FixtureRuntime, binary: string) =>
+    harnessCalls(runtime, binary).filter((call) => call.startsWith("mcp remove "));
+  const lockedHarnesses = () =>
+    Object.fromEntries(
+      JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers.map(
+        (server: { name: string; harnesses: string[] }) => [
+          server.name,
+          [...server.harnesses].sort(),
+        ],
+      ),
+    );
 
-  assert.equal(main([], runtime), 0);
-  assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
-  assert.ok(harnessCalls(runtime, "codex").includes("mcp remove retired-mcp"));
-  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")), {
-    version: 1,
-    servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
-  });
-});
-
-test("keeps a dropped server in the lock when its harness CLI is missing", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(home, [
-    { name: "shared-mcp", harnesses: [...HARNESSES] },
-    { name: "retired-mcp", harnesses: ["codex"] },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(
-    harnessCalls(runtime, "codex").some((call) => call.includes("retired-mcp")),
-    false,
+  // Selected Claude servers already match, so every remove is an ownership prune.
+  const outputs = new Map(
+    [
+      ["shared-mcp", "https://mcp.fixture.test/mcp"],
+      ["second-mcp", "https://second.fixture.test/mcp"],
+    ].map(([name, url]) => [`claude mcp get ${name}`, `${name}:\n  Type: http\n  URL: ${url}\n`]),
   );
-  assert.match(runtime.stdout.value, /Skipping Codex MCP removal: 'codex' is not installed/);
-  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers, [
-    { name: "shared-mcp", harnesses: [...HARNESSES] },
-    { name: "retired-mcp", harnesses: ["codex"] },
-  ]);
+
+  const withoutCodex = new FixtureRuntime(repoDir, home, { outputs });
+  withoutCodex.installedCommands.delete("codex");
+  assert.equal(main([], withoutCodex), 0);
+  assert.deepEqual(removals(withoutCodex, "claude"), ["mcp remove -s user retired-mcp"]);
+  assert.deepEqual(harnessCalls(withoutCodex, "codex"), []);
+  assert.match(withoutCodex.stdout.value, /Skipping Codex MCP removal: 'codex' is not installed/);
+  assert.deepEqual(lockedHarnesses(), {
+    "shared-mcp": ["claude", "codex"],
+    "second-mcp": ["claude"],
+    "retired-mcp": ["codex"],
+  });
+
+  const withCodex = new FixtureRuntime(repoDir, home, { outputs });
+  assert.equal(main([], withCodex), 0);
+  assert.deepEqual(removals(withCodex, "claude"), []);
+  assert.deepEqual(removals(withCodex, "codex"), ["mcp remove retired-mcp"]);
+  assert.deepEqual(lockedHarnesses(), {
+    "shared-mcp": ["claude", "codex"],
+    "second-mcp": ["claude", "codex"],
+  });
 });
 
 test("does not prune or advance ownership when an add fails", () => {
@@ -457,17 +471,6 @@ test("rejects a lock that omits explicit harness membership", () => {
   assert.equal(runtime.calls.length, 1);
 });
 
-test("records only MCP harnesses whose CLI was present", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers[0]?.harnesses, [
-    "claude",
-  ]);
-});
-
 test("rejects an unsafe ownership lock before changing servers", () => {
   const { repoDir, home } = createFixture();
   writeMcpLock(home, [{ name: "../escape", harnesses: ["claude"] }]);
@@ -476,18 +479,6 @@ test("rejects an unsafe ownership lock before changing servers", () => {
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Invalid managed MCP lock/);
   assert.equal(runtime.calls.length, 1);
-});
-
-test("keeps previously owned MCP harnesses when that CLI is temporarily absent", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(home, [{ name: "shared-mcp", harnesses: [...HARNESSES] }]);
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.ok(
-    JSON.parse(readFileSync(mcpLockPath(home), "utf8")).servers[0]?.harnesses.includes("codex"),
-  );
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
