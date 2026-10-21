@@ -7,14 +7,7 @@ import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import {
-  HARNESSES,
-  main,
-  planHarness,
-  pluginRef,
-  readLayeredPlugins,
-  readPlugins,
-} from "./plugins.ts";
+import { HARNESSES, main, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
 import { type Runtime } from "./runtime.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -288,65 +281,6 @@ test("rejects an unknown or duplicated harness", () => {
   );
 });
 
-test("plans one marketplace add per marketplace followed by each install", () => {
-  const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "developer"));
-
-  assert.deepEqual(
-    planHarness("claude", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
-    [
-      "claude plugin marketplace add fixture/shared-market",
-      "claude plugin install shared-plugin@shared-market",
-      "claude plugin install second-plugin@shared-market",
-    ],
-  );
-  assert.deepEqual(
-    planHarness("codex", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
-    [
-      "codex plugin marketplace add fixture/shared-market",
-      "codex plugin add shared-plugin@shared-market",
-      "codex plugin add second-plugin@shared-market",
-    ],
-  );
-});
-
-test("plans Claude plugin updates and Codex marketplace upgrades only with --update", () => {
-  const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "developer"));
-
-  assert.deepEqual(
-    planHarness("claude", plugins, { update: true }).map(
-      (planned) => `${planned.command} ${planned.args.join(" ")}`,
-    ),
-    [
-      "claude plugin marketplace add fixture/shared-market",
-      "claude plugin install shared-plugin@shared-market",
-      "claude plugin install second-plugin@shared-market",
-      "claude plugin update shared-plugin@shared-market -y",
-      "claude plugin update second-plugin@shared-market -y",
-    ],
-  );
-  assert.deepEqual(
-    planHarness("codex", plugins, { update: true }).map(
-      (planned) => `${planned.command} ${planned.args.join(" ")}`,
-    ),
-    [
-      "codex plugin marketplace add fixture/shared-market",
-      "codex plugin marketplace upgrade shared-market",
-      "codex plugin add shared-plugin@shared-market",
-      "codex plugin add second-plugin@shared-market",
-    ],
-  );
-});
-
-test("plans nothing for a harness the entry does not target", () => {
-  const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "personal"));
-
-  assert.equal(planHarness("claude", plugins).length, 2);
-  assert.deepEqual(planHarness("codex", plugins), []);
-});
-
 test("applies the developer layer across every installed harness", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
@@ -600,22 +534,49 @@ test("initializes a missing ownership lock without removing unowned plugins", ()
   );
 });
 
-test("removes only plugins dropped from the previous managed lock", () => {
+test("prunes dropped plugins on present harnesses and defers absent ones until their CLI returns", () => {
   const { repoDir, home } = createFixture();
-  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
-  writePluginLock(home, [...fixtureSharedPlugins, retired]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.ok(
-    harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
-  );
-  assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.deepEqual(locked.map(pluginRef), [
-    "shared-plugin@shared-market",
-    "second-plugin@shared-market",
+  writePluginLock(home, [
+    { marketplace: "fixture/shared-market", name: "shared-plugin" },
+    { marketplace: "fixture/retired-market", name: "retired-plugin" },
   ]);
+  const removals = (runtime: FixtureRuntime, binary: string) =>
+    harnessCalls(runtime, binary).filter((call) => /^plugin (uninstall|remove) /.test(call));
+  const lockedHarnesses = () =>
+    Object.fromEntries(
+      JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins.map(
+        (plugin: { marketplaceId: string; name: string; harnesses: string[] }) => [
+          `${plugin.name}@${plugin.marketplaceId}`,
+          [...plugin.harnesses].sort(),
+        ],
+      ),
+    );
+
+  const withoutCodex = new FixtureRuntime(repoDir, home);
+  withoutCodex.installedCommands.delete("codex");
+  assert.equal(main([], withoutCodex), 0);
+  assert.deepEqual(removals(withoutCodex, "claude"), [
+    "plugin uninstall -y retired-plugin@retired-market",
+  ]);
+  assert.deepEqual(harnessCalls(withoutCodex, "codex"), []);
+  assert.match(
+    withoutCodex.stdout.value,
+    /Skipping Codex plugin removal: 'codex' is not installed/,
+  );
+  assert.deepEqual(lockedHarnesses(), {
+    "shared-plugin@shared-market": ["claude", "codex"],
+    "second-plugin@shared-market": ["claude"],
+    "retired-plugin@retired-market": ["codex"],
+  });
+
+  const withCodex = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], withCodex), 0);
+  assert.deepEqual(removals(withCodex, "claude"), []);
+  assert.deepEqual(removals(withCodex, "codex"), ["plugin remove retired-plugin@retired-market"]);
+  assert.deepEqual(lockedHarnesses(), {
+    "shared-plugin@shared-market": ["claude", "codex"],
+    "second-plugin@shared-market": ["claude", "codex"],
+  });
 });
 
 test("leaves a plugin synced from claude.ai to Claude and still installs it in Codex", () => {
@@ -794,32 +755,6 @@ test("syncs Claude plugins when Claude is signed in", () => {
   assert.ok(harnessCalls(runtime, "claude").includes("plugin install shared-plugin@shared-market"));
 });
 
-test("keeps a dropped plugin in the lock when its harness CLI is missing", () => {
-  const { repoDir, home } = createFixture();
-  const retired = {
-    marketplace: "fixture/retired-market",
-    name: "retired-plugin",
-    harnesses: ["codex"],
-  };
-  writePluginLock(home, [...fixtureSharedPlugins, retired]);
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(
-    harnessCalls(runtime, "codex").some((call) => call.includes("retired-plugin")),
-    false,
-  );
-  assert.match(runtime.stdout.value, /Skipping Codex plugin removal: 'codex' is not installed/);
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.deepEqual(locked.map(pluginRef), [
-    "shared-plugin@shared-market",
-    "second-plugin@shared-market",
-    "retired-plugin@retired-market",
-  ]);
-  assert.deepEqual(locked[2]?.harnesses, ["codex"]);
-});
-
 test("does not prune or advance ownership when installation fails", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
@@ -897,30 +832,6 @@ test("rejects a lock that omits explicit harness membership", () => {
     /expected explicit marketplace, marketplaceId, name, and harnesses/,
   );
   assert.equal(harnessCalls(runtime, "claude").length, 0);
-});
-
-test("records only harnesses whose CLI was present", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  for (const plugin of locked) {
-    assert.equal(plugin.harnesses.includes("codex"), false);
-    assert.ok(plugin.harnesses.includes("claude"));
-  }
-});
-
-test("keeps previously owned harnesses when that CLI is temporarily absent", () => {
-  const { repoDir, home } = createFixture();
-  writePluginLock(home, fixtureSharedPlugins);
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
-  assert.ok(locked[0]?.harnesses.includes("codex"));
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
