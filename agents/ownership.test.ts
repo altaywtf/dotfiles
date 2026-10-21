@@ -6,30 +6,37 @@ import { planOwnership } from "./ownership.ts";
 
 type Entry = { name: string; harnesses: readonly Harness[] };
 type Case = {
-  previous: Entry[];
-  selected: Entry[];
-  available: Harness[];
-  deferred: Entry[];
+  previous: readonly Entry[];
+  selected: readonly Entry[];
+  available: readonly Harness[];
+  deferred: readonly Entry[];
 };
 
 const keyOf = (entry: Entry) => entry.name;
 const NAMES = ["a", "b", "c"];
-const SUBSETS: Harness[][] = [[], ["claude"], ["codex"], ["claude", "codex"]];
+const SUBSETS: readonly (readonly Harness[])[] = [
+  [],
+  ["claude"],
+  ["codex"],
+  ["claude", "codex"],
+].map((harnesses) => Object.freeze(harnesses as Harness[]));
 
 // Every list with at most one non-empty-harness entry per name, in the given name order.
-function entryLists(names: readonly string[]): Entry[][] {
-  return names.reduce<Entry[][]>(
-    (lists, name) =>
-      lists.flatMap((list) =>
-        SUBSETS.map((harnesses) =>
-          harnesses.length === 0 ? list : [...list, frozen({ name, harnesses })],
+function entryLists(names: readonly string[]): (readonly Entry[])[] {
+  return names
+    .reduce<Entry[][]>(
+      (lists, name) =>
+        lists.flatMap((list) =>
+          SUBSETS.map((harnesses) =>
+            harnesses.length === 0 ? list : [...list, frozen({ name, harnesses })],
+          ),
         ),
-      ),
-    [[]],
-  );
+      [[]],
+    )
+    .map((list) => Object.freeze(list));
 }
 
-// Frozen inputs make any mutation by the planner throw.
+// Frozen inputs, lists included, make any mutation by the planner throw.
 function frozen(entry: Entry): Entry {
   Object.freeze(entry.harnesses);
   return Object.freeze(entry);
@@ -39,12 +46,12 @@ function pairs(entries: readonly Entry[]): string[] {
   return entries.flatMap((entry) => entry.harnesses.map((harness) => `${entry.name}:${harness}`));
 }
 
-function entriesFrom(owned: readonly { name: string; harness: Harness }[]): Entry[] {
+function entriesFrom(owned: readonly { name: string; harness: Harness }[]): readonly Entry[] {
   const byName = new Map<string, Harness[]>();
   for (const { name, harness } of owned) {
     byName.set(name, [...(byName.get(name) ?? []), harness]);
   }
-  return [...byName].map(([name, harnesses]) => frozen({ name, harnesses }));
+  return Object.freeze([...byName].map(([name, harnesses]) => frozen({ name, harnesses })));
 }
 
 function subsets<T>(items: readonly T[]): T[][] {

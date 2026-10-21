@@ -39,9 +39,10 @@ test("on-demand updates reuse the loaded service without killing its current wor
     [`gui/501/${updateLabel}`],
   );
   assert.equal(kickstarts[0]?.includes("-k"), false);
-  assert.equal(
-    calls.some(([, subcommand]) => subcommand === "bootstrap" || subcommand === "bootout"),
-    false,
+  // Only read-only inspection and a plain kickstart leave the running job alone.
+  assert.deepEqual(
+    calls.filter(([, subcommand]) => subcommand !== "print" && subcommand !== "kickstart"),
+    [],
   );
 });
 
