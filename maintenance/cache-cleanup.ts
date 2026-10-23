@@ -203,6 +203,12 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* log("pnpm store prune");
       yield* mutate("pnpm", ["store", "prune"]);
     }
+    // Runtime pins move forward, but superseded installs stay runnable. Pruning
+    // keeps every version a tracked config or running process still uses.
+    if (yield* commandAvailable("mise")) {
+      yield* log("mise prune unused runtime versions");
+      yield* mutate("mise", ["prune", "--yes"]);
+    }
     if ((yield* commandAvailable("docker")) && (yield* command("docker", ["info"])).status === 0) {
       yield* log("docker build cache older than 7 days");
       yield* mutate("docker", ["builder", "prune", "-f", "--filter", "until=168h"]);

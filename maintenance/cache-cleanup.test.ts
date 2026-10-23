@@ -25,7 +25,7 @@ async function fixture(t: TestContext) {
     if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = previousCodexHome;
   });
-  for (const name of ["xcrun", "pnpm", "docker"])
+  for (const name of ["xcrun", "pnpm", "docker", "mise"])
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
@@ -103,6 +103,7 @@ test("cache ages match find day boundaries, dry-run preserves everything, and ap
   );
   assert.ok(f.calls.some((call) => call.join(" ") === "xcrun simctl delete unavailable"));
   assert.ok(f.calls.some((call) => call.join(" ") === "pnpm store prune"));
+  assert.ok(f.calls.some((call) => call.join(" ") === "mise prune --yes"));
   assert.ok(f.calls.every((call) => !["container", "image", "system"].includes(call[1] ?? "")));
 });
 
@@ -134,6 +135,7 @@ for (const spawnFailure of [false, true]) {
 test("optional tool probes gate cleanup and missing tools are skipped", async (t) => {
   const f = await fixture(t);
   await rm(join(f.bin, "pnpm"));
+  await rm(join(f.bin, "mise"));
   assert.equal((await f.run(true, { probeFailure: true })).status, 0);
   assert.ok(
     f.calls.every(

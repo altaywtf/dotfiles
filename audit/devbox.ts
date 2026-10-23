@@ -13,6 +13,7 @@ import {
 import { runMain } from "../lib/program.ts";
 import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import { compromisedRoots, projectEnvFiles } from "./workstation.ts";
 
 const homeDotfiles = {
   kind: "home-dotfiles",
@@ -146,6 +147,8 @@ export function devboxPolicy(
           },
         ],
       },
+      { title: "project env file privacy", checks: [projectEnvFiles] },
+      { title: "TLS trust store", checks: [compromisedRoots(systemRoot)] },
       {
         title: "Git and GitHub identity",
         checks: [
