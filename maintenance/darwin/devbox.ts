@@ -129,7 +129,10 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
   const brew = process.arch === "arm64" ? "/opt/homebrew/bin/brew" : "/usr/local/bin/brew";
-  const prefix = (yield* runChecked(brew, ["--prefix"])).stdout.trim();
+  // The prefix owner can edit brew, so never run it as root.
+  const prefix = (yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", brew, "--prefix"], {
+    cwd: home,
+  })).stdout.trim();
   if (Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid) {
     return yield* fail("only the Homebrew prefix owner can enroll Homebrew updates");
   }

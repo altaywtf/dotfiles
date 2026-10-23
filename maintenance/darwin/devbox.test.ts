@@ -100,7 +100,9 @@ for (const profile of ["devbox", "personal-devbox"]) {
           const loaded = scenario === "loaded" && args[1] === `system/${oldLabel}`;
           return Effect.succeed({
             status: args[0] === "print" && !loaded ? 113 : 0,
-            stdout: command.endsWith("/brew") ? "/fixture/prefix\n" : "",
+            stdout: [command, ...args].some((part) => part.endsWith("/brew"))
+              ? "/fixture/prefix\n"
+              : "",
             stderr: "",
           });
         },
@@ -133,6 +135,11 @@ for (const profile of ["devbox", "personal-devbox"]) {
             Effect.result,
           );
         }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)),
+      );
+      // The prefix owner can edit brew, so root must never execute it directly.
+      assert.equal(
+        calls.some((call) => call[0]?.endsWith("/brew")),
+        false,
       );
       if (scenario === "headless") {
         assert.equal(outcome._tag, "Success");
