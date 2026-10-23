@@ -109,7 +109,7 @@ test("composes normalized source fragments in configured order", async () => {
   );
   await assert.rejects(
     Effect.runPromise(composeRuleSources([{ source: "heading", contents: "# Agent rules\n" }])),
-    /must start at ## General guidelines/,
+    /must start with a ## heading/,
   );
 });
 
