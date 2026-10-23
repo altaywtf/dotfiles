@@ -75,9 +75,9 @@ export const composeRuleSources = Effect.fn("composeRuleSources")(function* (
     normalizeRuleSource(source, contents),
   );
   const contents = `${fragments.join("\n\n")}\n`;
-  if (!contents.startsWith("## General guidelines\n")) {
+  if (!contents.startsWith("## ")) {
     return yield* new RuleContentFailure({
-      message: "composed agent rules must start at ## General guidelines",
+      message: "composed agent rules must start with a ## heading",
     });
   }
   return contents;

@@ -1,4 +1,11 @@
 {
   "version": 1,
-  "sources": ["https://raw.githubusercontent.com/uinaf/ffss/main/rules/agents.md"]
+  "sources": [
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/comms.md",
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/authority.md",
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/orchestration.md",
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/implementation.md",
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/verification.md",
+    "https://raw.githubusercontent.com/uinaf/ffss/main/rules/delivery.md"
+  ]
 }

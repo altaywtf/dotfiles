@@ -39,7 +39,8 @@ Model-training choices are account settings, not client configuration.
 
 ## Global Rules
 
-[Rule sources](../agents/rules.json) supply the shared text.
+[Rule sources](../agents/rules.json) supply the shared text, joined in listed
+order; it must start with a `##` heading.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
 Edit shared rules at their configured source and private instructions in:
