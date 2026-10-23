@@ -190,6 +190,10 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
   symlinkSync(join(home, ".ssh"), join(home, "projects/app/linked"));
   write(join(home, "projects/app/node_modules/dep/.env"), "TOKEN=fixture\n");
   write(
+    join(root, "etc/ca-certificates.conf"),
+    "!mozilla/emSign_ECC_Root_CA_-_G3.crt\nmozilla/Comodo_AAA_Services_root.crt\n",
+  );
+  write(
     join(root, "etc/ssl/cert.pem"),
     "=== /C=IN/OU=emSign PKI/O=eMudhra Technologies Limited/CN=emSign ECC Root CA - G3\n",
   );
@@ -205,9 +209,10 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
       stdout: () => {},
       stderr: (value) => errors.push(value),
     });
-    assert.equal(result.summary.failed, 1);
+    assert.equal(result.summary.failed, 2);
     assert.equal(result.summary.warnings, 2);
     assert.deepEqual(errors.sort(), [
+      `FAILED: ${join(root, "etc/ca-certificates.conf")} contains roots of the compromised eMudhra intermediates\n`,
       `FAILED: ${join(root, "etc/ssl/cert.pem")} contains roots of the compromised eMudhra intermediates\n`,
       `warn ${join(home, "projects/app/.env")} mode 644 is readable by group or other users\n`,
       "warn application firewall is disabled\n",

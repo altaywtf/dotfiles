@@ -38,7 +38,12 @@ async function fixture(t: TestContext) {
   const calls: string[][] = [];
   const run = (
     apply: boolean,
-    options: { failure?: string; spawnFailure?: boolean; probeFailure?: boolean } = {},
+    options: {
+      failure?: string;
+      spawnFailure?: boolean;
+      probeFailure?: boolean;
+      miseVersion?: string;
+    } = {},
   ) =>
     Effect.runPromise(
       Effect.gen(function* () {
@@ -59,7 +64,9 @@ async function fixture(t: TestContext) {
               stdout:
                 command === "df"
                   ? "Filesystem 1024-blocks Used Available Capacity Mounted\nfixture 2000000 1000000 1000000 50% /\n"
-                  : "",
+                  : command === "mise" && args[0] === "--version"
+                    ? `${options.miseVersion ?? "2026.10.4"} macos-arm64 (fixture)\n`
+                    : "",
               stderr: "",
             });
           },
@@ -142,6 +149,14 @@ test("optional tool probes gate cleanup and missing tools are skipped", async (t
       (call) => call[0] !== "pnpm" && !call.includes("delete") && !call.includes("prune"),
     ),
   );
+});
+
+test("mise prune waits for a mise that keeps running versions", async (t) => {
+  const f = await fixture(t);
+  const result = await f.run(true, { miseVersion: "2026.10.3" });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /skip mise prune/);
+  assert.ok(f.calls.every((call) => call.join(" ") !== "mise prune --yes"));
 });
 
 test("a package cleanup failure does not hide later cleanup or disk accounting", async (t) => {

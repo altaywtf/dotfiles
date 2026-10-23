@@ -33,16 +33,27 @@ export const projectEnvFiles = {
 } as const;
 
 // The compromised eMudhra intermediates chain to these roots
-// (https://emudhra.we-have-a-problem.com/). curl, git and mise Python trust this
-// file, and macOS updates restore Apple's copy.
+// (https://emudhra.we-have-a-problem.com/). On macOS, curl, git and mise Python
+// trust cert.pem, which macOS updates restore; Debian and Ubuntu build their
+// bundle from the enabled ca-certificates.conf entries.
 export function compromisedRoots(systemRoot: string) {
-  return {
-    kind: "pattern-absent",
-    sources: [{ kind: "path", path: join(systemRoot, "etc/ssl/cert.pem") }],
-    pattern: /^=== .*\/CN=(AAA Certificate Services|emSign ECC Root CA - G3)$/m,
-    label: "roots of the compromised eMudhra intermediates",
-    severity: "fail",
-  } as const;
+  const label = "roots of the compromised eMudhra intermediates";
+  return [
+    {
+      kind: "pattern-absent",
+      sources: [{ kind: "path", path: join(systemRoot, "etc/ssl/cert.pem") }],
+      pattern: /^=== .*\/CN=(AAA Certificate Services|emSign ECC Root CA - G3)$/m,
+      label,
+      severity: "fail",
+    },
+    {
+      kind: "pattern-absent",
+      sources: [{ kind: "path", path: join(systemRoot, "etc/ca-certificates.conf") }],
+      pattern: /^mozilla\/(Comodo_AAA_Services_root|emSign_ECC_Root_CA_-_G3)\.crt$/m,
+      label,
+      severity: "fail",
+    },
+  ] as const;
 }
 
 export const workstationPolicy = (systemRoot = "/") =>
@@ -109,7 +120,7 @@ export const workstationPolicy = (systemRoot = "/") =>
         ],
       },
       { title: "project env file privacy", checks: [projectEnvFiles] },
-      { title: "TLS trust store", checks: [compromisedRoots(systemRoot)] },
+      { title: "TLS trust store", checks: compromisedRoots(systemRoot) },
       {
         title: "Git and GitHub identity",
         checks: [

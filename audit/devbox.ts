@@ -148,7 +148,7 @@ export function devboxPolicy(
         ],
       },
       { title: "project env file privacy", checks: [projectEnvFiles] },
-      { title: "TLS trust store", checks: [compromisedRoots(systemRoot)] },
+      { title: "TLS trust store", checks: compromisedRoots(systemRoot) },
       {
         title: "Git and GitHub identity",
         checks: [

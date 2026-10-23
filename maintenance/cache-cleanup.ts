@@ -204,10 +204,18 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* mutate("pnpm", ["store", "prune"]);
     }
     // Runtime pins move forward, but superseded installs stay runnable. Pruning
-    // keeps every version a tracked config or running process still uses.
+    // keeps every version a tracked config uses; mise 2026.10.4
+    // (jdx/mise#14020) also keeps versions a running process started from.
     if (yield* commandAvailable("mise")) {
-      yield* log("mise prune unused runtime versions");
-      yield* mutate("mise", ["prune", "--yes"]);
+      const version = (yield* command("mise", ["--version"])).stdout.match(/^(\d+)\.(\d+)\.(\d+)/);
+      const [year, month, patch] = (version?.slice(1) ?? []).map(Number);
+      if (
+        version &&
+        (year > 2026 || (year === 2026 && (month > 10 || (month === 10 && patch >= 4))))
+      ) {
+        yield* log("mise prune unused runtime versions");
+        yield* mutate("mise", ["prune", "--yes"]);
+      } else yield* log("skip mise prune: mise older than 2026.10.4 may delete running versions");
     }
     if ((yield* commandAvailable("docker")) && (yield* command("docker", ["info"])).status === 0) {
       yield* log("docker build cache older than 7 days");
