@@ -25,7 +25,7 @@ export const projectEnvFiles = {
       maxDepth: 5,
       namePrefix: ".env",
       pathPattern: /\/\.env(?![^/]*\.(?:example|sample|template)$)(?:\.[^/]+)?$/,
-      skipDirectories: ["node_modules", ".git"],
+      skipDirectories: ["node_modules", ".git", "target", ".build"],
       ignoreDirectoryLinks: true,
     },
   ],
