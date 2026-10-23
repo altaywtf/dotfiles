@@ -98,6 +98,9 @@ mise run agents:update
 
 - `update` also refreshes **all global skills**, including manually installed
   extras, and managed plugins.
+- Third-party manifest skills pin a commit as
+  `https://github.com/OWNER/REPO/tree/SHA`, so `update` keeps them at that
+  commit. Renovate proposes new commits from the default branch.
 - A failed global skill update leaves the completed manifest sync in place.
 - These commands do not pull Git or refresh rule files.
 

@@ -225,17 +225,15 @@ const installJob = Effect.fn("installLaunchdJob")(function* (
   yield* Console.log(`installed ${label} for ${context.target.user}`);
 });
 
+// The target owns this directory, so write it as the target: root must not follow its symlinks.
 const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context: ServiceContext) {
-  const fs = yield* FileSystem.FileSystem;
-  const directory = join(context.target.home, ".config/dotfiles");
-  yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
-  yield* fs.chmod(directory, 0o700);
-  yield* fs.chown(directory, context.target.uid, -1);
-  const destination = join(directory, "launchd-namespace");
-  const temporary = join(directory, `.launchd-namespace.${process.pid}`);
-  yield* fs.writeFileString(temporary, `${context.namespace}\n`, { mode: 0o600 });
-  yield* fs.chown(temporary, context.target.uid, -1);
-  yield* fs.rename(temporary, destination);
+  yield* runAsTarget(context.target, "/bin/sh", [
+    "-c",
+    'set -eu; umask 077; mkdir -p "$1"; chmod 0700 "$1"; tmp=$(mktemp "$1/.launchd-namespace.XXXXXX"); printf "%s\\n" "$2" > "$tmp"; mv -f "$tmp" "$1/launchd-namespace"',
+    "persist-launchd-namespace",
+    join(context.target.home, ".config/dotfiles"),
+    context.namespace,
+  ]);
 });
 
 const writePlist = Effect.fn("writeServicePlist")(function* (path: string, xml: string) {
@@ -275,16 +273,7 @@ const installColima = Effect.fn("installColimaService")(function* (
 ) {
   yield* runAsTarget(context.target, colima.start);
   const logDirectory = join(context.target.home, ".local/log/colima");
-  yield* checked("/usr/bin/install", [
-    "-d",
-    "-o",
-    context.target.user,
-    "-g",
-    context.target.group,
-    "-m",
-    "0750",
-    logDirectory,
-  ]);
+  yield* runAsTarget(context.target, "/usr/bin/install", ["-d", "-m", "0750", logDirectory]);
   const plist = join(temporary, `${context.labels.colima}.plist`);
   yield* writePlist(
     plist,

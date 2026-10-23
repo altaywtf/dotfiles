@@ -91,6 +91,16 @@
     },
     {
       "customType": "regex",
+      "description": "Agent skills pinned to a commit, followed as a digest of the main branch",
+      "managerFilePatterns": ["/^agents/skills/[^/]+\\.json$/"],
+      "matchStrings": [
+        "\"source\": \"(?<depName>https://github\\.com/[^/\"]+/[^/\"]+)/tree/(?<currentDigest>[0-9a-f]{40})\""
+      ],
+      "datasourceTemplate": "git-refs",
+      "currentValueTemplate": "main"
+    },
+    {
+      "customType": "regex",
       "description": "semantic-release action runtime and plugins",
       "managerFilePatterns": ["/^\\.github/workflows/verify\\.yml$/"],
       "matchStrings": ["semantic_version: (?<currentValue>[0-9.]+)"],
