@@ -14,7 +14,7 @@ rust = "1.99.1"
 # Coding agents share one pin on every platform. Cursor keeps its own installer.
 "npm:@openai/codex" = "0.164.0"
 
-gh = "2.103.1"
+gh = "2.103.2"
 jq = "1.8.2"
 ripgrep = "15.2.0"
 shellcheck = "0.11.0"
