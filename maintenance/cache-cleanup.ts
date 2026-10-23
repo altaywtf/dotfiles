@@ -203,6 +203,21 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* log("pnpm store prune");
       yield* mutate("pnpm", ["store", "prune"]);
     }
+    // Runtime pins move forward, but superseded installs stay runnable. Pruning
+    // keeps every version a tracked config uses. mise 2026.10.9 is the first to
+    // also keep running versions and inline task tools (jdx/mise#14020, #14334).
+    if (yield* commandAvailable("mise")) {
+      const version = (yield* command("mise", ["--version"])).stdout.match(/^(\d+)\.(\d+)\.(\d+)/);
+      const [year, month, patch] = (version?.slice(1) ?? []).map(Number);
+      if (
+        version &&
+        (year > 2026 || (year === 2026 && (month > 10 || (month === 10 && patch >= 9))))
+      ) {
+        yield* log("mise prune unused runtime versions");
+        yield* mutate("mise", ["prune", "--yes"]);
+      } else
+        yield* log("skip mise prune: mise older than 2026.10.9 may delete versions still in use");
+    }
     if ((yield* commandAvailable("docker")) && (yield* command("docker", ["info"])).status === 0) {
       yield* log("docker build cache older than 7 days");
       yield* mutate("docker", ["builder", "prune", "-f", "--filter", "until=168h"]);

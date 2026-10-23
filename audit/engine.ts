@@ -70,6 +70,7 @@ type AuditCheck =
       missing: Exclude<FindingSeverity, "ok">;
       failure: Exclude<FindingSeverity, "ok">;
       label: string;
+      expect?: { pattern: RegExp; match: string; mismatch: string };
     };
 
 export type AuditPolicy = {
@@ -465,11 +466,10 @@ function runCheck(run: AuditRun, check: AuditCheck): void {
       const result = run.command(check.command, check.args);
       if (result.error?.message.includes("ENOENT"))
         run.finding(check.missing, `${check.command} CLI is missing`);
-      else
-        run.finding(
-          result.status === 0 ? "ok" : check.failure,
-          result.status === 0 ? `${check.label} works` : `${check.label} failed`,
-        );
+      else if (result.status !== 0) run.finding(check.failure, `${check.label} failed`);
+      else if (check.expect === undefined) run.finding("ok", `${check.label} works`);
+      else if (check.expect.pattern.test(result.stdout)) run.finding("ok", check.expect.match);
+      else run.finding(check.failure, check.expect.mismatch);
     }
   }
 }

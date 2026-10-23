@@ -48,6 +48,8 @@ function cleanCommand(command: string, args: readonly string[]) {
     return { status: values[key ?? ""] ? 0 : 1, stdout: values[key ?? ""] ?? "", stderr: "" };
   }
   if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
+  if (command.endsWith("/socketfilterfw"))
+    return { status: 0, stdout: "Firewall is enabled. (State = 1)\n", stderr: "" };
   if (command === "gitleaks" && args[0] === "dir")
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
   return { status: 0, stdout: "", stderr: "" };
@@ -57,7 +59,7 @@ test("workstation policy is declarative and passes a clean fixture", () => {
   const { home, root } = fixture();
   const output: string[] = [];
   try {
-    const result = runPolicy(workstationPolicy, "json", {
+    const result = runPolicy(workstationPolicy(root), "json", {
       home,
       env: { HOME: home, TMPDIR: join(root, "tmp") },
       command: cleanCommand,
@@ -170,6 +172,51 @@ test("typed checks reject unsafe npm auth and SSH key modes", () => {
     });
     assert.equal(result.summary.failed, 2);
     assert.equal(result.status, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("workstation flags readable env files, compromised roots, and a disabled firewall", () => {
+  const { home, root } = fixture();
+  const write = (path: string, text: string) => {
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, text);
+    chmodSync(path, 0o644);
+  };
+  write(join(home, "projects/app/.env"), "TOKEN=fixture\n");
+  write(join(home, "projects/app/.env.example"), "TOKEN=\n");
+  write(join(home, "projects/app/.env.scripts.example"), "TOKEN=\n");
+  symlinkSync(join(home, ".ssh"), join(home, "projects/app/linked"));
+  write(join(home, "projects/app/node_modules/dep/.env"), "TOKEN=fixture\n");
+  write(
+    join(root, "etc/ca-certificates.conf"),
+    "!mozilla/emSign_ECC_Root_CA_-_G3.crt\nmozilla/Comodo_AAA_Services_root.crt\n",
+  );
+  write(
+    join(root, "etc/ssl/cert.pem"),
+    "=== /C=IN/OU=emSign PKI/O=eMudhra Technologies Limited/CN=emSign ECC Root CA - G3\n",
+  );
+  const errors: string[] = [];
+  try {
+    const result = runPolicy(workstationPolicy(root), "text", {
+      home,
+      env: { HOME: home, TMPDIR: join(root, "tmp") },
+      command: (command, args) =>
+        command.endsWith("/socketfilterfw")
+          ? { status: 0, stdout: "Firewall is disabled. (State = 0)\n", stderr: "" }
+          : cleanCommand(command, args),
+      stdout: () => {},
+      stderr: (value) => errors.push(value),
+    });
+    assert.equal(result.summary.failed, 2);
+    assert.equal(result.summary.warnings, 2);
+    assert.deepEqual(errors.sort(), [
+      `FAILED: ${join(root, "etc/ca-certificates.conf")} contains roots of the compromised eMudhra intermediates\n`,
+      `FAILED: ${join(root, "etc/ssl/cert.pem")} contains roots of the compromised eMudhra intermediates\n`,
+      `warn ${join(home, "projects/app/.env")} mode 644 is readable by group or other users\n`,
+      "warn application firewall is disabled\n",
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

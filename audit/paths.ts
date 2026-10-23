@@ -4,7 +4,17 @@ import { basename, join } from "node:path";
 export type PathSource =
   | { kind: "path"; path: string }
   | { kind: "home-dotfiles"; exclude?: readonly string[] }
-  | { kind: "files"; path: string; maxDepth?: number; namePrefix?: string; pathPattern?: RegExp };
+  | {
+      kind: "files";
+      path: string;
+      maxDepth?: number;
+      namePrefix?: string;
+      pathPattern?: RegExp;
+      skipDirectories?: readonly string[];
+      ignoreDirectoryLinks?: boolean;
+    };
+
+type WalkOptions = { skipDirectories?: ReadonlySet<string>; ignoreDirectoryLinks?: boolean };
 
 type SkippedPath = (path: string) => void;
 
@@ -30,10 +40,19 @@ function discoveredFile(path: string, skipped: SkippedPath): boolean {
   return false;
 }
 
+function linkedDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 export function walkFiles(
   root: string,
   maxDepth = Number.POSITIVE_INFINITY,
   skipped: SkippedPath,
+  options: WalkOptions = {},
 ): string[] {
   if (!present(root, skipped)) return [];
   try {
@@ -45,11 +64,16 @@ export function walkFiles(
     }
     return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
       const path = join(root, entry.name);
-      if (entry.isDirectory()) return maxDepth > 0 ? walkFiles(path, maxDepth - 1, skipped) : [];
+      if (entry.isDirectory())
+        return maxDepth > 0 && !options.skipDirectories?.has(entry.name)
+          ? walkFiles(path, maxDepth - 1, skipped, options)
+          : [];
       if (entry.isFile()) return [path];
       // Follow file links; directory links are reported instead of recursively
       // expanding arbitrary trees or cycles outside the selected audit scope.
-      return entry.isSymbolicLink() && discoveredFile(path, skipped) ? [path] : [];
+      if (!entry.isSymbolicLink()) return [];
+      if (options.ignoreDirectoryLinks && linkedDirectory(path)) return [];
+      return discoveredFile(path, skipped) ? [path] : [];
     });
   } catch {
     skipped(root);
@@ -90,7 +114,10 @@ export function resolveSources(
       }
     }
     const root = homePath(home, source.path);
-    return walkFiles(root, source.maxDepth ?? Number.POSITIVE_INFINITY, skipped)
+    return walkFiles(root, source.maxDepth ?? Number.POSITIVE_INFINITY, skipped, {
+      skipDirectories: new Set(source.skipDirectories),
+      ignoreDirectoryLinks: source.ignoreDirectoryLinks,
+    })
       .filter(
         (path) => source.namePrefix === undefined || basename(path).startsWith(source.namePrefix),
       )

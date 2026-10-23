@@ -25,7 +25,7 @@ async function fixture(t: TestContext) {
     if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = previousCodexHome;
   });
-  for (const name of ["xcrun", "pnpm", "docker"])
+  for (const name of ["xcrun", "pnpm", "docker", "mise"])
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
@@ -38,7 +38,12 @@ async function fixture(t: TestContext) {
   const calls: string[][] = [];
   const run = (
     apply: boolean,
-    options: { failure?: string; spawnFailure?: boolean; probeFailure?: boolean } = {},
+    options: {
+      failure?: string;
+      spawnFailure?: boolean;
+      probeFailure?: boolean;
+      miseVersion?: string;
+    } = {},
   ) =>
     Effect.runPromise(
       Effect.gen(function* () {
@@ -59,7 +64,9 @@ async function fixture(t: TestContext) {
               stdout:
                 command === "df"
                   ? "Filesystem 1024-blocks Used Available Capacity Mounted\nfixture 2000000 1000000 1000000 50% /\n"
-                  : "",
+                  : command === "mise" && args[0] === "--version"
+                    ? `${options.miseVersion ?? "2026.10.9"} macos-arm64 (fixture)\n`
+                    : "",
               stderr: "",
             });
           },
@@ -103,6 +110,7 @@ test("cache ages match find day boundaries, dry-run preserves everything, and ap
   );
   assert.ok(f.calls.some((call) => call.join(" ") === "xcrun simctl delete unavailable"));
   assert.ok(f.calls.some((call) => call.join(" ") === "pnpm store prune"));
+  assert.ok(f.calls.some((call) => call.join(" ") === "mise prune --yes"));
   assert.ok(f.calls.every((call) => !["container", "image", "system"].includes(call[1] ?? "")));
 });
 
@@ -134,12 +142,21 @@ for (const spawnFailure of [false, true]) {
 test("optional tool probes gate cleanup and missing tools are skipped", async (t) => {
   const f = await fixture(t);
   await rm(join(f.bin, "pnpm"));
+  await rm(join(f.bin, "mise"));
   assert.equal((await f.run(true, { probeFailure: true })).status, 0);
   assert.ok(
     f.calls.every(
       (call) => call[0] !== "pnpm" && !call.includes("delete") && !call.includes("prune"),
     ),
   );
+});
+
+test("mise prune waits for a mise that keeps running versions", async (t) => {
+  const f = await fixture(t);
+  const result = await f.run(true, { miseVersion: "2026.10.8" });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /skip mise prune/);
+  assert.ok(f.calls.every((call) => call.join(" ") !== "mise prune --yes"));
 });
 
 test("a package cleanup failure does not hide later cleanup or disk accounting", async (t) => {

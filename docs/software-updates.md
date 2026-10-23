@@ -107,6 +107,9 @@ git config --local --unset dotfiles.hygiene # include it again
   and SwiftPM `.build/` directories at checkout roots under agent worktrees
   and `~/projects` once nothing in them changed for three days, open pull
   requests included. The next build is cold.
+- With mise 2026.10.9 or later, the sweep runs `mise prune`, which uninstalls
+  runtime versions that no tracked mise config or running process uses. A project whose config mise
+  has not seen loses its runtime until the next install.
 - The sweep permanently deletes aged Codex session history under `CODEX_HOME`
   when set; preview before applying. Codex config, skills, memories, plugins,
   worktrees, and databases are never swept. A pruned session can still be
