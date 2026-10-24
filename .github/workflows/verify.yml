@@ -28,7 +28,7 @@ jobs:
 
       - name: Set up Vite+
         if: ${{ github.event_name != 'push' }}
-        uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
         with:
           node-version-file: ".node-version"
 
@@ -60,7 +60,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
         with:
           node-version-file: ".node-version"
 
@@ -71,7 +71,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
-          MISE_VERSION: "v2026.10.15"
+          MISE_VERSION: "v2026.10.17"
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"
