@@ -3,39 +3,36 @@
 The selected [profile](profiles.md) controls global rules, skills, plugins,
 and MCP servers.
 
-[Codex configuration](../agents/codex/config.ts) owns native configuration writes
-and managed defaults, including the model and reasoning effort. Codex signs in
-with `codex login` and Claude Code with `claude auth login`; the ChatGPT app has
-its own model selection.
-
-[Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml)
-sets the reviewer engine, model, and reasoning effort for ffss workflows.
-Repository configuration, environment variables, and explicit flags can override
-these account defaults.
-
-[Codex project trust](../agents/codex/projects.ts) runs with the Codex defaults
-on setup and maintenance. Personal and devbox profiles trust each Git checkout
-at `~/projects/NAME` or `~/projects/OWNER/NAME`; linked worktrees inherit their
-main checkout's trust. Existing entries keep their trust level. Entries for
-checkout-shaped paths under `~/projects` that no longer exist are removed so the
-[security audit](security-audits.md) stays quiet; other entries, including broad
-ones the audit warns about, are left for the operator. Every profile also
-removes group and other access from the Codex state the devbox audit checks,
-since Codex creates it with the process umask.
-
-## Permissions and Privacy
+## Harness Defaults
 
 Every harness starts in its auto-approval mode; switch to full access per
 session. Setup replaces drifted values on each run.
 
-| Harness     | Owner                                                                           | Managed defaults                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; auto memory for every project in `~/.claude/memory`; no error reports, `/feedback`, or session surveys  |
-| Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics |
+| Harness     | Owner                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------- |
+| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)        |
+| Codex       | [Codex configuration](../agents/codex/config.ts)                                       |
+| Slopguard   | [Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml) |
+
+Slopguard values are account defaults. Repository configuration, environment
+variables, and explicit flags override them.
 
 Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
 fetching, which auto mode, Remote Control, and cross-machine messaging need.
 Model-training choices are account settings, not client configuration.
+
+[Codex project trust](../agents/codex/projects.ts) applies on setup and
+maintenance:
+
+- Personal and devbox profiles trust each Git checkout at `~/projects/NAME`
+  or `~/projects/OWNER/NAME`. Linked worktrees inherit their main checkout's
+  trust.
+- Existing entries keep their trust level.
+- Entries for missing checkout-shaped paths under `~/projects` are removed, so
+  the [security audit](security-audits.md) stays quiet. Broad entries the
+  audit warns about stay for the operator.
+- Every profile restricts the Codex state the devbox audit checks to owner-only
+  access, since Codex creates it with the process umask.
 
 ## Global Rules
 
@@ -43,51 +40,47 @@ Model-training choices are account settings, not client configuration.
 order; it must start with a `##` heading.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
-Edit shared rules at their configured source and private instructions in:
+Generated rule files are replaced without backups, so keep private edits in
+fragments:
 
-| File                                 | Position            |
-| ------------------------------------ | ------------------- |
-| `~/.config/dotfiles/agents.start.md` | Before shared rules |
-| `~/.config/dotfiles/agents.end.md`   | After shared rules  |
+| File                                      | Effect                                            |
+| ----------------------------------------- | ------------------------------------------------- |
+| `~/.config/dotfiles/agents.start.md`      | Markdown before the shared rules                  |
+| `~/.config/dotfiles/agents.end.md`        | Markdown after the shared rules                   |
+| `~/.config/dotfiles/claude-automode.json` | Claude `autoMode`; without it, `autoMode` is kept |
+| `~/.config/dotfiles/codex.rules`          | Renders to `~/.codex/rules/local.rules`           |
 
-- To keep these files in a private directory, store it once with
-  `./dotfiles apply PROFILE --rules-source DIR`; it is saved in
-  `~/.config/dotfiles/rules-source`. Each apply then links `agents.start.md`
-  to `DIR/agents.md`, `agents.end.md` to `DIR/agents.<short hostname>.md`,
-  and `claude-automode.json` and `codex.rules` to the same names in `DIR`,
-  for each file that exists, before anything reads them. It refuses to replace
-  a regular file and removes its own links to files `DIR` no longer has.
-- Fragments are optional, literal Markdown. Each file or resolved symlink target
-  must be a regular file owned by the current user with no group or other write
-  access. Apply restricts a group- or other-readable target, such as one a
-  `git pull` under umask `022` rewrote, to owner-only access and warns; a
+- Fragments are optional and literal. Each file or resolved symlink target
+  must be a regular file owned by the current user with no group or other
+  write access. Apply restricts a group- or other-readable target, such as one
+  a `git pull` under umask `022` rewrote, to owner-only access and warns; a
   preview only reports it.
-- Generated rule files are replaced without backups. Keep private edits in fragments.
+- Codex keeps rules approved in its TUI in `default.rules`.
+- To keep fragments in a private directory, store it once with
+  `./dotfiles apply PROFILE --rules-source DIR`. Each apply then links each
+  file above to the same name in `DIR`, except `agents.start.md` to
+  `DIR/agents.md` and `agents.end.md` to `DIR/agents.<short hostname>.md`.
+  It links only files `DIR` has, refuses to replace a regular file, and
+  removes its own links to files `DIR` no longer has.
 - When a fragment links into a Git checkout, the
-  [scheduled updater](software-updates.md#dotfiles-convergence) fast-forwards that
-  checkout before rendering. A checkout with local work is kept with a warning.
-
-The Claude settings modifier also sets `autoMode` from
-`~/.config/dotfiles/claude-automode.json` when that file exists, with the same
-ownership and mode checks. Without it, `autoMode` is left as it is.
-`~/.config/dotfiles/codex.rules` renders to `~/.codex/rules/local.rules` the
-same way; Codex keeps rules approved in its TUI in `default.rules`.
+  [scheduled updater](software-updates.md#dotfiles-convergence) fast-forwards
+  that checkout before rendering. A checkout with local work is kept with a
+  warning.
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
-The [rule loader](../agents/rules.ts) owns remote validation and cache fallback.
-[Local fragment validation](../agents/rules-local.ts) checks file ownership and permissions.
-Invalid content leaves the existing cache intact. If fetching or scanning is
-unavailable, setup needs a valid cache to continue. Set
-`DOTFILES_AGENT_RULES_OFFLINE=1` to require cached rules without fetching.
+The [rule loader](../agents/rules.ts) owns remote validation and the cache
+fallback. Invalid content leaves the existing cache intact. If fetching or
+scanning is unavailable, setup needs a valid cache. Set
+`DOTFILES_AGENT_RULES_OFFLINE=1` to use cached rules without fetching.
 
 ## Skill Sync
 
-Keep React, TanStack, shadcn, and Swift skills in the consuming repository. Use `slopskills` from
-the [configured workflow plugin](../agents/plugins/developer.json) to select
-and install them from repository evidence and the current task.
-The [developer manifest](../agents/skills/developer.json) lists the skills every
-profile installs; they need no repository-local copy.
+Keep stack-specific skills, such as React, TanStack, shadcn, and Swift, in the
+consuming repository. The `slopskills` skill from the
+[workflow plugin](../agents/plugins/developer.json) selects and installs them.
+The [developer manifest](../agents/skills/developer.json) holds the skills
+every profile installs.
 
 Run from the checkout after bootstrap has stored the profile:
 
@@ -100,11 +93,12 @@ mise run agents:update
   extras, and managed plugins.
 - Third-party manifest skills pin a commit as
   `https://github.com/OWNER/REPO/tree/SHA`, so `update` keeps them at that
-  commit. Renovate proposes new commits from the default branch.
+  commit. Renovate proposes new commits.
 - A failed global skill update leaves the completed manifest sync in place.
 - These commands do not pull Git or refresh rule files.
 
-Edit the selected layer under each manifest directory:
+The [profile model](../chezmoi/.chezmoidata/profiles.json) selects
+`agentLayers`. Edit the selected layer's manifest:
 
 | Selection   | Manifests                      | Implementation                     |
 | ----------- | ------------------------------ | ---------------------------------- |
@@ -112,16 +106,12 @@ Edit the selected layer under each manifest directory:
 | Plugins     | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
 | MCP servers | [mcps/](../agents/mcps/)       | [mcps.ts](../agents/mcps.ts)       |
 
-The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`,
-each a group of skill, plugin, and MCP selections; each parser defines its
-manifest fields and supported harnesses. The [MCP catalog](../agents/mcps/catalog.ts)
-and [skill catalog](../agents/skills/catalog.ts) are shared by sync, doctor, and
-the maintenance inventory.
+Each parser defines its manifest fields and supported harnesses.
 
 ### Local Overlay
 
-Machine-specific skills and MCP servers that no shared layer should carry go
-in an optional gitignored `agents/local.json`, the agent counterpart of
+Machine-specific skills and MCP servers go in an optional gitignored
+`agents/local.json`, the agent counterpart of
 [`Brewfile.local`](profiles.md#local-homebrew-additions):
 
 ```json
@@ -133,46 +123,45 @@ in an optional gitignored `agents/local.json`, the agent counterpart of
 }
 ```
 
-- Both keys are optional and use the manifest entry shapes above; any other key
+- Both keys are optional and use the manifest entry shapes; any other key
   fails. The [overlay reader](../agents/local.ts) requires a regular file owned
   by the current user without group or other write access.
-- Entries are composed after the selected profile layers as a final `local`
-  layer and can only add. An entry identical to a profile entry is ignored; the
-  same name with a different shape fails, so a local file never silently
-  changes a shared selection. Remove an entry by deleting it from the file.
-- Overlay entries enter the same ownership lock, so dropping one removes it on
-  the next sync like any dropped manifest entry. The lock records which
-  checkout's overlay installed them; a sync from another checkout keeps them
-  while the owning checkout exists. Sync prints the overlay path when it uses one.
+- Entries form a final `local` layer that can only add. An entry identical to
+  a profile entry is ignored. The same name with a different shape fails, so
+  a local file never silently changes a shared selection.
+- Overlay entries share the ownership lock, so deleting one removes it on the
+  next sync. A sync from another checkout keeps them while the owning checkout
+  exists.
 - Keep credentials out of it. OAuth state stays in each harness's own store.
 
-Each sync keeps its ownership lock in `~/.local/state/dotfiles/agents/{skills,plugins,mcps}.lock.json`,
-outside the checkout, so applying from a temporary clone keeps ownership. Syncs
-from different checkouts run one at a time.
+### Ownership
+
+Each sync keeps its ownership lock in
+`~/.local/state/dotfiles/agents/{skills,plugins,mcps}.lock.json`, outside the
+checkout, so applying from a temporary clone keeps ownership. Syncs from
+different checkouts run one at a time.
 [Ownership planning](../agents/ownership.ts) decides removals:
 
 - Missing locks initialize ownership without removing existing installations.
-- Subsequent runs remove dropped selections while preserving never-owned extras.
-- Plugin and MCP removals awaiting a missing CLI remain owned until it returns.
-- Failed installs or removals leave that sync's lock unchanged; earlier successful
-  commands may already have changed the host. Fix the reported failure and rerun.
-- A Claude plugin already synced from claude.ai (`<name>@synced` in
-  `claude plugin list --json`) is left to claude.ai: the sync skips its Claude
-  install and uninstalls any same-named user-scope local copy, owned or not,
-  which would otherwise shadow it.
-  Codex has no account sync, so its installs are unchanged.
-- A Claude that is not signed in for the run (`loggedIn` in `claude auth status`
-  is not true, or the status is unreadable) lists no synced plugins, as under
-  the scheduled updater without keychain access. The sync then leaves Claude
-  plugins and their lock entries unchanged and still syncs Codex.
+- Later runs remove dropped selections and keep never-owned extras.
+- Plugin and MCP removals awaiting a missing CLI stay owned until it returns.
+- Failed installs or removals leave that sync's lock unchanged; earlier
+  commands may already have changed the host. Fix the reported failure and
+  rerun.
+- A Claude plugin synced from claude.ai (`<name>@synced` in
+  `claude plugin list --json`) belongs to claude.ai. The sync skips its Claude
+  install and uninstalls any same-named user-scope copy, which would shadow
+  it. Codex installs are unaffected.
+- When Claude is not signed in for the run (`loggedIn` in `claude auth status`
+  is not true, or unreadable), as under the scheduled updater without keychain
+  access, the sync leaves Claude plugins and their lock entries unchanged and
+  still syncs Codex.
 
-## MCP Sync
+## MCP Authentication
 
-The Executor server ships in the personal `altaywtf` plugin, not these
-manifests; sign in through each harness's MCP menu. Manifest OAuth servers
-expire their sessions per harness.
-[Doctor](../agents/doctor.ts) checks every installed harness and prints a repair
-command per row:
+OAuth MCP sessions expire per harness. Plugin-shipped servers sign in through
+each harness's MCP menu. [Doctor](../agents/doctor.ts) checks manifest servers
+in every installed harness and prints a repair command per row:
 
 ```zsh
 mise run agents:doctor
@@ -184,8 +173,8 @@ with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
 ## Verify
 
-The `agents` domain covers harness settings, rules, skills, plugins,
-and MCP integration. The `config` domain covers the remaining managed-home
+The `agents` domain covers harness settings, rules, skills, plugins, and MCP
+integration. The `config` domain covers the remaining managed-home
 configuration.
 
 ```zsh

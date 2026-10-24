@@ -13,27 +13,27 @@ mise run audit workstation
 mise run audit devbox --format json
 ```
 
-Use `mise run verify` for the repository’s full deterministic checks and
+Use `mise run verify` for the repository's full deterministic checks and
 secret scans. Direct audit entrypoints accept `--json`.
 
 Treat scanner output and retained reports as sensitive. Local Gitleaks reports
-sanitized locators/counts; other scanners may print matched secrets. Share
+sanitized locators and counts; other scanners may print matched secrets. Share
 JSON summaries, not raw output.
 
 ## Interpret Findings
 
-- [Gitleaks policy](../audit/secrets/gitleaks-policy.json) owns rule severity; the
-  [finding classifier](../audit/secrets/findings.ts), `summarizeFindings()`, applies it.
-  Inspect `generic-api-key` findings before dismissing them: the detector
-  frequently matches shell assignments.
-- [Gitleaks allowlists](../.gitleaks.toml) may contain exact synthetic fixture
-  values only; never real keys, whole paths, commits, or provider rules.
-- Live credential stores receive permission/structure checks. For example,
-  `~/.npmrc` must be owner-only with registry-scoped auth; the generic scan
-  excludes it. Backups remain scan targets.
-- Inspect the owning [workstation](../audit/workstation.ts) or
-  [devbox](../audit/devbox.ts) policy for individual checks and path coverage.
-  A passing devbox audit does not establish privacy for every project descendant.
+- [Gitleaks policy](../audit/secrets/gitleaks-policy.json) owns rule severity;
+  `summarizeFindings()` in the [finding classifier](../audit/secrets/findings.ts)
+  applies it. Inspect `generic-api-key` findings before dismissing them: the
+  detector often matches shell assignments.
+- [Gitleaks allowlists](../.gitleaks.toml) hold exact synthetic fixture values
+  only: no real keys, whole paths, commits, or provider rules.
+- Live credential stores get permission and structure checks instead of the
+  generic scan. For example, `~/.npmrc` must be owner-only with
+  registry-scoped auth. Backups stay scan targets.
+- The [workstation](../audit/workstation.ts) and [devbox](../audit/devbox.ts)
+  policies own individual checks and path coverage. A passing devbox audit
+  does not prove privacy for every project descendant.
 
 For a real secret:
 
@@ -46,13 +46,13 @@ For a real secret:
 - [Repository scan selection](../audit/repo.ts) owns local scan scope;
   [Contributing](../CONTRIBUTING.md#deliver) covers what CI scans.
 - In a linked worktree, the TruffleHog filesystem pass scans only tracked and
-  unignored files, so dependency trees such as `node_modules` stay out.
-  Ignored files are not scanned.
-- Edit the installed `~/.config/dotfiles/audit.env` for accepted GitHub scopes
-  and drift thresholds; see the [policy template](../chezmoi/private_dot_config/private_dotfiles/private_audit.env)
-  and [policy loader](../audit/engine.ts), `loadAuditSettings()`. Keep it public-safe:
-  no credentials or identity-specific values. Use `AUDIT_POLICY_FILE=/path/to/file`
-  to select an override.
+  unignored files, so ignored trees such as `node_modules` stay out.
+- Set accepted GitHub scopes and drift thresholds in the installed
+  `~/.config/dotfiles/audit.env`, or select another file with
+  `AUDIT_POLICY_FILE=/path/to/file`. See the
+  [policy template](../chezmoi/private_dot_config/private_dotfiles/private_audit.env)
+  and `loadAuditSettings()` in the [policy loader](../audit/engine.ts). Keep it
+  public-safe: no credentials or identity-specific values.
 
 ## Deeper Host Checks
 
@@ -60,11 +60,11 @@ For a real secret:
 node audit/host.ts --allow-sudo-prompt
 ```
 
-- Lynis reports are temporary and deleted after summarizing.
-- Use `--keep-artifacts DIR` for manual review only: reports include hostnames,
-  paths, packages, and network details.
+Lynis reports are deleted after summarizing. `--keep-artifacts DIR` keeps them
+for manual review; they include hostnames, paths, packages, and network
+details.
 
-mSCP is optional and installed outside this repository. Prepare its baseline:
+mSCP is optional and lives outside this repository. Prepare its baseline:
 
 ```zsh
 mkdir -p ~/projects/security
@@ -78,23 +78,23 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
   custom/baselines/800-53r5_moderate_macos_26.0.yaml --script --no-docs
 ```
 
-- Replace `26` with the host's macOS major version; return to the dotfiles
+- Replace `26` with the host's macOS major version. Return to the dotfiles
   checkout before running its audit commands.
-- The audit derives the generated `build/` script path from `sw_vers`.
-  Pass `--mscp-script PATH` to [repo.ts](../audit/repo.ts) for a custom path.
-- `node audit/repo.ts --allow-sudo-prompt` permits privileged checks.
-  The adapter never runs `--fix`; review exceptions before applying remediation.
+- [repo.ts](../audit/repo.ts) derives the generated `build/` script path from
+  `sw_vers`. Pass `--mscp-script PATH` for a custom path, and
+  `--allow-sudo-prompt` for privileged checks.
+- The adapter only runs the script's `--check`; review exceptions before any
+  remediation.
 - References: [Lynis](https://cisofy.com/documentation/lynis/),
   [mSCP](https://pages.nist.gov/macos_security/).
 
 ## Scan Completeness
 
-Malformed or missing Gitleaks reports and incomplete scanner execution fail the
-audit independently of finding severity. File symlinks participate in discovery;
+Malformed or missing Gitleaks reports and incomplete scanner runs fail the
+audit regardless of finding severity. File symlinks take part in discovery;
 broken links and nested directory links produce coverage warnings instead of
-silently disappearing or expanding the scan through directory cycles.
+vanishing or looping.
 
-The [audit runtime](../audit/runtime.ts) bounds execution and captured output;
-scanner and compliance adapters select longer deadlines. Exceeding either limit
-fails the command. Local TruffleHog output is discarded, with its exit status
-supplying the sanitized finding.
+The [audit runtime](../audit/runtime.ts) and scanner adapters own deadlines
+and output limits; exceeding either fails the command. Local TruffleHog output
+is discarded, and its exit status supplies the sanitized finding.

@@ -68,8 +68,8 @@ type Entry = { target: string; result: string };
 const logCapBytes = 2 * 1024 * 1024;
 
 // launchd opens each job's StandardOutPath/StandardErrorPath with O_APPEND and
-// holds that descriptor for the whole run (the logs append across runs; see
-// docs/software-updates.md). That O_APPEND assumption is empirical: it was
+// holds that descriptor for the whole run, so the logs append across runs.
+// That O_APPEND assumption is empirical: it was
 // verified with lsof against a live job, not taken from documentation.
 // Rotation must reuse the same inode: a rename or unlink would orphan the live
 // descriptor and silently discard all later output. Because writers append,

@@ -19,17 +19,19 @@ mise run dotfiles:apply workstation
 - `./dotfiles apply <profile>` also runs the remaining
   [bootstrap steps](bootstrap.md). On Linux it reloads the systemd user
   manager and hands it the shim `PATH` from `environment.d`. The managed
-  `99-zz-dotfiles.conf` runs after the distro import of `/etc/environment`,
-  preserving its baseline while prepending user tools.
-- Both preview and apply refresh [agent rules](agents.md#global-rules).
-- The wrapper backs up conflicting files and links before force-applying,
-  keeping only the newest backup per target; generated agent rule files get
-  none. The Claude settings template returns the file unchanged when every
-  managed value already matches, so Claude's own key order is neither
-  rewritten nor backed up.
+  `99-zz-dotfiles.conf` sorts after the distro import of `/etc/environment`,
+  so it prepends user tools to that baseline.
+- Preview and apply both refresh [agent rules](agents.md#global-rules).
+- The wrapper backs up conflicting files and links before force-applying and
+  keeps only the newest backup per target. Generated agent rule files get no
+  backup.
+- The [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
+  sets selected defaults and preserves other fields, including `env`. When
+  every managed value already matches, it returns the file unchanged, so
+  Claude's key order is neither rewritten nor backed up.
 
-For changes to apply behavior, run the isolated fixtures rather than applying
-to your home:
+For changes to apply behavior, test in isolated homes. Focused domains skip the
+complete-only home fixture, so run it directly:
 
 ```zsh
 mise run verify:domain config
@@ -49,25 +51,24 @@ node verify/home-fixture.ts
 | `~/.config/dotfiles/codex.rules`                      | Private Codex [command rules](agents.md)                  |
 | `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration) |
 
-- SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
-  their own fragments rather than modifying `~/.ssh/config`.
-- Create `zshenv.local` manually with mode `0600`. The shell reads it only as
-  a readable regular file; symlinks at the file or its `dotfiles` directory
-  are ignored. Keep service tokens out of shell startup.
+- Route tools that write SSH config to their own `config.d` fragment instead
+  of `~/.ssh/config`. On macOS, SSH also includes Colima's generated
+  `~/.colima/ssh_config`.
+- Create `zshenv.local` by hand with mode `0600`. The shell reads it only as a
+  readable regular file and ignores symlinks at the file or its `dotfiles`
+  directory.
 - Apply keeps blocks other tools add to `~/.zshenv` and `~/.zshrc` between
   `# >>> NAME (managed) >>>` and `# <<< NAME (managed) <<<` lines, re-appended
   after the [managed content](../chezmoi/.chezmoitemplates/zsh-managed-blocks).
-  Everything else in those files is replaced. A start line without its matching end
-  fails apply and leaves the file untouched.
-- `TELEPORT_ADD_KEYS_TO_AGENT=no` can prevent Teleport from adding keys to an
-  incompatible SSH agent.
-- The [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
-  changes selected defaults while preserving other fields, including `env`.
+  It replaces everything else in those files. A start line without its
+  matching end fails apply and leaves the file untouched.
+- To stop Teleport adding keys to an incompatible SSH agent, export
+  `TELEPORT_ADD_KEYS_TO_AGENT=no` in `zshenv.local`.
 
 ## Source Boundaries
 
 - Use `private_` for owner-only files and directories.
-- `exact_` at home-directory scope deletes unmanaged files. Live app and auth
-  state stays out of `chezmoi add`.
-- Package lists and runtime installation have their own owners; add a lifecycle
-  script only for an explicit bootstrap requirement.
+- `exact_` at home-directory scope deletes unmanaged files. Keep live app and
+  auth state out of `chezmoi add`.
+- Package lists and runtime installation have their own owners. Add a
+  lifecycle script only for an explicit bootstrap requirement.
