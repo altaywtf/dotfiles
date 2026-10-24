@@ -13,8 +13,8 @@ from its provisioning; elsewhere:
 
 ```sh
 sudo apt-get install -y git curl zsh tmux lynis age
-# sops has no Ubuntu package; install the release binary on the fixed path the
-# sudo askpass helper resolves.
+# sops has no Ubuntu package; install the release binary on a fixed path the
+# sudo wrapper resolves.
 sops_version=3.13.3
 sudo curl -fsSLo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/v${sops_version}/sops-v${sops_version}.linux.$(dpkg --print-architecture)"
 sudo chmod 0755 /usr/local/bin/sops
@@ -25,37 +25,29 @@ mkdir -p ~/projects
 git clone https://github.com/altaywtf/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./dotfiles prepare
+export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 ```
 
-Skip the Homebrew steps below; `gh auth login` comes after the first apply
-installs `gh`. `workstation` profiles are macOS-only; `./dotfiles apply`
-refuses them here, so use `developer` or `devbox`.
+`workstation` profiles are macOS-only; use `developer` or `devbox`.
 
-The `devbox` profiles also expect two host-provided prerequisites, both
-probed by `./dotfiles check devbox`:
+`devbox` profiles also need two host-provided prerequisites:
 
-- Tailscale installed and joined.
-- systemd lingering for the user: `sudo loginctl enable-linger <user>`. The
-  [maintenance timer](software-updates.md) stops at logout without it.
+- Tailscale installed and joined; `./dotfiles check devbox` probes it.
+- systemd lingering for the user: `sudo loginctl enable-linger <user>`.
+  Without it the [maintenance timer](software-updates.md) stops at logout, and
+  `mise run maintenance:enable` refuses to enable it.
 
-Tool pins live in the [mise configuration](mise.md#runtime-pins).
-`age` and `sops` stay host packages on both platforms because the
-[sudo askpass helper](../identity/sudo-age-askpass.sh) calls them by fixed path.
-For per-user SDK setup, follow [Mobile and TV development](mobile-and-tv-development.md).
+`age` and `sops` come from the host or Homebrew, not mise, because the
+[sudo wrapper](../identity/sops-devbox-sudo.ts) calls them by fixed path.
+Other tool pins live in the [mise configuration](mise.md#runtime-pins).
 
 ### macOS
 
-Install Apple Command Line Tools and Homebrew:
+Install Apple Command Line Tools and Homebrew, then prepare the checkout:
 
 ```zsh
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Install the clone tools and prepare the checkout; `gh auth login` follows the
-first apply, which installs `gh` through mise:
-
-```zsh
 brew install git mise
 mkdir -p ~/projects
 git clone https://github.com/altaywtf/dotfiles.git ~/projects/dotfiles
@@ -72,11 +64,9 @@ idle-sleeps; SSH work then runs in DarkWake, macOS forces sleep under load
 (`Dark Wake Thermal Emergency` in `pmset -g log`), and connections time out
 until someone wakes it locally. Applying `sleep 0` does not wake a sleeping Mac.
 
-`prepare` installs the pinned Node runtime and locked repository dependencies.
-
 ### Gitless First Fetch
 
-If Git is unavailable, fetch an archive to inspect and bootstrap:
+On a Mac without Git, fetch an archive to inspect and bootstrap:
 
 ```zsh
 mkdir -p ~/projects
@@ -93,8 +83,6 @@ before using Git updates or contribution commands.
 
 ## Apply a Profile
 
-Setup preserves saved coding-client logins.
-
 ```zsh
 profile=workstation # choose your profile
 ./homebrew/brew-bundle.ts "$profile" # macOS only
@@ -104,6 +92,7 @@ mise trust
 ./identity/configure-git.ts --profile "$profile"
 ```
 
+- The first apply installs `gh` through mise; run `gh auth login` after it.
 - Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
   from explicit operator values.
 - On macOS, install [the pinned Xcode](mobile-and-tv-development.md) with
@@ -135,33 +124,26 @@ removing existing index data.
 
 ### Spotlight Policy
 
-On macOS, profile checks require Spotlight indexing to be disabled by default.
-If indexing is intentional, omit the `configure-spotlight.ts` setup step and
-skip its verification with:
+On macOS, profile checks require Spotlight indexing to be disabled. If indexing
+is intentional, skip `configure-spotlight.ts` and its check:
 
 ```zsh
 DOTFILES_SKIP_SPOTLIGHT_CHECK=1 ./dotfiles check "$profile"
 ```
 
-For subsequent checks, export `DOTFILES_SKIP_SPOTLIGHT_CHECK=1` in your
-machine-local [`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides).
-Checks report the policy as skipped and leave indexing unchanged. `apply` does
-not configure Spotlight. An explicit
-`./bootstrap/darwin/configure-spotlight.ts` still disables indexing and verifies
-the result, even with this flag set.
+To keep skipping it, export the variable in your machine-local
+[`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides). `apply` never
+configures Spotlight. An explicit `configure-spotlight.ts` run still disables
+indexing, even with the variable set.
 
 ### Workstation Options
 
 - Install licensed Berkeley Mono Variable manually; Ghostty falls back to Menlo.
 - On `personal-workstation`, run `./bootstrap/darwin/app-store/personal.ts` to remove
   the unused bundled App Store apps; uninstall may prompt for a password.
-- Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
-  Lens policies and Chrome settings. In `Local State` it enables the
-  `vertical-tabs` flag and turns off the hold-⌘Q-to-quit prompt
-  (`browser.confirm_to_quit`). In every profile's `Preferences`, or a seeded
-  `Default` before first launch, it sets `vertical_tabs.enabled` and unpins the
-  Tab groups and Tab search buttons (`tab_search.pinned_to_tabstrip`). Chrome
-  has no policy for these, so rerun the script after adding a profile.
+- Quit Chrome, then run `./bootstrap/darwin/configure-chrome.ts` for Lens
+  policies, vertical tabs, and toolbar settings. Rerun it after adding a Chrome
+  profile; Chrome has no policy for the per-profile settings.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 
@@ -175,8 +157,8 @@ the logged-in owner may apply the optional desktop baseline:
 ./verify/bootstrap.ts --profile devbox --desktop
 ```
 
-An unattended macOS devbox turns FileVault off and logs its owner in
-automatically, so a reboot brings back user services without a local unlock.
+For an unattended macOS devbox, turn FileVault off and enable automatic login
+for its owner, so a reboot brings back user services without a local unlock.
 
 ### Verify
 
@@ -188,17 +170,8 @@ mise run maintenance:check
 mise run audit host
 ```
 
-For workstations, also run `mise run audit workstation`. For devbox profiles:
-
-```zsh
-./verify/darwin/devbox-services.ts # macOS only
-mise run audit devbox
-```
-
-## Homebrew Updates
-
-Enroll [headless updates](software-updates.md#headless-devbox-updates) for
-scheduled execution without a GUI session.
+For workstations, also run `mise run audit workstation`. For devbox profiles,
+also run [devbox verification](devbox.md#verification).
 
 ## Updating an Existing Machine
 
@@ -216,13 +189,13 @@ For package-only refreshes, use [Software updates](software-updates.md).
 
 ## Troubleshooting
 
-| Failure                                                                    | Recovery                                                                                                                                                                                                                                            |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                                                                                   |
-| Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                                                                                   |
-| A systemd user service cannot find `codex`, `claude`, or another mise tool | Apply dotfiles to refresh the user manager's `PATH`, then rerun the profile check.                                                                                                                                                                  |
-| Homebrew drift                                                             | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes packages outside the selected profile and local Brewfile. |
-| Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                 |
-| GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                             |
-| Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                                                                           |
-| SSH to a new Mac times out intermittently                                  | Check `pmset -g log` for `Idle Sleep` or `Dark Wake Thermal Emergency`; wake it locally and run `configure-power.ts`.                                                                                                                               |
+| Failure                                                                    | Recovery                                                                                                                                                                                 |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                        |
+| Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                        |
+| A systemd user service cannot find `codex`, `claude`, or another mise tool | Apply dotfiles to refresh the user manager's `PATH`, then rerun the profile check.                                                                                                       |
+| Homebrew drift                                                             | Keep intentional extras in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`, which removes everything else. |
+| Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                      |
+| GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                  |
+| Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                |
+| SSH to a new Mac times out intermittently                                  | Check `pmset -g log` for `Idle Sleep` or `Dark Wake Thermal Emergency`; wake it locally and run `configure-power.ts`.                                                                    |

@@ -1,12 +1,12 @@
 [tools]
 node = "24.22.1"
 bun = "1.4.4"
-python = "3.15.0"
+python = "3.15.1"
 java = "temurin-25"
-ruby = "4.0.7"
-uv = "0.13.4"
+ruby = "4.0.9"
+uv = "0.13.5"
 go = "1.27.3"
-pnpm = "12.14.0"
+pnpm = "12.15.0"
 # rustup-managed toolchain. mise honors a repository's rust-toolchain.toml only
 # because "rust" is in idiomatic_version_file_enable_tools in config.toml.tmpl.
 rust = "1.99.1"

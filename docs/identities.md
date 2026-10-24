@@ -3,16 +3,14 @@
 Provision credentials per Unix user and host. Keep age, SSH, GitHub, and provider
 credentials independently replaceable; profiles select software, not access.
 
-Configure explicit Git authorship and local SSH signing. The
-[profile model](../chezmoi/.chezmoidata/profiles.json) declares
-`capabilities.requiresSopsIdentity`; other profiles need an age identity when
-they consume encrypted secrets.
+The [profile model](../chezmoi/.chezmoidata/profiles.json) declares which
+profiles need an age identity (`capabilities.requiresSopsIdentity`). Other
+profiles need one only when they consume encrypted secrets.
 
 ## Developer Git and SSH
 
-Provide an owner-only, unencrypted local SSH private key for unattended signing.
-Export recovery keys in OpenSSH format without a passphrase and save them
-outside this repository:
+Unattended signing needs an owner-only, unencrypted OpenSSH private key.
+Back it up outside this repository, then derive its public key:
 
 ```zsh
 chmod 0600 ~/.ssh/developer_ed25519
@@ -20,7 +18,7 @@ ssh-keygen -y -f ~/.ssh/developer_ed25519 > ~/.ssh/developer_ed25519.pub
 chmod 0644 ~/.ssh/developer_ed25519.pub
 ```
 
-Use explicit operator values:
+Configure authorship and signing with explicit operator values:
 
 ```zsh
 profile=workstation
@@ -56,10 +54,10 @@ Provisioning creates a missing key and proves a SOPS round trip. `--check`
 verifies without changing the identity; `--print-recipient` prints only the
 public recipient.
 
-The [identity helper](../identity/configure-sops-age-identity.ts) owns
-`identityPath()` and `validateIdentity()`: platform paths,
-`XDG_CONFIG_HOME`/`SOPS_AGE_KEY_FILE` overrides, and ownership requirements.
-Keep the [sudo identity](devbox.md#sudo-without-a-plaintext-password-file)
+[`ageIdentityPath()`](../identity/age.ts) owns the platform paths and the
+`SOPS_AGE_KEY_FILE`/`XDG_CONFIG_HOME` overrides.
+`validateIdentity()` in the [identity helper](../identity/configure-sops-age-identity.ts)
+owns ownership and mode requirements. Keep the [sudo identity](devbox.md#sudo-without-a-plaintext-password-file)
 separate from this general identity.
 
 Before protecting live ciphertext:
@@ -96,15 +94,13 @@ same distinction and verification evidence:
 | Tags                                                            | `identity`, `sops`, and exactly one of `deployment` or `recovery`                                       |
 
 Label attachments by purpose: `age-identity`, `sudo-age-identity`, `ssh-key`,
-or the applicable App key. Keep filenames, creation dates, public fingerprints
-and runtime paths clear; preserve additional account recovery artifacts.
-A workload item that groups deployments must label each attachment's deployment
+or the applicable App key. Record filenames, creation dates, public
+fingerprints, and runtime paths. A workload item that groups deployments must label each attachment's deployment
 and recipient separately. Grouping does not grant shared access.
 
 Edit existing items in place to preserve their stable IDs and consumer
 references. Keep item IDs and private recovery references out of Git. Private
-keys belong in file attachments, not notes; public recipients remain readable
-metadata. An archived deployment key remains `Identity.kind=deployment` with
+keys belong in file attachments, not notes. An archived deployment key remains `Identity.kind=deployment` with
 `Lifecycle.status=retained-recovery`; retaining it does not make it an
 independent recovery identity.
 
@@ -130,7 +126,7 @@ Before relying on an identity or retiring its predecessor:
    record the verification date and remove restored temporary copies.
 
 Matching an item's public metadata alone does not prove recovery. Keep private
-keys, tokens and decrypted files out of Git, logs, shell history, chat, and
+keys, tokens, and decrypted files out of Git, logs, shell history, chat, and
 issue or pull-request bodies.
 
 ## Encrypted Secret Repositories
@@ -167,7 +163,6 @@ hosts retain the same decryption authority. When the recipient is unchanged,
 metadata correction alone needs no `sops updatekeys` or ciphertext rewrap.
 
 Archive or delete an item only after proving it has no live consumers and its
-replacement and independent recovery work. Preserve any keys still needed to
-decrypt historical ciphertext: re-encrypting current files does not change old
-Git revisions. Keep required historical keys as labeled retained recovery
-material before deleting an obsolete item; do not remove the last copy.
+replacement and independent recovery work. Re-encrypting current files does
+not change old Git revisions, so keep any key still needed for historical
+ciphertext as labeled retained recovery material. Never remove the last copy.

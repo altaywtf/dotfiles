@@ -5,13 +5,13 @@
 
 ## Photos Analysis on macOS
 
-Dotfiles apply disables `com.apple.photoanalysisd` for the current user on
-macOS `devbox` and `personal-devbox` profiles. Existing analysis processes may
-remain until logout. Workstation and developer profiles leave the setting alone.
+On macOS `devbox` and `personal-devbox` profiles, `./dotfiles apply` disables
+`com.apple.photoanalysisd` for the current user, and `./dotfiles check` fails
+while it is enabled. Existing analysis processes may remain until logout.
 
 This stops Photos background analysis, not iCloud Photos syncing, and deletes no
 photos. Disable syncing separately in System Settings → Apple Account → iCloud
-→ Photos → Sync this Mac. Other media and photo-library services remain enabled.
+→ Photos → Sync this Mac.
 
 After switching away from a devbox profile, restore analysis explicitly if wanted:
 
@@ -27,10 +27,8 @@ Optional per-user settings live in `~/.config/dotfiles/devbox.env`, mode `0600`:
 DEVBOX_USER=example
 ```
 
-- Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
-  of shell startup, plists, and supervisor configuration.
-- Human GitHub access uses personal SSH keys; unattended access should use
-  repository-scoped GitHub App tokens over HTTPS and a separate commit identity.
+Human GitHub access uses personal SSH keys. Unattended access should use
+repository-scoped GitHub App tokens over HTTPS and a separate commit identity.
 
 ## Sudo Without a Plaintext Password File
 
@@ -55,8 +53,9 @@ remains the authorization boundary.
 
 ## System Services
 
-Colima starts on demand; install system services when the owner asks for them. On macOS, install Colima's boot service from an authorized administrator
-account for the user who owns Colima:
+Colima starts on demand; install system services when the owner asks for them.
+On macOS, install Colima's boot service from an administrator account for the
+user who owns Colima:
 
 ```zsh
 sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima
@@ -67,7 +66,6 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
 - The service runs the user's own `~/.local/bin/colima-ensure`; dotfiles does
   not ship it. Make it exit 0 when `colima status` succeeds and otherwise run
   `colima start` with the host's sizing.
-- Reference secrets through owner-only wrappers or files.
 
 ## Software Updates and Cleanup
 
@@ -91,10 +89,6 @@ mise run audit devbox --format json
 Audit prose can contain secrets. Collect JSON and report detector, path, and
 line without copying matched values.
 
-On macOS devbox profiles, `./dotfiles check` fails when
-[Photos analysis](#photos-analysis-on-macos) is enabled; `./dotfiles apply`
-restores the policy.
-
 For suspected leftover development services, use the read-only
 [workload diagnostic](software-updates.md#development-workload-diagnostics).
 
@@ -110,14 +104,13 @@ the new one passes every check below.
    with a verified recovery copy.
 4. On the old host, push or deliberately archive unpushed branches, stashes,
    worktrees, and ignored work. Clone repositories on the new host from their
-   remotes, including every repository registry the workspace route does not
-   cover. Clone in full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
-   SSH. Sign in to coding agents and browsers afresh; their logins, sessions,
-   caches, and profiles stay on the old host.
+   remotes, in full rather than blobless: tests that swap `HOME` cannot fetch
+   missing blobs over SSH. Sign in to coding agents and browsers afresh; their
+   logins, sessions, caches, and profiles stay on the old host.
 5. Enroll [headless updates](software-updates.md#headless-devbox-updates) and
    any requested [system services](#system-services).
 6. Run [verification](#verification), then each moved repository's own build
    and test gate on the new host.
 
-Then retire the old host's services, updater, and age
-recipient separately, each with its own proof.
+Then retire the old host's services, updater, and age recipient separately,
+each with its own proof.

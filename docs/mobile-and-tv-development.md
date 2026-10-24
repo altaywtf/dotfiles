@@ -10,8 +10,7 @@ setup stay manual.
 ## Xcode and tvOS Simulator
 
 Install and select the [pinned release](../chezmoi/.chezmoidata/xcode.json) as
-the Homebrew prefix owner. Xcode downloads are on demand; the scheduled
-updater does not download Xcode.
+the Homebrew prefix owner. The scheduled updater never installs Xcode.
 
 ```zsh
 mise run xcode:install
@@ -20,21 +19,22 @@ xcodebuild -downloadPlatform tvOS
 xcrun simctl list devicetypes | rg 'Apple TV'
 ```
 
-The install task passes terminal input to `xcodes` for its Apple Developer
-login and 2FA prompts. Run it in an interactive terminal when authentication
-is needed. Over SSH, use `ssh -t` and run `security unlock-keychain` first;
-`xcodes` stores the Apple ID session in the login keychain, and a locked
-keychain fails with `OSStatus error:[-25308]`. Selecting the release needs
-sudo: devbox hosts with a [sudo config](devbox.md#sudo-without-a-plaintext-password-file)
-use `sops-devbox-sudo`; otherwise the task prints the exact `sudo` command to
-run. Simulator runtimes are a multi-GB download. Run the
-application’s build afterward to verify its Xcode/runtime combination.
+- `xcode:install` passes terminal input to `xcodes` for Apple ID login and
+  2FA. Run it in an interactive terminal when authentication is needed.
+- Over SSH, use `ssh -t` and run `security unlock-keychain` first. `xcodes`
+  keeps the Apple ID session in the login keychain; a locked keychain fails
+  with `OSStatus error:[-25308]`.
+- Selecting the release needs sudo. Devbox hosts with a
+  [sudo config](devbox.md#sudo-without-a-plaintext-password-file) use
+  `sops-devbox-sudo`; elsewhere the task prints the exact `sudo` command.
+- Simulator runtimes are multi-GB downloads. Run the app's build afterward to
+  verify its Xcode and runtime combination.
 
 ## Android TV
 
-On Linux, install the Android SDK under `~/Android/Sdk` before continuing.
-Accept licenses, then choose packages for the app’s API level and host
-architecture. This example creates an ARM64 Android TV emulator:
+On Linux, install the Android SDK under `~/Android/Sdk` first. Accept
+licenses, then choose packages for the app's API level and host architecture.
+This example creates an ARM64 Android TV emulator:
 
 ```zsh
 print -r -- "$ANDROID_HOME"
@@ -44,25 +44,24 @@ sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
 avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
 ```
 
-The [shell template](../chezmoi/.chezmoitemplates/zshrc) selects `ANDROID_HOME` from
-the installed SDK paths. Verify:
+The [shell template](../chezmoi/.chezmoitemplates/zshrc) selects `ANDROID_HOME`
+from the installed SDK paths. Verify:
 
 ```zsh
 adb --version
 emulator -list-avds
 ```
 
-For a project that requires JDK 17, install and select it in the project
-instead of changing the shared toolchain:
+For a project that needs another JDK, select it in the project instead of
+changing the shared toolchain:
 
 ```zsh
-mise install java@temurin-17
-export JAVA_HOME="$(mise where java@temurin-17)"
+mise use java@temurin-17
 ```
 
 ## CocoaPods and Fastlane
 
-Use the application's Ruby environment and `Gemfile`:
+Use the app's Ruby environment and `Gemfile`:
 
 ```zsh
 cd path/to/app
