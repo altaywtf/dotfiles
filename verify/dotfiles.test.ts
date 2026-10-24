@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -165,8 +166,7 @@ test("operator command validates and delegates every profile", async () => {
   }
 });
 
-test("fresh checkout launcher prepares dependencies without applying a profile", async () => {
-  const { spawnSync } = await import("node:child_process");
+test("fresh checkout launcher prepares dependencies without applying a profile", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-prepare-"));
   try {
     cpSync(join(repoRoot, "dotfiles"), join(root, "dotfiles"));
@@ -185,36 +185,29 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
       { mode: 0o755 },
     );
     const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TEST_LOG: log };
-    const help = spawnSync("/bin/sh", [join(root, "dotfiles"), "--help"], {
-      env,
-      encoding: "utf8",
-    });
+    const launch = (command: string, exit?: string) =>
+      spawnSync("/bin/sh", [join(root, "dotfiles"), command], {
+        env: exit === undefined ? env : { ...env, TEST_EXIT: exit },
+        encoding: "utf8",
+      });
+    const help = launch("--help");
     assert.equal(help.status, 0, help.stderr);
-    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), [
+    assert.deepEqual(readdirSync(root).sort(), [
       ".node-version",
       "bin",
       "dotfiles",
       "package.json",
     ]);
-    const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
-      env,
-      encoding: "utf8",
-    });
+    const prepared = launch("prepare");
     assert.equal(prepared.status, 0, prepared.stderr);
     assert.equal(
       readFileSync(log, "utf8"),
       `--no-config x node@${nodeVersion} pnpm@${pnpmVersion} -- pnpm --dir ${root} install --frozen-lockfile\n`,
     );
-    const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
-      env: { ...env, TEST_EXIT: "23" },
-      encoding: "utf8",
-    });
+    const failed = launch("prepare", "23");
     assert.equal(failed.status, 23);
     writeFileSync(log, "");
-    const maintained = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], {
-      env,
-      encoding: "utf8",
-    });
+    const maintained = launch("maintain");
     assert.equal(maintained.status, 0, maintained.stderr);
     assert.equal(
       readFileSync(log, "utf8"),
@@ -222,18 +215,12 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
         `--no-config x node@${nodeVersion} -- node ${root}/bootstrap/install.ts --maintenance\n`,
     );
     writeFileSync(log, "");
-    const failedMaintenance = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], {
-      env: { ...env, TEST_EXIT: "23" },
-      encoding: "utf8",
-    });
+    const failedMaintenance = launch("maintain", "23");
     assert.equal(failedMaintenance.status, 23);
     assert.doesNotMatch(readFileSync(log, "utf8"), /install.ts/);
     writeFileSync(join(root, "package.json"), "{}\n");
     writeFileSync(log, "");
-    const unpinned = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
-      env,
-      encoding: "utf8",
-    });
+    const unpinned = launch("prepare");
     assert.equal(unpinned.status, 1);
     assert.match(unpinned.stderr, /no pnpm packageManager pin/);
     assert.equal(readFileSync(log, "utf8"), "");

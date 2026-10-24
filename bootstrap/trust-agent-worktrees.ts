@@ -15,7 +15,7 @@ trusted.`;
 
 const configNames = ["mise.toml", ".mise.toml"] as const;
 
-export const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function* (
+const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function* (
   roots: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;

@@ -7,7 +7,14 @@ import { test } from "vite-plus/test";
 
 import { commit, init, installer, invoke, run, type Repository } from "./pre-push-fixture.ts";
 
-test("installed hook reports a missing Node runtime", () => {
+test.for([
+  ["a missing Node runtime", "/usr/bin/false", /missing node; run mise install .* before pushing/],
+  [
+    "missing repository dependencies",
+    process.execPath,
+    /missing repository dependencies; run pnpm install --frozen-lockfile .* before pushing/,
+  ],
+] as const)("installed hook reports %s", ([, node, message]) => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-installer-"));
   try {
     const repo = init(root);
@@ -17,7 +24,7 @@ test("installed hook reports a missing Node runtime", () => {
     mkdirSync(bin);
     writeFileSync(join(verifyDir, "pre-push.ts"), "");
     symlinkSync("/usr/bin/git", join(bin, "git"));
-    symlinkSync("/usr/bin/false", join(bin, "node"));
+    symlinkSync(node, join(bin, "node"));
 
     const install = spawnSync(process.execPath, [installer], {
       cwd: repo.path,
@@ -29,52 +36,10 @@ test("installed hook reports a missing Node runtime", () => {
     const result = spawnSync(
       "/bin/bash",
       [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"],
-      {
-        cwd: repo.path,
-        encoding: "utf8",
-        env: { ...process.env, PATH: bin },
-      },
+      { cwd: repo.path, encoding: "utf8", env: { ...process.env, PATH: bin } },
     );
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /missing node; run mise install .* before pushing/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("installed hook reports missing repository dependencies", () => {
-  const root = mkdtempSync(join(tmpdir(), "pre-push-installer-dependencies-"));
-  try {
-    const repo = init(root);
-    const verifyDir = join(repo.path, "verify");
-    const bin = join(root, "bin");
-    mkdirSync(verifyDir, { recursive: true });
-    mkdirSync(bin);
-    writeFileSync(join(verifyDir, "pre-push.ts"), "");
-    symlinkSync("/usr/bin/git", join(bin, "git"));
-    symlinkSync(process.execPath, join(bin, "node"));
-
-    const install = spawnSync(process.execPath, [installer], {
-      cwd: repo.path,
-      encoding: "utf8",
-      env: { ...process.env, DOTFILES_PRE_PUSH_REPO_ROOT: repo.path },
-    });
-    assert.equal(install.status, 0, install.stderr);
-
-    const result = spawnSync(
-      "/bin/bash",
-      [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"],
-      {
-        cwd: repo.path,
-        encoding: "utf8",
-        env: { ...process.env, PATH: bin },
-      },
-    );
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /missing repository dependencies; run pnpm install --frozen-lockfile .* before pushing/,
-    );
+    assert.match(result.stderr, message);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -10,6 +10,14 @@ import { parseHostArgs, runHostAudit } from "./host.ts";
 import { type CommandOptions, type CommandRunner, runCommand } from "./runtime.ts";
 import { mscpPlatformVersion, parseRepoArgs, runRepoAudit } from "./repo.ts";
 
+const noMscp = (root: string) => ({
+  format: "json" as const,
+  mscp: false,
+  mscpDir: join(root, "mscp"),
+  mscpBaseline: "800-53r5_moderate",
+  allowSudoPrompt: false,
+});
+
 test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
   const output: string[] = [];
@@ -199,16 +207,12 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
       if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
       return { status: 0, stdout: "", stderr: "" };
     };
-    const result = runRepoAudit(
-      {
-        format: "json",
-        mscp: false,
-        mscpDir: join(root, "mscp"),
-        mscpBaseline: "800-53r5_moderate",
-        allowSudoPrompt: false,
-      },
-      { command, repoRoot: linked, uid: 0, stdout: () => {} },
-    );
+    const result = runRepoAudit(noMscp(root), {
+      command,
+      repoRoot: linked,
+      uid: 0,
+      stdout: () => {},
+    });
     assert.equal(result.summary.failed, 0);
     assert.equal(scans.length, 1);
     const paths = (scans[0] ?? []).filter((arg) => !arg.startsWith("--")).slice(1);
@@ -240,16 +244,12 @@ test("linked worktree scan fails closed on paths that do not decode", () => {
   };
   try {
     mkdirSync(join(root, ".git"));
-    const result = runRepoAudit(
-      {
-        format: "json",
-        mscp: false,
-        mscpDir: join(root, "mscp"),
-        mscpBaseline: "800-53r5_moderate",
-        allowSudoPrompt: false,
-      },
-      { command, repoRoot: join(root, "linked"), uid: 0, stdout: () => {} },
-    );
+    const result = runRepoAudit(noMscp(root), {
+      command,
+      repoRoot: join(root, "linked"),
+      uid: 0,
+      stdout: () => {},
+    });
     assert.equal(result.summary.failed, 1);
     assert.deepEqual(scans, []);
   } finally {

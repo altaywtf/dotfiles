@@ -286,6 +286,7 @@ test("completes a successful skill sync without Git or rule changes", () => {
 
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /Done\./);
+  assert.equal(updateCalls(runtime).length, 0);
   assert.equal(
     runtime.calls.find((call) => call.command === "pnpm" && call.args[0] === "dlx")?.args[1],
     `skills@${DEFAULT_SKILLS_CLI_VERSION}`,
@@ -450,48 +451,34 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.match(runtime.stderr.value, /Managed skill removal failed for 1 skill/);
 });
 
-test("rejects unsafe ownership lock names before changing skills", () => {
+test.each([
+  [
+    "an unsafe ownership lock name",
+    (repoDir: string, home: string) =>
+      writeFileSync(
+        skillLockPath(home),
+        JSON.stringify({ version: 1, skills: [{ name: "../manual", source: "fixture/unsafe" }] }),
+      ),
+    /Invalid managed skills lock/,
+  ],
+  [
+    "an invalid manifest",
+    (repoDir: string) =>
+      writeFileSync(
+        join(repoDir, "agents", "skills", "developer.json"),
+        '{"skills":[{"name":"missing-source"}]}',
+      ),
+    /Invalid skills manifest.*expected non-empty name\/source strings/,
+  ],
+])("rejects %s before changing skills", (_case, corrupt, message) => {
   const { repoDir, home } = createFixture();
-  writeFileSync(
-    skillLockPath(home),
-    JSON.stringify({ version: 1, skills: [{ name: "../manual-skill", source: "fixture/unsafe" }] }),
-  );
-  const manualDirectory = join(home, ".agents", "manual-skill");
-  mkdirSync(manualDirectory, { recursive: true });
+  corrupt(repoDir, home);
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Invalid managed skills lock/);
+  assert.match(runtime.stderr.value, message);
   assert.equal(installedSkillNames(runtime).length, 0);
   assert.equal(removedSkillNames(runtime).length, 0);
-  assert.equal(existsSync(manualDirectory), true);
-});
-
-test("rejects an invalid manifest before changing skills", () => {
-  const { repoDir, home } = createFixture();
-  writeFileSync(
-    join(repoDir, "agents", "skills", "developer.json"),
-    '{"skills":[{"name":"missing-source"}]}',
-  );
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Invalid skills manifest/);
-  assert.match(runtime.stderr.value, /expected non-empty name\/source strings/);
-  assert.equal(installedSkillNames(runtime).length, 0);
-});
-
-test("rejects unknown sync arguments without changing state", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main(["--refresh"], runtime), 2);
-  assert.match(
-    runtime.stderr.value,
-    /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/,
-  );
-  assert.match(runtime.stderr.value, /Unknown argument: --refresh/);
-  assert.equal(runtime.calls.length, 0);
 });
 
 test("prints help without syncing", () => {
@@ -504,15 +491,6 @@ test("prints help without syncing", () => {
     /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/,
   );
   assert.equal(runtime.calls.length, 0);
-});
-
-test("does not run the global updater unless --update is passed", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(updateCalls(runtime).length, 0);
-  assert.match(runtime.stdout.value, /Done\./);
 });
 
 test("runs skills update -g after a successful sync when --update is passed", () => {

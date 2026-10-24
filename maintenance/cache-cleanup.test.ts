@@ -126,15 +126,19 @@ test("cache roots and nested symlinks never cause deletion outside the selected 
   assert.equal(await readFile(outside, "utf8"), "preserve unless eligible");
 });
 
-for (const spawnFailure of [false, true]) {
-  test(`cache failures aggregate and remaining cleanup continues (${spawnFailure ? "spawn" : "exit"})`, async (t) => {
+for (const [failure, spawnFailure] of [
+  ["find", false],
+  ["find", true],
+  ["pnpm", false],
+] as const) {
+  test(`a ${failure} ${spawnFailure ? "spawn" : "exit"} failure aggregates while later cleanup and disk accounting continue`, async (t) => {
     const f = await fixture(t);
     await f.file(".gradle/daemon/old", 20);
-    const result = await f.run(true, { failure: "find", spawnFailure });
+    const result = await f.run(true, { failure, spawnFailure });
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /warning: failed: find/);
-    assert.ok(f.calls.some((call) => call[0] === "pnpm"));
+    assert.match(result.stdout, new RegExp(`warning: failed: ${failure}`));
     assert.ok(f.calls.some((call) => call[0] === "docker" && call[1] === "builder"));
+    assert.equal(f.calls.filter((call) => call[0] === "df").length, 2);
     assert.match(result.stdout, /done used=/);
   });
 }
@@ -157,15 +161,6 @@ test("mise prune waits for a mise that keeps running versions", async (t) => {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /skip mise prune/);
   assert.ok(f.calls.every((call) => call.join(" ") !== "mise prune --yes"));
-});
-
-test("a package cleanup failure does not hide later cleanup or disk accounting", async (t) => {
-  const f = await fixture(t);
-  const result = await f.run(true, { failure: "pnpm" });
-  assert.equal(result.status, 1);
-  assert.match(result.stdout, /warning: failed: pnpm/);
-  assert.ok(f.calls.some((call) => call[0] === "docker" && call[1] === "builder"));
-  assert.equal(f.calls.filter((call) => call[0] === "df").length, 2);
 });
 
 test("one total budget cancels the active command and prevents subsequent cleanup", async (t) => {

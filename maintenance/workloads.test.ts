@@ -59,22 +59,31 @@ test("partial parse retains safe findings and reports incomplete inspection", as
   assert.doesNotMatch(report.lines.join("\n"), /secret-value/);
   assert.deepEqual(calls, [["/bin/ps", "-U", "501", "-ww", "-o", "pid=,ppid=,etime=,args="]]);
 });
-for (const failure of ["spawn", "exit"] as const) {
-  test(`failed ps ${failure} is unknown and sanitized`, async () => {
-    const runner = CommandRunner.of({
-      run: () =>
-        failure === "spawn"
-          ? Effect.fail(new CommandError({ command: "ps", message: "secret-value" }))
-          : Effect.succeed({ status: 1, stdout: "secret-value", stderr: "secret-value" }),
-    });
-    const report = await Effect.runPromise(
-      inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
-    );
-    assert.equal(report.complete, false);
-    assert.match(report.lines.join("\n"), /unknown/);
-    assert.doesNotMatch(report.lines.join("\n"), /secret-value/);
-  });
-}
+test.each([
+  [
+    "failed ps spawn",
+    Effect.fail(new CommandError({ command: "ps", message: "secret-value" })),
+    /unknown: process inspection failed/,
+  ],
+  [
+    "failed ps exit",
+    Effect.succeed({ status: 1, stdout: "secret-value", stderr: "secret-value" }),
+    /unknown: process inspection failed/,
+  ],
+  [
+    "empty process snapshot",
+    Effect.succeed({ status: 0, stdout: "", stderr: "" }),
+    /unknown: no usable process rows/,
+  ],
+] as const)("%s is unknown and sanitized", async (_case, outcome, message) => {
+  const runner = CommandRunner.of({ run: () => outcome });
+  const report = await Effect.runPromise(
+    inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
+  );
+  assert.equal(report.complete, false);
+  assert.match(report.lines.join("\n"), message);
+  assert.doesNotMatch(report.lines.join("\n"), /secret-value|No matching/);
+});
 test("unsupported platforms and root do not inspect processes", async () => {
   const runner = CommandRunner.of({
     run: () => {
@@ -90,16 +99,4 @@ test("unsupported platforms and root do not inspect processes", async () => {
     );
     assert.equal(report.complete, false);
   }
-});
-
-test("empty process snapshot is unknown", async () => {
-  const runner = CommandRunner.of({
-    run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }),
-  });
-  const report = await Effect.runPromise(
-    inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
-  );
-  assert.equal(report.complete, false);
-  assert.match(report.lines.join("\n"), /unknown: no usable process rows/);
-  assert.doesNotMatch(report.lines.join("\n"), /No matching/);
 });

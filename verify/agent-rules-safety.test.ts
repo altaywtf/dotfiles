@@ -12,16 +12,21 @@ import {
 
 afterEach(cleanupFixtures);
 
+function linkReadableCheckout(name: string) {
+  const { home, root } = createFixture();
+  const target = join(root, "rules-checkout/templates", name);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, "### Shared checkout fixture rule\n");
+  chmodSync(target, 0o644);
+  const privateRules = join(home, ".config/dotfiles", name);
+  mkdirSync(dirname(privateRules), { recursive: true });
+  symlinkSync(target, privateRules);
+  return { home, target };
+}
+
 test("restricts linked local Markdown that a checkout update left group and other readable", () => {
   for (const name of ["agents.start.md", "agents.end.md"]) {
-    const { home, root } = createFixture();
-    const target = join(root, "rules-checkout/templates", name);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, "### Shared checkout fixture rule\n");
-    chmodSync(target, 0o644);
-    const privateRules = join(home, ".config/dotfiles", name);
-    mkdirSync(dirname(privateRules), { recursive: true });
-    symlinkSync(target, privateRules);
+    const { home, target } = linkReadableCheckout(name);
 
     const result = runWrapperResult(home);
 
@@ -33,14 +38,7 @@ test("restricts linked local Markdown that a checkout update left group and othe
 });
 
 test("a preview reports a readable local Markdown target without changing it", () => {
-  const { home, root } = createFixture();
-  const target = join(root, "rules-checkout/templates/agents.end.md");
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, "### Shared checkout fixture rule\n");
-  chmodSync(target, 0o644);
-  const privateRules = join(home, ".config/dotfiles/agents.end.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  symlinkSync(target, privateRules);
+  const { home, target } = linkReadableCheckout("agents.end.md");
 
   const result = runWrapperResult(home, "workstation", ["--dry-run"]);
 

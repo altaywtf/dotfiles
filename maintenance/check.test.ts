@@ -16,6 +16,7 @@ import {
   parseBrewBacklog,
   type CommandRunner,
   type MaintenanceContext,
+  type RawCommandResult,
 } from "./check.ts";
 import type { MacOSUpdateIO } from "./darwin/macos-updates.ts";
 
@@ -64,8 +65,26 @@ function context(): MaintenanceContext {
   };
 }
 
-function result(stdout: string, status = 0) {
+function result(stdout: string, status = 0): RawCommandResult {
   return { status, stdout, stderr: "" };
+}
+
+// Healthy host probe answers; `override` handles the calls a test cares about.
+function hostRunner(
+  override: (command: string, args: readonly string[]) => RawCommandResult | undefined = () =>
+    undefined,
+): CommandRunner {
+  return async (command, args) =>
+    override(command, args) ??
+    (command === "df"
+      ? result(
+          "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n",
+        )
+      : command === "tailscale" && args[0] === "status"
+        ? result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }))
+        : command === "mise" || (command === "npm" && args[0] === "outdated")
+          ? result("{}")
+          : result("1.0.0\n"));
 }
 
 test("single-owner Darwin devboxes retain the service probe without shared Homebrew", async () => {
@@ -103,69 +122,39 @@ test("Homebrew backlog parsing keeps exact installed and current versions", () =
   );
 });
 
-test("Homebrew backlog refreshes metadata before the greedy inventory", async () => {
-  const brewCalls: string[][] = [];
-  const runner: CommandRunner = async (command, args) => {
-    if (command === "brew") {
-      brewCalls.push([...args]);
-      if (args[0] === "update") return result("");
-      return result('{"formulae":[],"casks":[]}');
+for (const [update, calls, summary] of [
+  [0, [["update"], ["outdated", "--greedy", "--json=v2"]], "clean"],
+  [1, [["update"]], "incomplete"],
+] as const) {
+  test(`Homebrew metadata refresh precedes the greedy inventory (update exit ${update})`, async () => {
+    const brewCalls: string[][] = [];
+    const snapshot = await collectMaintenanceSnapshot(
+      {
+        ...context(),
+        env: { ...context().env, HOMEBREW_NO_AUTO_UPDATE: "1" },
+        ownsHomebrew: true,
+        profileConfig: { ...profileConfig, agentLayers: [] },
+      },
+      hostRunner((command, args) => {
+        if (command !== "brew") return undefined;
+        brewCalls.push([...args]);
+        return args[0] === "update" ? result("", update) : result('{"formulae":[],"casks":[]}');
+      }),
+    );
+    assert.deepEqual(brewCalls, calls);
+    assert.equal(snapshot.summary.status, summary);
+    if (update !== 0) {
+      assert.equal(snapshot.probes.brew_outdated_greedy?.status, "failed");
+      assert.equal(snapshot.probes.brew_outdated_greedy?.error, "brew update failed: exit 1");
     }
-    if (command === "df")
-      return result(
-        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n",
-      );
-    if (command === "tailscale" && args[0] === "status")
-      return result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }));
-    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
-    return result("1.0.0\n");
-  };
-  await collectMaintenanceSnapshot(
-    {
-      ...context(),
-      env: { ...context().env, HOMEBREW_NO_AUTO_UPDATE: "1" },
-      ownsHomebrew: true,
-      profileConfig: { ...profileConfig, agentLayers: [] },
-    },
-    runner,
-  );
-  assert.deepEqual(brewCalls, [["update"], ["outdated", "--greedy", "--json=v2"]]);
-});
-
-test("a failed Homebrew metadata refresh makes the snapshot incomplete", async () => {
-  const brewCalls: string[][] = [];
-  const runner: CommandRunner = async (command, args) => {
-    if (command === "brew") {
-      brewCalls.push([...args]);
-      return result("", 1);
-    }
-    if (command === "df")
-      return result(
-        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n",
-      );
-    if (command === "tailscale" && args[0] === "status")
-      return result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }));
-    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
-    return result("1.0.0\n");
-  };
-  const snapshot = await collectMaintenanceSnapshot(
-    {
-      ...context(),
-      ownsHomebrew: true,
-      profileConfig: { ...profileConfig, agentLayers: [] },
-    },
-    runner,
-  );
-  assert.deepEqual(brewCalls, [["update"]]);
-  assert.equal(snapshot.probes.brew_outdated_greedy?.status, "failed");
-  assert.equal(snapshot.probes.brew_outdated_greedy?.error, "brew update failed: exit 1");
-  assert.equal(snapshot.summary.status, "incomplete");
-});
+  });
+}
 
 test("maintenance probes run concurrently and summarize package drift", async () => {
   let active = 0;
   let maxActive = 0;
-  const runner: CommandRunner = async (command, args) => {
+  const host = hostRunner();
+  const runner: CommandRunner = async (command, args, options) => {
     active += 1;
     maxActive = Math.max(maxActive, active);
     if (maxActive === 1) {
@@ -177,24 +166,7 @@ test("maintenance probes run concurrently and summarize package drift", async ()
       );
     }
     active -= 1;
-    if (command === "df")
-      return result(
-        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n",
-      );
-    if (command === "tailscale" && args[0] === "status")
-      return result(
-        JSON.stringify({
-          BackendState: "Running",
-          MagicDNSSuffix: "fixture.ts.net",
-          Self: { Online: true },
-          Peer: {},
-        }),
-      );
-    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
-    if (command === "git") return result("");
-    if (args.some((argument) => argument.endsWith("bootstrap.ts")))
-      return result("bootstrap verification ok\n");
-    return result("1.0.0\n");
+    return host(command, args, options);
   };
   const snapshot = await collectMaintenanceSnapshot(
     { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
@@ -223,7 +195,7 @@ test("missing required commands make the snapshot incomplete without throwing", 
 });
 
 test("macOS inventory preserves typed partial results in the maintenance probe", async () => {
-  const runner: CommandRunner = async (command, args) => {
+  const runner = hostRunner((command, args) => {
     if (command === "sw_vers" && args[0] === "-productVersion") return result("26.6.2\n");
     if (command === "sw_vers" && args[0] === "-buildVersion") return result("25G83\n");
     if (command === "defaults") return result("26.6.2\n");
@@ -231,15 +203,8 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
       return result('+-o Fixture1AP <class IOPlatformExpertDevice>\n{\n"model" = <"Mac99,1">\n}\n');
     if (command === "softwareupdate")
       return result("Software Update Tool\nNo new software available.\n");
-    if (command === "df")
-      return result(
-        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n",
-      );
-    if (command === "tailscale" && args[0] === "status")
-      return result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }));
-    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
-    return result("1.0.0\n");
-  };
+    return undefined;
+  });
   const updateIO: MacOSUpdateIO = {
     async fetch(url) {
       if (url.includes("gdmf.apple.com")) {
@@ -449,27 +414,25 @@ test("maintenance rejects the same conflicting skill declarations as synchroniza
   }
 });
 
-test("malformed npm output fails without exposing its contents", async () => {
-  const snapshot = await collectMaintenanceSnapshot(
-    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
-    async (command) =>
-      command === "npm" ? result("private malformed diagnostic", 1) : result("{}"),
-  );
-  assert.equal(snapshot.probes.npm_outdated.status, "failed");
-  assert.equal(snapshot.probes.npm_outdated.error, "npm returned an invalid update inventory");
-});
-
-test("npm inventory distinguishes outdated packages from error envelopes", async () => {
-  for (const [payload, status, expected, count] of [
-    [{ example: { current: "1.0.0", wanted: "1.1.0", latest: "2.0.0" } }, 1, "ok", 1],
-    [{}, 0, "ok", 0],
+test("npm inventory distinguishes outdated packages from error envelopes and malformed output", async () => {
+  for (const [stdout, status, expected, count] of [
     [
-      { error: { code: "E401", summary: "fixture failure", detail: "private diagnostic" } },
+      JSON.stringify({ example: { current: "1.0.0", wanted: "1.1.0", latest: "2.0.0" } }),
+      1,
+      "ok",
+      1,
+    ],
+    ["{}", 0, "ok", 0],
+    [
+      JSON.stringify({
+        error: { code: "E401", summary: "fixture failure", detail: "private diagnostic" },
+      }),
       1,
       "failed",
       0,
     ],
-    [{ example: { latest: 42 } }, 1, "failed", 0],
+    [JSON.stringify({ example: { latest: 42 } }), 1, "failed", 0],
+    ["private malformed diagnostic", 1, "failed", 0],
   ] as const) {
     const snapshot = await collectMaintenanceSnapshot(
       {
@@ -480,15 +443,14 @@ test("npm inventory distinguishes outdated packages from error envelopes", async
           capabilities: { ...profileConfig.capabilities, workstation: false },
         },
       },
-      async (command) =>
-        command === "npm" ? result(JSON.stringify(payload), status) : result("{}"),
+      async (command) => (command === "npm" ? result(stdout, status) : result("{}")),
     );
     assert.equal(snapshot.probes.npm_outdated.status, expected);
     assert.equal(snapshot.summary.backlog_count, count);
     if (expected === "failed") {
       assert.equal(snapshot.summary.status, "incomplete");
       assert.ok(snapshot.summary.required_failures > 0);
-      assert.doesNotMatch(snapshot.probes.npm_outdated.error ?? "", /private diagnostic/);
+      assert.equal(snapshot.probes.npm_outdated.error, "npm returned an invalid update inventory");
     }
   }
 });
@@ -501,31 +463,23 @@ test("SSH agent probes preserve the installed wrapper outside the inherited PATH
     mode: 0o700,
   });
   const { runProcess } = await import("./probes.ts");
-  const snapshot = await collectMaintenanceSnapshot(
-    {
-      ...context(),
-      home,
-      cwd: home,
-      env: { PATH: "/usr/bin:/bin" },
-      profileConfig: { ...profileConfig, agentLayers: [] },
-    },
-    (command, args, options) =>
-      command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
-  );
+  const collect = () =>
+    collectMaintenanceSnapshot(
+      {
+        ...context(),
+        home,
+        cwd: home,
+        env: { PATH: "/usr/bin:/bin" },
+        profileConfig: { ...profileConfig, agentLayers: [] },
+      },
+      (command, args, options) =>
+        command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
+    );
+  const snapshot = await collect();
   assert.equal(snapshot.probes.version_claude.status, "ok");
   assert.equal(snapshot.probes.version_claude.value, "wrapper-version");
   await rm(join(home, ".local/bin/claude"));
-  const missing = await collectMaintenanceSnapshot(
-    {
-      ...context(),
-      home,
-      cwd: home,
-      env: { PATH: "/usr/bin:/bin" },
-      profileConfig: { ...profileConfig, agentLayers: [] },
-    },
-    (command, args, options) =>
-      command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
-  );
+  const missing = await collect();
   assert.equal(missing.probes.version_claude.status, "unavailable");
 });
 
@@ -605,7 +559,7 @@ async function pinContext() {
   );
   return {
     ...context(),
-    cwd: root,
+    cwd: join(root, "chezmoi"),
     repoRoot: root,
     home: root,
     env: { HOME: root },
@@ -624,64 +578,82 @@ const pinnedInstall = {
   ],
 };
 
-test("source pin changes remain pending even when the installed mise catalog reports no updates", async (t) => {
-  const fixture = await pinContext();
-  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
-  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args, options) => {
-    if (command === "mise" && args[0] === "ls") {
-      assert.equal(options.cwd, fixture.home);
-      return result(JSON.stringify(pinnedInstall));
-    }
-    return result("{}");
-  });
-  assert.equal(snapshot.summary.status, "attention");
-  assert.equal(snapshot.summary.backlog_count, 1);
-  assert.deepEqual(snapshot.probes.mise_convergence.value, {
-    "github:anthropics/claude-code": {
-      declared: "2.1.292",
-      configured: "2.1.291",
-      current: "2.1.291",
-      installed: true,
+const claude = "github:anthropics/claude-code";
+for (const scenario of [
+  {
+    // Source pin changes stay pending although the mise catalog reports no updates.
+    name: "a changed source pin",
+    config: undefined,
+    template: undefined,
+    installed: pinnedInstall,
+    outdated: {},
+    status: "attention",
+    backlog: 1,
+    pending: {
+      [claude]: { declared: "2.1.292", configured: "2.1.291", current: "2.1.291", installed: true },
     },
-  });
-});
-
-test("missing declared installations count once alongside upstream availability", async (t) => {
-  const fixture = await pinContext();
-  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
-  await writeFile(
-    join(fixture.home, ".config/mise/config.toml"),
-    '[tools]\nnode = "24.21.0"\n"github:anthropics/claude-code" = "2.1.292"\n',
-  );
-  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) => {
-    if (command === "mise" && args[0] === "ls")
-      return result(
-        JSON.stringify({
-          ...pinnedInstall,
-          "github:anthropics/claude-code": [
-            { version: "2.1.292", requested_version: "2.1.292", installed: false },
-          ],
-        }),
-      );
-    if (command === "mise")
-      return result(
-        JSON.stringify({
-          "github:anthropics/claude-code": { current: "2.1.291", latest: "2.1.292" },
-        }),
-      );
-    return result("{}");
-  });
-  assert.equal(snapshot.summary.status, "attention");
-  assert.equal(snapshot.summary.backlog_count, 1);
-  assert.deepEqual(snapshot.probes.mise_convergence.value, {
-    "github:anthropics/claude-code": {
-      declared: "2.1.292",
-      configured: "2.1.292",
-      current: "2.1.292",
-      installed: false,
+  },
+  {
+    // A missing declared install counts once alongside upstream availability.
+    name: "a missing declared installation",
+    config: `[tools]\nnode = "24.21.0"\n"${claude}" = "2.1.292"\n`,
+    template: undefined,
+    installed: {
+      ...pinnedInstall,
+      [claude]: [{ version: "2.1.292", requested_version: "2.1.292", installed: false }],
     },
+    outdated: { [claude]: { current: "2.1.291", latest: "2.1.292" } },
+    status: "attention",
+    backlog: 1,
+    pending: {
+      [claude]: {
+        declared: "2.1.292",
+        configured: "2.1.292",
+        current: "2.1.292",
+        installed: false,
+      },
+    },
+  },
+  {
+    // Converged runtime selectors and source pins do not invent an upgrade.
+    name: "converged selectors",
+    config: `[tools]\nnode = "24.21.0"\njava = "temurin-25"\n"${claude}" = "2.1.292"\n`,
+    template: '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n',
+    installed: {
+      ...pinnedInstall,
+      java: [
+        { requested_version: "temurin-25", version: "temurin-25.0.4+101.0.LTS", installed: true },
+      ],
+      [claude]: [{ requested_version: "2.1.292", version: "2.1.292", installed: true }],
+    },
+    outdated: {},
+    status: "clean",
+    backlog: 0,
+    pending: {},
+  },
+]) {
+  test(`mise convergence reports ${scenario.name} against source pins`, async (t) => {
+    const fixture = await pinContext();
+    t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+    if (scenario.config)
+      await writeFile(join(fixture.home, ".config/mise/config.toml"), scenario.config);
+    if (scenario.template)
+      await writeFile(
+        join(fixture.repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
+        scenario.template,
+      );
+    const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args, options) => {
+      if (command === "mise" && args[0] === "ls") {
+        assert.equal(options.cwd, fixture.home);
+        return result(JSON.stringify(scenario.installed));
+      }
+      return result(JSON.stringify(command === "mise" ? scenario.outdated : {}));
+    });
+    assert.equal(snapshot.summary.status, scenario.status);
+    assert.equal(snapshot.summary.backlog_count, scenario.backlog);
+    assert.deepEqual(snapshot.probes.mise_convergence.value, scenario.pending);
   });
-});
+}
 
 test("unavailable, failed, absent and malformed installed pin inspections remain incomplete", async (t) => {
   const fixture = await pinContext();
@@ -709,38 +681,4 @@ test("unavailable, failed, absent and malformed installed pin inspections remain
   );
   assert.equal(snapshot.summary.status, "incomplete");
   assert.equal(snapshot.probes.mise_convergence.status, "failed");
-});
-
-test("converged runtime selectors and source pins do not invent an upgrade", async (t) => {
-  const fixture = await pinContext();
-  t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
-  await writeFile(
-    join(fixture.repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
-    '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n',
-  );
-  await writeFile(
-    join(fixture.home, ".config/mise/config.toml"),
-    '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n"github:anthropics/claude-code" = "2.1.292"\n',
-  );
-  const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) => {
-    if (command === "mise" && args[0] === "ls")
-      return result(
-        JSON.stringify({
-          ...pinnedInstall,
-          java: [
-            {
-              requested_version: "temurin-25",
-              version: "temurin-25.0.4+101.0.LTS",
-              installed: true,
-            },
-          ],
-          "github:anthropics/claude-code": [
-            { requested_version: "2.1.292", version: "2.1.292", installed: true },
-          ],
-        }),
-      );
-    return result("{}");
-  });
-  assert.equal(snapshot.summary.status, "clean");
-  assert.deepEqual(snapshot.probes.mise_convergence.value, {});
 });

@@ -56,16 +56,20 @@ test("native write completes before returning the private configuration path", a
   });
 });
 
-test("malformed native replies reject without changing configuration", async () => {
-  const { config } = fixture(`process.stdout.write('{"id":"invalid"}\\n');`);
-  await assert.rejects(writeConfigEdits([]), /Codex app-server returned invalid JSON/);
-  assert.equal(readFileSync(config, "utf8"), "# preserved\n");
-  assert.equal(statSync(config).mode & 0o777, 0o644);
-});
-
-test("nonzero native exits reject with the diagnostic and preserve configuration", async () => {
-  const { config } = fixture(`process.stderr.write('fixture write failure'); process.exit(17);`);
-  await assert.rejects(writeConfigEdits([]), /fixture write failure/);
+test.each([
+  [
+    "a malformed reply",
+    `process.stdout.write('{"id":"invalid"}\\n');`,
+    /Codex app-server returned invalid JSON/,
+  ],
+  [
+    "a nonzero exit",
+    `process.stderr.write('fixture write failure'); process.exit(17);`,
+    /fixture write failure/,
+  ],
+])("%s rejects with its diagnostic and preserves configuration", async (_case, reply, error) => {
+  const { config } = fixture(reply);
+  await assert.rejects(writeConfigEdits([]), error);
   assert.equal(readFileSync(config, "utf8"), "# preserved\n");
   assert.equal(statSync(config).mode & 0o777, 0o644);
 });
