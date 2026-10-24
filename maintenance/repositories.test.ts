@@ -37,6 +37,18 @@ const runner: Runner = (cwd, command, args) => {
   return { status: result.status ?? 1, stdout: result.stdout ?? "" };
 };
 
+type Fixture = ReturnType<typeof fixture>;
+
+const clean = (
+  f: Fixture,
+  previous: Parameters<typeof cleanRepository>[2],
+  now: number,
+  { apply = true, activity = (): string[] => [], run = runner } = {},
+) => cleanRepository(f.repo, f.roots, previous, now, apply, activity, run);
+
+const inspect = (f: Fixture, roots = f.roots, open: string[] = []) =>
+  candidates(f.repo, roots, open, runner);
+
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "host-hygiene-")));
   const git = (cwd: string, ...args: string[]) => {
@@ -73,55 +85,15 @@ function fixture() {
 test("clean merged worktree waits three days, is removed without force, then its branch is separately eligible", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, baseline + gracePeriod);
     assert.ok(existsSync(f.tree));
-    cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod - 1,
-      true,
-      () => [],
-      runner,
-    );
+    clean(f, first.candidates, baseline + 2 * gracePeriod - 1);
     assert.ok(existsSync(f.tree), "retained until the full three-day grace period elapses");
-    const second = cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const second = clean(f, first.candidates, baseline + 2 * gracePeriod);
     assert.equal(existsSync(f.tree), false);
     assert.ok(second.entries.some((entry) => entry.result === "removed"));
-    const branch = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + 3 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
-    cleanRepository(
-      f.repo,
-      f.roots,
-      branch.candidates,
-      baseline + 4 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const branch = clean(f, {}, baseline + 3 * gracePeriod);
+    clean(f, branch.candidates, baseline + 4 * gracePeriod);
     assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/finished"), "");
     assert.ok(existsSync(f.repo));
   } finally {
@@ -133,20 +105,20 @@ test("dirty, ignored, locked and active worktrees are retained", () => {
   const f = fixture();
   try {
     writeFileSync(join(f.tree, "untracked"), "keep");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 0);
     rmSync(join(f.tree, "untracked"));
     writeFileSync(join(f.repo, ".git/info/exclude"), ".env\nnode_modules/\n");
     writeFileSync(join(f.tree, ".env"), "keep");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 0);
     rmSync(join(f.tree, ".env"));
     mkdirSync(join(f.tree, "node_modules"));
     writeFileSync(join(f.tree, "node_modules/generated"), "regenerable");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 1);
-    assert.equal(candidates(f.repo, f.roots, [join(f.tree, "tracked")], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 1);
+    assert.equal(inspect(f, f.roots, [join(f.tree, "tracked")]).eligible.length, 0);
     f.git(f.repo, "worktree", "lock", f.tree);
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 0);
     f.git(f.repo, "worktree", "unlock", f.tree);
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 1);
+    assert.equal(inspect(f).eligible.length, 1);
   } finally {
     f.cleanup();
   }
@@ -160,19 +132,15 @@ test("a detached worktree is removable once merged and retained while it is not"
     f.git(f.tree, "checkout", "--detach");
     f.git(f.repo, "branch", "-d", "finished");
     assert.equal(
-      candidates(f.repo, f.roots, [], runner).eligible.some((item) => item.path === f.tree),
+      inspect(f).eligible.some((item) => item.path === f.tree),
       true,
     );
 
     f.git(f.tree, "commit", "--allow-empty", "-m", "unpushed work");
     assert.ok(
-      candidates(f.repo, f.roots, [], runner).kept.some(
+      inspect(f).kept.some(
         (entry) => entry.target === f.tree && entry.result.startsWith("HEAD not in remote default"),
       ),
-    );
-    assert.equal(
-      candidates(f.repo, f.roots, [], runner).eligible.some((item) => item.path === f.tree),
-      false,
     );
   } finally {
     f.cleanup();
@@ -187,26 +155,21 @@ test("a worktree beside its owning clone is evaluated, and unpushed work still r
     f.git(f.repo, "worktree", "add", "-b", "stray", stray);
 
     assert.ok(
-      candidates(f.repo, f.roots, [], runner).kept.some(
+      inspect(f).kept.some(
         (entry) => entry.target === stray && entry.result === "outside cleanup roots",
       ),
       "unreachable while only harness roots are cleaned",
     );
     assert.ok(
-      candidates(f.repo, projectRoots, [], runner).eligible.some((item) => item.path === stray),
+      inspect(f, projectRoots).eligible.some((item) => item.path === stray),
       "eligible once the project tree is a cleanup root",
     );
 
     f.git(stray, "commit", "--allow-empty", "-m", "unpushed work");
-    const kept = candidates(f.repo, projectRoots, [], runner).kept;
     assert.ok(
-      kept.some(
+      inspect(f, projectRoots).kept.some(
         (entry) => entry.target === stray && entry.result.startsWith("HEAD not in remote default"),
       ),
-    );
-    assert.equal(
-      candidates(f.repo, projectRoots, [], runner).eligible.some((item) => item.path === stray),
-      false,
     );
     assert.ok(existsSync(stray));
   } finally {
@@ -253,24 +216,8 @@ test("a branch merged upstream but absent from a lagging local HEAD names the ca
     f.git(f.repo, "checkout", "main");
     f.git(f.repo, "fetch", "origin");
 
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
-    const second = cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, baseline + gracePeriod);
+    const second = clean(f, first.candidates, baseline + 2 * gracePeriod);
     assert.ok(
       second.entries.some(
         (entry) =>
@@ -281,15 +228,7 @@ test("a branch merged upstream but absent from a lagging local HEAD names the ca
     assert.equal(f.git(f.repo, "rev-parse", "--verify", "refs/heads/done").length, 40);
 
     f.git(f.repo, "merge", "--ff-only", "origin/main");
-    const third = cleanRepository(
-      f.repo,
-      f.roots,
-      second.candidates,
-      baseline + 3 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const third = clean(f, second.candidates, baseline + 3 * gracePeriod);
     assert.ok(
       third.entries.some(
         (entry) => entry.target === "refs/heads/done" && entry.result === "removed",
@@ -304,18 +243,10 @@ test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", (
   const f = fixture();
   try {
     const now = Date.now();
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      now - 2 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, now - 2 * gracePeriod);
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "worktree", "add", f.tree, "finished");
-    const second = cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], runner);
+    const second = clean(f, first.candidates, now);
     assert.ok(existsSync(f.tree));
     assert.ok(
       second.entries.some(
@@ -323,15 +254,7 @@ test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", (
       ),
     );
     assert.equal(Object.values(second.candidates)[0]?.since, now);
-    cleanRepository(
-      f.repo,
-      f.roots,
-      second.candidates,
-      now + gracePeriod + 1000,
-      true,
-      () => [],
-      runner,
-    );
+    clean(f, second.candidates, now + gracePeriod + 1000);
     assert.equal(existsSync(f.tree), false);
   } finally {
     f.cleanup();
@@ -348,21 +271,13 @@ for (const target of ["nested file", "Git index"] as const) {
       f.git(f.tree, "commit", "-m", "nested file");
       f.git(f.tree, "push", "origin", "HEAD:main");
       const now = Date.now() + 2 * gracePeriod;
-      const first = cleanRepository(f.repo, f.roots, {}, now - gracePeriod, true, () => [], runner);
+      const first = clean(f, {}, now - gracePeriod);
       const path =
         target === "nested file"
           ? join(f.tree, "nested/file")
           : join(f.git(f.tree, "rev-parse", "--absolute-git-dir"), "index");
       utimesSync(path, new Date(now - 1000), new Date(now - 1000));
-      const second = cleanRepository(
-        f.repo,
-        f.roots,
-        first.candidates,
-        now,
-        true,
-        () => [],
-        runner,
-      );
+      const second = clean(f, first.candidates, now);
       assert.ok(existsSync(f.tree));
       assert.ok(second.entries.some((entry) => entry.result.includes("changed within three days")));
       assert.equal(f.git(f.tree, "status", "--porcelain"), "");
@@ -391,14 +306,12 @@ test("unavailable worktree activity retains an otherwise removable tree", () => 
   const f = fixture();
   try {
     const now = Date.now() + 2 * gracePeriod;
-    const first = cleanRepository(f.repo, f.roots, {}, now - gracePeriod, true, () => [], runner);
+    const first = clean(f, {}, now - gracePeriod);
     const unavailable: Runner = (cwd, command, args) =>
       args.includes("--absolute-git-dir")
         ? { status: 0, stdout: join(f.root, "missing") }
         : runner(cwd, command, args);
-    assert.throws(() =>
-      cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], unavailable),
-    );
+    assert.throws(() => clean(f, first.candidates, now, { run: unavailable }));
     assert.ok(existsSync(f.tree));
   } finally {
     f.cleanup();
@@ -412,7 +325,7 @@ test("unmerged commits survive even when their remote branch is gone", () => {
     f.git(f.tree, "commit", "-am", "keep");
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(f.repo, "push", "origin", "--delete", "finished");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 0);
   } finally {
     f.cleanup();
   }
@@ -421,25 +334,11 @@ test("unmerged commits survive even when their remote branch is gone", () => {
 test("activity arriving at removal time cancels eligibility", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, baseline + gracePeriod);
     let checks = 0;
-    const second = cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      true,
-      () => (++checks === 1 ? [] : [f.tree]),
-      runner,
-    );
+    const second = clean(f, first.candidates, baseline + 2 * gracePeriod, {
+      activity: () => (++checks === 1 ? [] : [f.tree]),
+    });
     assert.ok(existsSync(f.tree));
     assert.equal(Object.keys(second.candidates).length, 0);
   } finally {
@@ -452,29 +351,13 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
   try {
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(f.repo, "branch", "release/stable");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
+    assert.equal(inspect(f).eligible.length, 0);
     f.git(f.repo, "push", "origin", "--delete", "finished");
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, baseline + gracePeriod);
     writeFileSync(join(f.tree, "tracked"), "more merged work\n");
     f.git(f.tree, "commit", "-am", "more work");
     f.git(f.tree, "push", "origin", "HEAD:main");
-    const second = cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const second = clean(f, first.candidates, baseline + 2 * gracePeriod);
     assert.ok(existsSync(f.tree));
     assert.equal(Object.values(second.candidates)[0]?.since, baseline + 2 * gracePeriod);
     assert.equal(
@@ -489,15 +372,7 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
 test("dry-run never deletes, failed remote reads and activity probes fail closed", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      runner,
-    );
+    const first = clean(f, {}, baseline + gracePeriod);
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(
       f.root,
@@ -507,15 +382,7 @@ test("dry-run never deletes, failed remote reads and activity probes fail closed
       "-d",
       "refs/heads/finished",
     );
-    cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      false,
-      () => [],
-      runner,
-    );
+    clean(f, first.candidates, baseline + 2 * gracePeriod, { apply: false });
     assert.ok(existsSync(f.tree));
     assert.equal(
       f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"),
@@ -523,30 +390,11 @@ test("dry-run never deletes, failed remote reads and activity probes fail closed
     );
     const failed: Runner = (cwd, command, args) =>
       args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    assert.throws(() =>
-      cleanRepository(
-        f.repo,
-        f.roots,
-        first.candidates,
-        baseline + 2 * gracePeriod,
-        true,
-        () => [],
-        failed,
-      ),
-    );
-    assert.throws(() => openFiles(f.root, () => ({ status: 1, stdout: "" })));
+    assert.throws(() => clean(f, first.candidates, baseline + 2 * gracePeriod, { run: failed }));
     assert.ok(existsSync(f.tree));
     const missing: Runner = (cwd, command, args) =>
       args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    const skipped = cleanRepository(
-      f.repo,
-      f.roots,
-      first.candidates,
-      baseline + 2 * gracePeriod,
-      true,
-      () => [],
-      missing,
-    );
+    const skipped = clean(f, first.candidates, baseline + 2 * gracePeriod, { run: missing });
     assert.equal(
       skipped.entries[0]?.result,
       "remote default history missing locally; retained for normal sync",
@@ -577,28 +425,12 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
         throw new Error("unexpected network access");
       return runner(cwd, command, args);
     };
-    const result = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      offline,
-    );
+    const result = clean(f, {}, baseline + gracePeriod, { run: offline });
     assert.deepEqual(result, { entries: [], candidates: {} });
     assert.ok(existsSync(join(f.repo, "tracked")));
     f.git(f.repo, "worktree", "add", "-b", "finished", f.tree);
     f.git(f.repo, "config", "--local", "dotfiles.hygiene", "skip");
-    const excluded = cleanRepository(
-      f.repo,
-      f.roots,
-      {},
-      baseline + gracePeriod,
-      true,
-      () => [],
-      offline,
-    );
+    const excluded = clean(f, {}, baseline + gracePeriod, { run: offline });
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
   } finally {

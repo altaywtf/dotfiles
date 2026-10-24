@@ -23,6 +23,7 @@ import {
   runChezmoiResult,
   runWrapper,
   runWrapperResult,
+  sharedFixtureRules,
 } from "./agent-rules-fixture.ts";
 
 afterEach(cleanupFixtures);
@@ -43,21 +44,6 @@ test("applies public rules and links without private output", () => {
   assert.equal(runChezmoi(home, config, "diff"), "");
 });
 
-test("reads an optional private end layer from machine-local Markdown", () => {
-  const { home } = createFixture();
-  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
-  mkdirSync(dirname(privateEnd), { recursive: true });
-  writeFileSync(privateEnd, "## Private fixture rule\n\nKeep this fixture local.\n");
-  chmodSync(privateEnd, 0o600);
-
-  runWrapper(home);
-
-  assert.match(
-    assertManagedRules(home),
-    /Shared fixture delivery rule\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
-  );
-});
-
 test("composes optional private Markdown around the shared rules", () => {
   const { home } = createFixture();
   const privateStart = join(home, ".config/dotfiles/agents.start.md");
@@ -72,9 +58,10 @@ test("composes optional private Markdown around the shared rules", () => {
   const rules = assertManagedRules(home);
 
   assert.match(rules, /^# Private fixture context\n\nLoad this first\.\n\n## General guidelines/);
-  assert.ok(rules.indexOf("# Private fixture context") < rules.indexOf("## General guidelines"));
-  assert.ok(rules.indexOf("## General guidelines") < rules.indexOf("## Private fixture end"));
-  assert.match(rules, /## Private fixture end\n\nLoad this last\.\n$/);
+  assert.match(
+    rules,
+    /Shared fixture delivery rule\.\n\n## Private fixture end\n\nLoad this last\.\n$/,
+  );
 });
 
 test("reads machine-local Markdown through a symlink", () => {
@@ -92,16 +79,15 @@ test("reads machine-local Markdown through a symlink", () => {
   assert.match(assertManagedRules(home), /## Symlinked fixture rule\n$/);
 });
 
-test("omits the private end layer for blank Markdown", () => {
+test("omits private layers for blank Markdown", () => {
   const { home } = createFixture();
-  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
-  mkdirSync(dirname(privateEnd), { recursive: true });
-  writeFileSync(privateEnd, " \n\t\n");
-  chmodSync(privateEnd, 0o600);
+  mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
+  for (const name of ["agents.start.md", "agents.end.md"])
+    writeFileSync(join(home, ".config/dotfiles", name), " \n\t\n", { mode: 0o600 });
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /Shared fixture delivery rule\.\n$/);
+  assert.equal(assertManagedRules(home), sharedFixtureRules);
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {

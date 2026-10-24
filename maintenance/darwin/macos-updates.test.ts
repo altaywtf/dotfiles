@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 
@@ -54,6 +52,8 @@ const sofaSafari = {
   ],
 };
 
+type Call = { command: string; args: readonly string[]; timeoutMs: number | null };
+
 function commandResult(stdout: string, status = 0) {
   return { status, stdout, stderr: "" };
 }
@@ -69,7 +69,7 @@ function runner(
     safariStatus?: number;
     safariStderr?: string;
     deviceOutput?: string;
-    calls?: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }>;
+    calls?: Call[];
   } = {},
 ): CommandRunner {
   return async (command, args, runOptions) => {
@@ -133,13 +133,13 @@ function io(
   };
 }
 
-function collect(run: CommandRunner, updateIO: MacOSUpdateIO) {
+function collect(run: CommandRunner, updateIO: MacOSUpdateIO, fresh = false) {
   return collectMacOSUpdateInventory(
     {
       cachePath: "/fixture/cache/apple-gdmf.json",
       cwd: "/fixture/repo",
       env: { HOME: "/fixture/home" },
-      fresh: false,
+      fresh,
       home: "/fixture/home",
       now,
     },
@@ -214,7 +214,7 @@ test("softwareupdate parsing distinguishes cached emptiness from a malformed lis
 });
 
 test("routine inventory preserves source and freshness without a live scan", async () => {
-  const calls: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }> = [];
+  const calls: Call[] = [];
   const inventory = await collect(runner({ calls }), io());
 
   assert.equal(inventory.applicability.status, "current");
@@ -233,7 +233,7 @@ test("routine inventory preserves source and freshness without a live scan", asy
 });
 
 test("routine inventory bounds stale applicability with a daily live scan", async () => {
-  const calls: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }> = [];
+  const calls: Call[] = [];
   const applicabilityCache = JSON.stringify({
     schema_version: 1,
     completed_at: "2026-08-24T12:00:00.000Z",
@@ -265,30 +265,26 @@ test("malformed, impossible, or future live-scan timestamps fail closed through 
   }
 });
 
-test("failed live scans preserve cache diagnostics", async () => {
-  const inventory = await collect(
-    runner({ live: "scan failed", liveStatus: 1 }),
-    io({ applicabilityCache: "{" }),
-  );
+test.each([
+  ["unparsable", "{", /./],
+  [
+    "impossible",
+    JSON.stringify({ schema_version: 1, completed_at: "2026-02-30T12:00:00.000Z" }),
+    /^cached live-scan timestamp is invalid$/,
+  ],
+])(
+  "failed live scans keep the %s cache diagnostic and no cached success",
+  async (_kind, applicabilityCache, cacheError) => {
+    const inventory = await collect(
+      runner({ live: "scan failed", liveStatus: 1 }),
+      io({ applicabilityCache }),
+    );
 
-  assert.equal(inventory.live_scan.status, "failed");
-  assert.ok(inventory.live_scan.cache_error);
-});
-
-test("failed live scans reject invalid cached success timestamps", async () => {
-  const applicabilityCache = JSON.stringify({
-    schema_version: 1,
-    completed_at: "2026-02-30T12:00:00.000Z",
-  });
-  const inventory = await collect(
-    runner({ live: "scan failed", liveStatus: 1 }),
-    io({ applicabilityCache }),
-  );
-
-  assert.equal(inventory.live_scan.status, "failed");
-  assert.equal(inventory.live_scan.last_success_at, undefined);
-  assert.equal(inventory.live_scan.cache_error, "cached live-scan timestamp is invalid");
-});
+    assert.equal(inventory.live_scan.status, "failed");
+    assert.equal(inventory.live_scan.last_success_at, undefined);
+    assert.match(inventory.live_scan.cache_error ?? "", cacheError);
+  },
+);
 
 test("Safari command failures preserve their diagnostic", async () => {
   const inventory = await collect(
@@ -394,7 +390,7 @@ test("a stale Apple cache stays visible when SOFA can establish current state", 
 });
 
 test("malformed cached applicability triggers the live path without a timeout", async () => {
-  const calls: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }> = [];
+  const calls: Call[] = [];
   const inventory = await collect(
     runner({ cached: "Software Update Tool\nFinding available software\n", calls }),
     io(),
@@ -409,24 +405,21 @@ test("malformed cached applicability triggers the live path without a timeout", 
   assert.equal(live?.timeoutMs, null);
 });
 
-test("a cached backlog triggers a live applicability scan", async () => {
-  const inventory = await collect(
-    runner({
+test.each([
+  [
+    "cached_backlog_nonempty",
+    {
       cached:
         "Software Update Tool\n* Label: Safari26.6.1\nTitle: Safari, Version: 26.6.1, Recommended: YES\n",
-    }),
-    io(),
-  );
+    },
+  ],
+  ["upstream_os_newer", { osBuild: "25G76" }],
+])("%s triggers a live applicability scan", async (reason, options) => {
+  const inventory = await collect(runner(options), io());
 
-  assert.ok(inventory.live_scan.reasons.includes("cached_backlog_nonempty"));
-  assert.equal(inventory.live_scan.freshness, "live");
-});
-
-test("a newer upstream build triggers a live applicability scan", async () => {
-  const inventory = await collect(runner({ osBuild: "25G76" }), io());
-
-  assert.ok(inventory.live_scan.reasons.includes("upstream_os_newer"));
+  assert.ok(inventory.live_scan.reasons.includes(reason));
   assert.equal(inventory.live_scan.status, "current");
+  assert.equal(inventory.live_scan.freshness, "live");
 });
 
 test("unavailable upstream sources fail closed through the live path", async () => {
@@ -481,36 +474,14 @@ test("an advisory Safari failure is visible and requests live applicability", as
 });
 
 test("explicit fresh inventory always runs and labels the live path", async () => {
-  const inventory = await collectMacOSUpdateInventory(
-    {
-      cachePath: "/fixture/cache/apple-gdmf.json",
-      cwd: "/fixture/repo",
-      env: { HOME: "/fixture/home" },
-      fresh: true,
-      home: "/fixture/home",
-      now,
-    },
-    runner(),
-    io(),
-  );
+  const inventory = await collect(runner(), io(), true);
 
   assert.deepEqual(inventory.live_scan.reasons, ["explicit_fresh"]);
   assert.equal(inventory.live_scan.freshness, "live");
 });
 
 test("a failed live scan keeps installed and upstream partial results", async () => {
-  const inventory = await collectMacOSUpdateInventory(
-    {
-      cachePath: "/fixture/cache/apple-gdmf.json",
-      cwd: "/fixture/repo",
-      env: { HOME: "/fixture/home" },
-      fresh: true,
-      home: "/fixture/home",
-      now,
-    },
-    runner({ live: "scan failed", liveStatus: 1 }),
-    io(),
-  );
+  const inventory = await collect(runner({ live: "scan failed", liveStatus: 1 }), io(), true);
 
   assert.equal(inventory.live_scan.status, "failed");
   assert.equal(inventory.applicability.status, "unknown");

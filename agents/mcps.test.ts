@@ -159,20 +159,7 @@ function writeMcpLock(home: string, servers: unknown): void {
   writeFileSync(mcpLockPath(home), JSON.stringify({ version: 1, servers }, null, 2));
 }
 
-test("adds each server through the upsert CLIs", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "codex"), [
-    "mcp get shared-mcp",
-    "mcp add shared-mcp --url https://mcp.fixture.test/mcp",
-  ]);
-  assert.match(runtime.stdout.value, /MCP layers: developer, workstation/);
-  assert.match(runtime.stdout.value, /Done\./);
-});
-
-test("adds a Claude server its config does not know", () => {
+test("adds each server its harness config does not know", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([["claude mcp get shared-mcp", { stdout: "", stderr: "not found" }]]),
@@ -183,22 +170,26 @@ test("adds a Claude server its config does not know", () => {
     "mcp get shared-mcp",
     "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
   ]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), [
+    "mcp get shared-mcp",
+    "mcp add shared-mcp --url https://mcp.fixture.test/mcp",
+  ]);
+  assert.match(runtime.stdout.value, /MCP layers: developer, workstation/);
+  assert.match(runtime.stdout.value, /Done\./);
 });
 
-test("skips a Claude server whose URL already matches", () => {
+test.each([
+  ["claude", "shared-mcp:\n  Type: http\n  URL: https://mcp.fixture.test/mcp\n", "Claude Code"],
+  ["codex", "shared-mcp\n  url: https://mcp.fixture.test/mcp\n", "Codex"],
+])("skips a %s server whose URL already matches", (binary, configured, label) => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([
-      [
-        "claude mcp get shared-mcp",
-        "shared-mcp:\n  Type: http\n  URL: https://mcp.fixture.test/mcp\n",
-      ],
-    ]),
+    outputs: new Map([[`${binary} mcp get shared-mcp`, configured]]),
   });
 
   assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "claude"), ["mcp get shared-mcp"]);
-  assert.match(runtime.stdout.value, /Claude Code: shared-mcp is already configured/);
+  assert.deepEqual(harnessCalls(runtime, binary), ["mcp get shared-mcp"]);
+  assert.match(runtime.stdout.value, new RegExp(`${label}: shared-mcp is already configured`));
 });
 
 test("replaces a Claude server whose URL changed", () => {
@@ -218,19 +209,6 @@ test("replaces a Claude server whose URL changed", () => {
     "mcp remove -s user shared-mcp",
     "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
   ]);
-});
-
-test("skips a Codex server whose URL already matches", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: new Map([
-      ["codex mcp get shared-mcp", "shared-mcp\n  url: https://mcp.fixture.test/mcp\n"],
-    ]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "codex"), ["mcp get shared-mcp"]);
-  assert.match(runtime.stdout.value, /Codex: shared-mcp is already configured/);
 });
 
 test("downgrades a Codex add whose config landed before its login step failed", () => {
@@ -280,16 +258,6 @@ test("narrows a server to its selected harnesses", () => {
     harnessCalls(runtime, "codex").some((call) => call.includes("personal-mcp")),
     false,
   );
-});
-
-test("skips a harness whose CLI is not installed", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.match(runtime.stdout.value, /Skipping Codex MCP servers: 'codex' is not installed/);
-  assert.deepEqual(harnessCalls(runtime, "codex"), []);
 });
 
 test("reports every failing command with a redacted diagnostic", () => {
@@ -392,6 +360,7 @@ test("prunes dropped servers on present harnesses and defers absent ones until t
   assert.equal(main([], withoutCodex), 0);
   assert.deepEqual(removals(withoutCodex, "claude"), ["mcp remove -s user retired-mcp"]);
   assert.deepEqual(harnessCalls(withoutCodex, "codex"), []);
+  assert.match(withoutCodex.stdout.value, /Skipping Codex MCP servers: 'codex' is not installed/);
   assert.match(withoutCodex.stdout.value, /Skipping Codex MCP removal: 'codex' is not installed/);
   assert.deepEqual(lockedHarnesses(), {
     "shared-mcp": ["claude", "codex"],
@@ -458,26 +427,21 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.match(runtime.stderr.value, /MCP sync failed for 1 command:/);
 });
 
-test("rejects a lock that omits explicit harness membership", () => {
+test.each([
+  [
+    "no explicit harness membership",
+    { name: "shared-mcp" },
+    /harnesses must be an explicit unique non-empty subset/,
+  ],
+  ["an unsafe name", { name: "../escape", harnesses: ["claude"] }, /must have a safe name/],
+])("rejects an ownership lock entry with %s before changing servers", (_case, entry, message) => {
   const { repoDir, home } = createFixture();
-  writeFileSync(
-    mcpLockPath(home),
-    JSON.stringify({ version: 1, servers: [{ name: "shared-mcp" }] }),
-  );
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /harnesses must be an explicit unique non-empty subset/);
-  assert.equal(runtime.calls.length, 1);
-});
-
-test("rejects an unsafe ownership lock before changing servers", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(home, [{ name: "../escape", harnesses: ["claude"] }]);
+  writeMcpLock(home, [entry]);
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Invalid managed MCP lock/);
+  assert.match(runtime.stderr.value, message);
   assert.equal(runtime.calls.length, 1);
 });
 

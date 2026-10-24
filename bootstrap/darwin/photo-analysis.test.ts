@@ -6,6 +6,17 @@ import { CliFailure } from "../../lib/program.ts";
 import { NodeServices } from "@effect/platform-node";
 import { checkDevboxPhotoAnalysis, disableDevboxPhotoAnalysis } from "./photo-analysis.ts";
 
+const profiles = ["developer", "workstation", "personal-workstation", "devbox", "personal-devbox"];
+
+function run<A, E>(
+  effect: Effect.Effect<A, E, CommandRunner | NodeServices.NodeServices>,
+  runner: CommandRunner["Service"],
+) {
+  return Effect.runPromise(
+    effect.pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer)),
+  );
+}
+
 function launchctlRunner(loaded: boolean, bootoutStatus = 0) {
   const calls: string[][] = [];
   const runner = CommandRunner.of({
@@ -19,22 +30,11 @@ function launchctlRunner(loaded: boolean, bootoutStatus = 0) {
 }
 
 test("Photos analysis policy applies only to macOS devbox profiles", async () => {
-  for (const profile of [
-    "developer",
-    "workstation",
-    "personal-workstation",
-    "devbox",
-    "personal-devbox",
-  ]) {
+  for (const profile of profiles) {
     for (const platform of ["darwin", "linux"] as const) {
       for (const dryRun of [false, true]) {
         const { calls, runner } = launchctlRunner(false);
-        await Effect.runPromise(
-          disableDevboxPhotoAnalysis(profile, 501, dryRun, platform).pipe(
-            Effect.provideService(CommandRunner, runner),
-            Effect.provide(NodeServices.layer),
-          ),
-        );
+        await run(disableDevboxPhotoAnalysis(profile, 501, dryRun, platform), runner);
         assert.deepEqual(
           calls,
           platform === "darwin" && !dryRun && ["devbox", "personal-devbox"].includes(profile)
@@ -48,24 +48,15 @@ test("Photos analysis policy applies only to macOS devbox profiles", async () =>
 
 test("Photos analysis policy reports a rejected launchctl change", async () => {
   const { runner } = launchctlRunner(false, 5);
-  const failure = await Effect.runPromise(
-    disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(
-      Effect.provideService(CommandRunner, runner),
-      Effect.provide(NodeServices.layer),
-      Effect.flip,
-    ),
+  const failure = await run(
+    disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(Effect.flip),
+    runner,
   );
   assert.ok(failure instanceof CliFailure);
   assert.equal(failure.exitCode, 5);
 });
 
-for (const profile of [
-  "developer",
-  "workstation",
-  "personal-workstation",
-  "devbox",
-  "personal-devbox",
-]) {
+for (const profile of profiles) {
   for (const platform of ["darwin", "linux"] as const) {
     test(`Photos verification boundary: ${profile} on ${platform}`, async () => {
       const calls: string[][] = [];
@@ -79,12 +70,7 @@ for (const profile of [
           });
         },
       });
-      await Effect.runPromise(
-        checkDevboxPhotoAnalysis(profile, 501, platform).pipe(
-          Effect.provideService(CommandRunner, runner),
-          Effect.provide(NodeServices.layer),
-        ),
-      );
+      await run(checkDevboxPhotoAnalysis(profile, 501, platform), runner);
       assert.deepEqual(
         calls,
         platform === "darwin" && profile.endsWith("devbox")
@@ -105,12 +91,7 @@ for (const output of [
       run: () => Effect.succeed({ status: 0, stdout: output, stderr: "" }),
     });
     await assert.rejects(
-      Effect.runPromise(
-        checkDevboxPhotoAnalysis("devbox", 501, "darwin").pipe(
-          Effect.provideService(CommandRunner, runner),
-          Effect.provide(NodeServices.layer),
-        ),
-      ),
+      run(checkDevboxPhotoAnalysis("devbox", 501, "darwin"), runner),
       /policy drift/,
     );
   });
@@ -127,14 +108,7 @@ for (const failure of ["exit", "spawn"] as const) {
               stderr: "",
             }),
     });
-    await assert.rejects(
-      Effect.runPromise(
-        checkDevboxPhotoAnalysis("devbox", 501, "darwin").pipe(
-          Effect.provideService(CommandRunner, runner),
-          Effect.provide(NodeServices.layer),
-        ),
-      ),
-    );
+    await assert.rejects(run(checkDevboxPhotoAnalysis("devbox", 501, "darwin"), runner));
   });
 }
 test("Photos verification rejects root without invoking launchctl", async () => {
@@ -143,13 +117,5 @@ test("Photos verification rejects root without invoking launchctl", async () => 
       throw new Error("must not run");
     },
   });
-  await assert.rejects(
-    Effect.runPromise(
-      checkDevboxPhotoAnalysis("devbox", 0, "darwin").pipe(
-        Effect.provideService(CommandRunner, runner),
-        Effect.provide(NodeServices.layer),
-      ),
-    ),
-    /non-root/,
-  );
+  await assert.rejects(run(checkDevboxPhotoAnalysis("devbox", 0, "darwin"), runner), /non-root/);
 });

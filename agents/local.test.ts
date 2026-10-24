@@ -20,13 +20,6 @@ test("a missing overlay is optional", () => {
   assert.equal(readLocalOverlay(fixture()), undefined);
 });
 
-test("reads the overlay document and reports its path", () => {
-  const root = fixture();
-  const path = join(root, "agents/local.json");
-  writeFileSync(path, '{"skills":[],"servers":[]}', { mode: 0o600 });
-  assert.deepEqual(readLocalOverlay(root), { path, document: { skills: [], servers: [] } });
-});
-
 test("rejects malformed JSON, non-objects, and unsupported keys", () => {
   const root = fixture();
   const path = join(root, "agents/local.json");

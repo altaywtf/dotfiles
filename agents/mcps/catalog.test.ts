@@ -45,39 +45,30 @@ test("defaults a manifest entry to every harness", () => {
   assert.deepEqual(servers[0]?.harnesses, HARNESSES);
 });
 
-test("rejects a non-https or malformed url", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [{ name: "one", url: "http://mcp.fixture.test/mcp" }]);
-  assert.throws(() => readServers(manifestPath(repoDir, "developer")), /url must use https/);
+const url = "https://mcp.fixture.test/mcp";
 
-  writeManifest(repoDir, "developer", [{ name: "one", url: "not-a-url" }]);
-  assert.throws(() => readServers(manifestPath(repoDir, "developer")), /url is not a URL/);
-});
-
-test("rejects an unsafe server name and a duplicate name", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [{ name: "../escape", url: "https://mcp.fixture.test" }]);
-  assert.throws(
-    () => readServers(manifestPath(repoDir, "developer")),
-    /expected safe server name and url strings/,
-  );
-
-  writeManifest(repoDir, "developer", [
-    { name: "one", url: "https://mcp.fixture.test/a" },
-    { name: "one", url: "https://mcp.fixture.test/b" },
-  ]);
-  assert.throws(() => readServers(manifestPath(repoDir, "developer")), /defined more than once/);
-});
-
-test("rejects an unknown or duplicated harness", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [
-    { name: "one", url: "https://mcp.fixture.test", harnesses: ["claude", "windsurf"] },
-  ]);
-  assert.throws(
-    () => readServers(manifestPath(repoDir, "developer")),
+test.each([
+  ["a non-https url", [{ name: "one", url: "http://mcp.fixture.test/mcp" }], /url must use https/],
+  ["a malformed url", [{ name: "one", url: "not-a-url" }], /url is not a URL/],
+  ["an unsafe name", [{ name: "../escape", url }], /expected safe server name and url strings/],
+  ["a reserved name", [{ name: "__proto__", url }], /expected safe server name and url strings/],
+  [
+    "a duplicate name",
+    [
+      { name: "one", url },
+      { name: "one", url },
+    ],
+    /defined more than once/,
+  ],
+  [
+    "an unknown harness",
+    [{ name: "one", url, harnesses: ["windsurf"] }],
     /harnesses must be a unique/,
-  );
+  ],
+])("rejects a manifest with %s", (_case, servers, message) => {
+  const { repoDir } = createFixture();
+  writeManifest(repoDir, "developer", servers);
+  assert.throws(() => readServers(manifestPath(repoDir, "developer")), message);
 });
 
 test("rejects a conflicting layered definition and collapses an identical one", () => {
@@ -107,12 +98,6 @@ test("every real MCP manifest parses", () => {
   for (const layer of ["developer", "workstation", "devbox", "personal"]) {
     readServers(join(repoRoot, `agents/mcps/${layer}.json`));
   }
-});
-
-test("rejects reserved MCP server names", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [{ name: "__proto__", url: "https://mcp.fixture.test/mcp" }]);
-  assert.throws(() => readServers(manifestPath(repoDir, "developer")), /safe server name/);
 });
 
 test("local overlay servers append after profile layers and reject conflicts", () => {

@@ -56,6 +56,35 @@ function fixture(t: TestContext) {
   return { root, repo, upstream, advance };
 }
 
+function withWarnings(action: () => void): unknown[][] {
+  const warnings: unknown[][] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warnings.push(args);
+  try {
+    action();
+  } finally {
+    console.warn = warn;
+  }
+  return warnings;
+}
+
+// Publishes a `dotfiles` bootstrap script and puts a no-op `mise` first on PATH.
+function publishBootstrap(t: TestContext, f: ReturnType<typeof fixture>, script: string) {
+  const bin = join(f.root, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "mise"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  writeFileSync(join(f.repo, "dotfiles"), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+  git(f.repo, "add", "dotfiles");
+  git(f.repo, "commit", "-m", "bootstrap");
+  git(f.upstream, "config", "receive.denyCurrentBranch", "updateInstead");
+  git(f.repo, "push", "origin", "main");
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${bin}:${previousPath}`;
+  t.onTestFinished(() => {
+    process.env.PATH = previousPath;
+  });
+}
+
 test("clean default checkout advances and repeat convergence preserves the revision", (t) => {
   const { repo, advance } = fixture(t);
   const next = advance();
@@ -92,14 +121,7 @@ test("local work in the dotfiles checkout skips convergence with a warning", (t)
   writeFileSync(join(repo, "policy"), "local\n");
   git(repo, "commit", "-am", "local work");
   const before = git(repo, "rev-parse", "HEAD");
-  const warnings: unknown[][] = [];
-  const warn = console.warn;
-  console.warn = (...args: unknown[]) => void warnings.push(args);
-  try {
-    converge(repo, {}, join(repo, "no-home"));
-  } finally {
-    console.warn = warn;
-  }
+  const warnings = withWarnings(() => converge(repo, {}, join(repo, "no-home")));
   assert.match(String(warnings[0]?.[0]), /not on origin\/main; convergence skipped/);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
@@ -110,13 +132,9 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   const before = git(repo, "rev-parse", "HEAD");
   rmSync(upstream, { recursive: true });
   const slept: number[] = [];
-  const warn = console.warn;
-  console.warn = () => {};
-  try {
-    assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms)));
-  } finally {
-    console.warn = warn;
-  }
+  withWarnings(() =>
+    assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms))),
+  );
   assert.deepEqual(slept, [5_000, 20_000]);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
@@ -130,13 +148,7 @@ test("a fetch that fails transiently is retried and the checkout advances", (t) 
   const next = advance();
   const away = join(root, "away");
   renameSync(upstream, away);
-  const warn = console.warn;
-  console.warn = () => {};
-  try {
-    syncCheckout(repo, undefined, () => renameSync(away, upstream));
-  } finally {
-    console.warn = warn;
-  }
+  withWarnings(() => syncCheckout(repo, undefined, () => renameSync(away, upstream)));
   assert.equal(git(repo, "rev-parse", "HEAD"), next);
 });
 
@@ -173,37 +185,18 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
 });
 
 test("bootstrap failure preserves exit status and releases the lock", (t) => {
-  const { root, repo, upstream } = fixture(t);
-  const bin = join(root, "bin");
-  mkdirSync(bin);
-  writeFileSync(join(bin, "mise"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-  writeFileSync(join(repo, "dotfiles"), "#!/bin/sh\nexit 23\n", { mode: 0o755 });
-  git(repo, "add", "dotfiles");
-  git(repo, "commit", "-m", "bootstrap");
-  git(upstream, "config", "receive.denyCurrentBranch", "updateInstead");
-  git(repo, "push", "origin", "main");
-  const previousPath = process.env.PATH;
-  process.env.PATH = `${bin}:${previousPath}`;
-  t.onTestFinished(() => {
-    process.env.PATH = previousPath;
-  });
+  const f = fixture(t);
+  const { repo } = f;
+  publishBootstrap(t, f, "exit 23");
   assert.throws(() => converge(repo), { exitCode: 23 });
   assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
 });
 
 for (const state of ["clean", "dirty", "unreachable"] as const) {
   test(`agent rule checkout ${state === "clean" ? "advances before maintenance" : state === "dirty" ? "with local work is kept with a warning and convergence succeeds" : "that cannot fetch fails after maintenance"}`, (t) => {
-    const { root, repo, upstream } = fixture(t);
-    const bin = join(root, "bin");
-    mkdirSync(bin);
-    writeFileSync(join(bin, "mise"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-    writeFileSync(join(repo, "dotfiles"), `#!/bin/sh\ncat "$RULES" > "$RENDERED"\n`, {
-      mode: 0o755,
-    });
-    git(repo, "add", "dotfiles");
-    git(repo, "commit", "-m", "bootstrap");
-    git(upstream, "config", "receive.denyCurrentBranch", "updateInstead");
-    git(repo, "push", "origin", "main");
+    const f = fixture(t);
+    const { root, repo } = f;
+    publishBootstrap(t, f, 'cat "$RULES" > "$RENDERED"');
     const rules = fixture(t);
     const home = join(root, "home");
     mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
@@ -214,13 +207,8 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
     if (state === "unreachable") rmSync(rules.upstream, { recursive: true });
     const before = git(rules.repo, "rev-parse", "HEAD");
     const rendered = join(root, "AGENTS.md");
-    const previous = {
-      PATH: process.env.PATH,
-      RULES: process.env.RULES,
-      RENDERED: process.env.RENDERED,
-    };
+    const previous = { RULES: process.env.RULES, RENDERED: process.env.RENDERED };
     Object.assign(process.env, {
-      PATH: `${bin}:${previous.PATH}`,
       RULES: join(home, ".config/dotfiles/agents.end.md"),
       RENDERED: rendered,
     });
@@ -233,27 +221,16 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
         else process.env[key] = value;
     });
     if (state === "unreachable") {
-      const warn = console.warn;
-      console.warn = () => {};
-      try {
+      withWarnings(() =>
         assert.throws(
           () => converge(repo, { sleep: () => {} }, home),
           /agent rule checkouts not updated/,
-        );
-      } finally {
-        console.warn = warn;
-      }
+        ),
+      );
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
       assert.equal(readFileSync(rendered, "utf8"), "first\n");
     } else if (state === "dirty") {
-      const warnings: unknown[][] = [];
-      const warn = console.warn;
-      console.warn = (...args: unknown[]) => void warnings.push(args);
-      try {
-        converge(repo, {}, home);
-      } finally {
-        console.warn = warn;
-      }
+      const warnings = withWarnings(() => converge(repo, {}, home));
       assert.match(String(warnings[0]?.[0]), /local changes/);
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), before);
       assert.equal(readFileSync(join(rules.repo, "notes"), "utf8"), "keep\n");

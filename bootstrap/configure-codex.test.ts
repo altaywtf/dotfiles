@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { test } from "vite-plus/test";
+import { test, type TestContext } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
@@ -25,6 +25,16 @@ function run(home: string, profile = "workstation", userHome = process.env.HOME)
     encoding: "utf8",
     env: { ...process.env, CODEX_HOME: home, HOME: userHome },
   });
+}
+
+function codexConfig(t: TestContext, contents: string) {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+  const home = join(root, "codex");
+  const config = join(home, "config.toml");
+  mkdirSync(home);
+  writeFileSync(config, contents);
+  return { home, config };
 }
 
 function assertDefaults(contents: string): void {
@@ -64,63 +74,46 @@ function assertDefaults(contents: string): void {
 test(
   "installed Codex replaces full access with auto review, preserves unrelated config, and is idempotent",
   { skip: !codexInstalled },
-  () => {
-    const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
-    const home = join(root, "codex");
-    const config = join(home, "config.toml");
-    try {
-      mkdirSync(home);
-      writeFileSync(
-        config,
-        'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\napprovals_reviewer = "user"\ndefault_permissions = ":danger-full-access"\nsandbox_mode = "danger-full-access"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
-      );
-      chmodSync(config, 0o644);
+  (t) => {
+    const { home, config } = codexConfig(
+      t,
+      'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\napprovals_reviewer = "user"\ndefault_permissions = ":danger-full-access"\nsandbox_mode = "danger-full-access"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
+    );
+    chmodSync(config, 0o644);
 
-      const first = run(home);
-      assert.equal(first.status, 0, first.stderr);
-      const contents = readFileSync(config, "utf8");
-      assert.ok(contents.includes("# keep this comment"));
-      assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
-      assertDefaults(contents);
-      assert.equal(statSync(config).mode & 0o777, 0o600);
+    const first = run(home);
+    assert.equal(first.status, 0, first.stderr);
+    const contents = readFileSync(config, "utf8");
+    assert.ok(contents.includes("# keep this comment"));
+    assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
+    assertDefaults(contents);
+    assert.equal(statSync(config).mode & 0o777, 0o600);
 
-      const second = run(home);
-      assert.equal(second.status, 0, second.stderr);
-      assert.equal(readFileSync(config, "utf8"), contents);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const second = run(home);
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(readFileSync(config, "utf8"), contents);
   },
 );
 
-test("installed Codex clears Fast mode on personal profiles too", { skip: !codexInstalled }, () => {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-personal-config-"));
-  const home = join(root, "codex");
-  const config = join(home, "config.toml");
-  try {
-    mkdirSync(home);
-    writeFileSync(config, 'service_tier = "fast"\n\n[features]\nfast_mode = true\n');
+test(
+  "installed Codex clears Fast mode on personal profiles too",
+  { skip: !codexInstalled },
+  (t) => {
+    const { home, config } = codexConfig(
+      t,
+      'service_tier = "fast"\n\n[features]\nfast_mode = true\n',
+    );
     const result = run(home, "personal-workstation");
     assert.equal(result.status, 0, result.stderr);
     assertDefaults(readFileSync(config, "utf8"));
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+  },
+);
 
-test("installed Codex does not overwrite malformed input", { skip: !codexInstalled }, () => {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-invalid-"));
-  const home = join(root, "codex");
-  const config = join(home, "config.toml");
-  try {
-    mkdirSync(home);
-    writeFileSync(config, "model = [\n");
-    const result = run(home);
-    assert.notEqual(result.status, 0);
-    assert.equal(readFileSync(config, "utf8"), "model = [\n");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+test("installed Codex does not overwrite malformed input", { skip: !codexInstalled }, (t) => {
+  const { home, config } = codexConfig(t, "model = [\n");
+  const result = run(home);
+  assert.notEqual(result.status, 0);
+  assert.equal(readFileSync(config, "utf8"), "model = [\n");
 });
 
 test(

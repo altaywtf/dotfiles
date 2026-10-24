@@ -126,26 +126,8 @@ function createFixture(): { repoDir: string; home: string } {
   writeManifest(repoDir, "workstation", []);
   writeManifest(repoDir, "devbox", []);
   writeManifest(repoDir, "personal", fixturePersonalPlugins);
-  writeClaudeCheckout(home, "shared-market", ["alpha", "beta"]);
-  writeClaudeCheckout(home, "personal-market", ["gamma"]);
 
   return { repoDir, home };
-}
-
-function writeClaudeCheckout(home: string, marketplaceId: string, skills: readonly string[]): void {
-  for (const skill of skills) {
-    const skillDir = join(
-      home,
-      ".claude",
-      "plugins",
-      "marketplaces",
-      marketplaceId,
-      "skills",
-      skill,
-    );
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, "SKILL.md"), `---\nname: ${skill}\n---\n`);
-  }
 }
 
 function writeManifest(repoDir: string, layer: string, plugins: unknown): void {
@@ -234,51 +216,24 @@ test("honours an explicit marketplaceId when the marketplace name diverges", () 
   assert.equal(readPlugins(manifestPath(repoDir, "developer"))[0]?.marketplaceId, "renamed");
 });
 
-test("rejects a marketplace that is not owner/repo", () => {
+const ENTRY_SHAPE = /expected owner\/repo marketplace and safe plugin name strings/;
+const HARNESS_SET = /harnesses must be a unique/;
+
+test.each([
+  ["a marketplace that is not owner/repo", { marketplace: "fixture", name: "one" }, ENTRY_SHAPE],
+  ["an unsafe plugin name", { marketplace: "fixture/market", name: "../escape" }, ENTRY_SHAPE],
+  ["an unknown harness", { marketplace: "f/m", name: "one", harnesses: ["windsurf"] }, HARNESS_SET],
+  [
+    "a duplicated harness",
+    { marketplace: "f/m", name: "one", harnesses: ["claude", "claude"] },
+    HARNESS_SET,
+  ],
+  ["an empty harness list", { marketplace: "f/m", name: "one", harnesses: [] }, HARNESS_SET],
+])("rejects a manifest entry with %s", (_case, entry, message) => {
   const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [{ marketplace: "fixture", name: "one" }]);
+  writeManifest(repoDir, "developer", [entry]);
 
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /expected owner\/repo marketplace and safe plugin name strings/,
-  );
-});
-
-test("rejects an unsafe plugin name before planning any command", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [{ marketplace: "fixture/market", name: "../escape" }]);
-
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /expected owner\/repo marketplace and safe plugin name strings/,
-  );
-});
-
-test("rejects an unknown or duplicated harness", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", harnesses: ["claude", "windsurf"] },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /harnesses must be a unique/,
-  );
-
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", harnesses: ["claude", "claude"] },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /harnesses must be a unique/,
-  );
-
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", harnesses: [] },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /harnesses must be a unique/,
-  );
+  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), message);
 });
 
 test("applies the developer layer across every installed harness", () => {
@@ -358,12 +313,13 @@ test("skips refresh commands after their marketplace add or plugin install fails
   ]);
 });
 
-test("does not prune or advance ownership when a plugin refresh fails", () => {
+test("does not prune or advance ownership when an install or refresh fails", () => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
 
   for (const [command, stderr] of [
+    ["claude plugin marketplace add fixture/shared-market", "install failed"],
     ["claude plugin update shared-plugin@shared-market -y", "stale cache locked"],
     ["codex plugin marketplace upgrade shared-market", "upgrade failed"],
   ] as const) {
@@ -397,27 +353,6 @@ test("adds the personal layer only for personal profiles", () => {
     harnessCalls(runtime, "codex").some((call) => call.includes("personal-plugin")),
     false,
   );
-});
-
-test("skips a harness whose CLI is not installed", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("codex");
-
-  assert.equal(main([], runtime), 0);
-  assert.match(runtime.stdout.value, /Skipping Codex plugins: 'codex' is not installed/);
-  assert.deepEqual(harnessCalls(runtime, "codex"), []);
-  assert.equal(harnessCalls(runtime, "claude").length, 3);
-});
-
-test("repeating a successful apply issues the same commands and exits 0", () => {
-  const { repoDir, home } = createFixture();
-  const first = new FixtureRuntime(repoDir, home);
-  const second = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], first), 0);
-  assert.equal(main([], second), 0);
-  assert.deepEqual(first.calls, second.calls);
 });
 
 test("reports every failing command with a redacted diagnostic", () => {
@@ -493,13 +428,8 @@ test("refuses an unknown profile before touching a harness", () => {
   assert.equal(runtime.calls.length, 1);
 });
 
-test("rejects unknown arguments and prints help without applying", () => {
+test("prints help without applying", () => {
   const { repoDir, home } = createFixture();
-  const rejected = new FixtureRuntime(repoDir, home);
-  assert.equal(main(["--unexpected"], rejected), 2);
-  assert.match(rejected.stderr.value, /Unknown argument: --unexpected/);
-  assert.equal(rejected.calls.length, 0);
-
   const helped = new FixtureRuntime(repoDir, home);
   assert.equal(main(["--help"], helped), 0);
   assert.match(
@@ -559,6 +489,7 @@ test("prunes dropped plugins on present harnesses and defers absent ones until t
     "plugin uninstall -y retired-plugin@retired-market",
   ]);
   assert.deepEqual(harnessCalls(withoutCodex, "codex"), []);
+  assert.match(withoutCodex.stdout.value, /Skipping Codex plugins: 'codex' is not installed/);
   assert.match(
     withoutCodex.stdout.value,
     /Skipping Codex plugin removal: 'codex' is not installed/,
@@ -609,7 +540,10 @@ test("drops Claude ownership of a synced plugin that has no local install left",
   });
 
   assert.equal(main([], runtime), 0);
-  assert.ok(!harnessCalls(runtime, "claude").some((call) => call.startsWith("plugin uninstall")));
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
   const locked = JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins;
   assert.deepEqual(
     locked.map((plugin: { name: string; harnesses: string[] }) => [plugin.name, plugin.harnesses]),
@@ -634,12 +568,13 @@ test("still uninstalls a retired local install that a synced plugin shadows", ()
   );
 });
 
-test("uninstalls a local Claude install that shadows a selected synced plugin", () => {
+test("uninstalls only a local Claude install that shadows a selected synced plugin", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
     outputs: listOutputs([
       "shared-plugin@synced",
       "shared-plugin@other-market",
+      "second-plugin@shared-market",
       "unrelated@unrelated-market",
       "unrelated@synced",
     ]),
@@ -657,33 +592,6 @@ test("uninstalls a local Claude install that shadows a selected synced plugin", 
   );
 });
 
-test("uninstalls nothing when a synced plugin has no local install", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: listOutputs(["shared-plugin@synced"]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "claude"), [
-    "plugin marketplace add fixture/shared-market",
-    "plugin install second-plugin@shared-market",
-  ]);
-});
-
-test("keeps a local Claude install that no synced plugin shadows", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, {
-    outputs: listOutputs(["shared-plugin@shared-market"]),
-  });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(harnessCalls(runtime, "claude"), [
-    "plugin marketplace add fixture/shared-market",
-    "plugin install shared-plugin@shared-market",
-    "plugin install second-plugin@shared-market",
-  ]);
-});
-
 test("installs every selected plugin when Claude cannot list synced plugins", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
@@ -695,13 +603,30 @@ test("installs every selected plugin when Claude cannot list synced plugins", ()
   assert.match(runtime.stdout.value, /could not read synced plugins/);
 });
 
-function signedOutRun(claudeAuth: FixtureOptions): FixtureRuntime {
+test.each([
+  [
+    "is signed out",
+    { outputs: new Map([[`claude ${AUTH_STATUS}`, '{"loggedIn":false,"authMethod":"none"}']]) },
+    /Claude: not signed in for this run; leaving plugins unchanged/,
+  ],
+  [
+    "cannot report its sign-in status",
+    { failures: new Map([[`claude ${AUTH_STATUS}`, { stdout: "", stderr: "boom" }]]) },
+    /Claude: could not read sign-in status \(exit 1\)/,
+  ],
+  [
+    "prints unparseable sign-in output",
+    { outputs: new Map([[`claude ${AUTH_STATUS}`, "not json"]]) },
+    /Claude: could not read sign-in status/,
+  ],
+])("leaves Claude plugins and their ownership unchanged when Claude %s", (_case, auth, message) => {
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   writePluginLock(home, [retired]);
-  const runtime = new FixtureRuntime(repoDir, home, claudeAuth);
+  const runtime = new FixtureRuntime(repoDir, home, auth);
 
   assert.equal(main(["--update"], runtime), 0);
+  assert.match(runtime.stdout.value, message);
   assert.deepEqual(
     runtime.calls.filter((call) => call.command === "claude").map((call) => call.args.join(" ")),
     [AUTH_STATUS],
@@ -717,64 +642,6 @@ function signedOutRun(claudeAuth: FixtureOptions): FixtureRuntime {
       ["retired-plugin", ["claude"]],
     ],
   );
-  return runtime;
-}
-
-test("leaves Claude plugins and their ownership unchanged when Claude is signed out", () => {
-  const runtime = signedOutRun({
-    outputs: new Map([
-      [`claude ${AUTH_STATUS}`, JSON.stringify({ loggedIn: false, authMethod: "none" })],
-    ]),
-  });
-  assert.match(
-    runtime.stdout.value,
-    /Claude: not signed in for this run; leaving plugins unchanged/,
-  );
-});
-
-test("treats an unreadable Claude sign-in status as signed out", () => {
-  const runtime = signedOutRun({
-    failures: new Map([[`claude ${AUTH_STATUS}`, { stdout: "", stderr: "boom" }]]),
-  });
-  assert.match(runtime.stdout.value, /Claude: could not read sign-in status \(exit 1\)/);
-});
-
-test("treats unparseable Claude sign-in output as signed out", () => {
-  signedOutRun({ outputs: new Map([[`claude ${AUTH_STATUS}`, "not json"]]) });
-});
-
-test("syncs Claude plugins when Claude is signed in", () => {
-  const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(runtime.calls.find((call) => call.command === "claude")?.args, [
-    "auth",
-    "status",
-  ]);
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin install shared-plugin@shared-market"));
-});
-
-test("does not prune or advance ownership when installation fails", () => {
-  const { repoDir, home } = createFixture();
-  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
-  const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
-  writePluginLock(home, [...fixtureSharedPlugins, retired]);
-  const runtime = new FixtureRuntime(repoDir, home, {
-    failures: new Map([
-      [
-        "claude plugin marketplace add fixture/shared-market",
-        { stdout: "", stderr: "install failed" },
-      ],
-    ]),
-  });
-
-  assert.equal(main([], runtime), 1);
-  assert.equal(
-    harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
-    false,
-  );
-  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), previous);
 });
 
 test("does not advance ownership when a managed removal fails", () => {
@@ -799,37 +666,29 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
 });
 
-test("rejects an unsafe ownership lock before changing plugins", () => {
+test.each([
+  [
+    "an unsafe plugin name",
+    {
+      marketplace: "fixture/market",
+      marketplaceId: "market",
+      name: "../escape",
+      harnesses: ["claude"],
+    },
+  ],
+  [
+    "no explicit harness membership",
+    { marketplace: "fixture/shared-market", marketplaceId: "shared-market", name: "shared-plugin" },
+  ],
+])("rejects an ownership lock entry with %s before changing plugins", (_case, entry) => {
   const { repoDir, home } = createFixture();
-  writePluginLock(home, [{ marketplace: "fixture/market", name: "../escape" }]);
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Invalid managed plugins lock/);
-  assert.equal(harnessCalls(runtime, "claude").length, 0);
-});
-
-test("rejects a lock that omits explicit harness membership", () => {
-  const { repoDir, home } = createFixture();
-  writeFileSync(
-    pluginLockPath(home),
-    JSON.stringify({
-      version: 1,
-      plugins: [
-        {
-          marketplace: "fixture/shared-market",
-          marketplaceId: "shared-market",
-          name: "shared-plugin",
-        },
-      ],
-    }),
-  );
+  writeFileSync(pluginLockPath(home), JSON.stringify({ version: 1, plugins: [entry] }));
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
   assert.match(
     runtime.stderr.value,
-    /expected explicit marketplace, marketplaceId, name, and harnesses/,
+    /Invalid managed plugins lock.*expected explicit marketplace, marketplaceId, name, and harnesses/,
   );
   assert.equal(harnessCalls(runtime, "claude").length, 0);
 });

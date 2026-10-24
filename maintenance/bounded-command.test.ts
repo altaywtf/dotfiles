@@ -4,20 +4,39 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Exit, Layer } from "effect";
-import { test } from "vite-plus/test";
+import { Effect, Exit } from "effect";
+import { test, type TestContext } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
 import { BoundedCommand, type BoundedCommandOptions } from "./bounded-command.ts";
 
-const execute = (script: string, options: BoundedCommandOptions) =>
+type Runner = Parameters<typeof CommandRunner.of>[0];
+
+// Runs `command` under the real layers; `wrap` may replace the process inventory runner.
+const bounded = (
+  command: string,
+  args: readonly string[],
+  options: BoundedCommandOptions,
+  wrap: (real: Runner) => Runner = (real) => real,
+) =>
   Effect.gen(function* () {
-    const command = yield* BoundedCommand;
-    return yield* command.run(process.execPath, ["-e", script], options);
-  }).pipe(
-    Effect.provide(BoundedCommand.layer),
-    Effect.provide(CommandRunner.layer),
-    Effect.provide(NodeServices.layer),
-  );
+    const real = yield* CommandRunner;
+    return yield* Effect.gen(function* () {
+      return yield* (yield* BoundedCommand).run(command, args, options);
+    }).pipe(
+      Effect.provide(BoundedCommand.layer),
+      Effect.provideService(CommandRunner, CommandRunner.of(wrap(real))),
+    );
+  }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
+const execute = (script: string, options: BoundedCommandOptions, wrap?: (real: Runner) => Runner) =>
+  bounded(process.execPath, ["-e", script], options, wrap);
+
+async function diagnostics(t: TestContext, prefix = "dotfiles-bounded-") {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  return join(directory, "diagnostics");
+}
+
+const clean = { timedOut: false, diagnosticPath: undefined, cleanupComplete: true };
 
 async function waitForPid(path: string): Promise<number> {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -46,59 +65,36 @@ process.on('SIGTERM',()=>{}); setInterval(()=>{},1000);
 
 for (const status of [0, 23]) {
   test(`bounded updates preserve exit ${status}`, async (t) => {
-    const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
-    t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
-    const result = await Effect.runPromise(
-      execute(`process.exit(${status})`, {
-        diagnosticDirectory: join(directory, "diagnostics"),
-        timeoutMs: 2_000,
-      }),
+    const diagnosticDirectory = await diagnostics(t);
+    assert.deepEqual(
+      await Effect.runPromise(
+        execute(`process.exit(${status})`, { diagnosticDirectory, timeoutMs: 2_000 }),
+      ),
+      { status, ...clean },
     );
-    assert.deepEqual(result, {
-      status,
-      timedOut: false,
-      diagnosticPath: undefined,
-      cleanupComplete: true,
-    });
   });
 }
 
 test("a command that exits before the first inventory still proves cleanup", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const diagnosticDirectory = await diagnostics(t);
   for (let attempt = 0; attempt < 10; attempt++) {
     const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const command = yield* BoundedCommand;
-        return yield* command.run("/bin/sh", ["-c", "exit 0"], {
-          diagnosticDirectory: join(directory, "diagnostics"),
-          timeoutMs: 2_000,
-        });
-      }).pipe(
-        Effect.provide(BoundedCommand.layer),
-        Effect.provide(CommandRunner.layer),
-        Effect.provide(NodeServices.layer),
-      ),
+      bounded("/bin/sh", ["-c", "exit 0"], { diagnosticDirectory, timeoutMs: 2_000 }),
     );
-    assert.deepEqual(result, {
-      status: 0,
-      timedOut: false,
-      diagnosticPath: undefined,
-      cleanupComplete: true,
-    });
+    assert.deepEqual(result, { status: 0, ...clean });
   }
 });
 
 test("a command that dies before release still returns", { timeout: 10_000 }, async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const diagnosticDirectory = await diagnostics(t);
   // Kill the gate shell during the first inventory, before it is released.
-  const killing = Layer.effect(
-    CommandRunner,
-    Effect.gen(function* () {
-      const real = yield* CommandRunner;
-      let armed = true;
-      return CommandRunner.of({
+  let armed = true;
+  const exit = await Effect.runPromise(
+    bounded(
+      "/bin/sh",
+      ["-c", "exit 0"],
+      { diagnosticDirectory, timeoutMs: 2_000, termGraceMs: 50 },
+      (real) => ({
         run: (command, args, options) =>
           armed && command === "/bin/ps"
             ? Effect.gen(function* () {
@@ -110,23 +106,8 @@ test("a command that dies before release still returns", { timeout: 10_000 }, as
                 return yield* real.run(command, args, options);
               })
             : real.run(command, args, options),
-      });
-    }),
-  ).pipe(Layer.provide(CommandRunner.layer));
-  const exit = await Effect.runPromise(
-    Effect.gen(function* () {
-      const command = yield* BoundedCommand;
-      return yield* command.run("/bin/sh", ["-c", "exit 0"], {
-        diagnosticDirectory: join(directory, "diagnostics"),
-        timeoutMs: 2_000,
-        termGraceMs: 50,
-      });
-    }).pipe(
-      Effect.exit,
-      Effect.provide(BoundedCommand.layer),
-      Effect.provide(killing),
-      Effect.provide(NodeServices.layer),
-    ),
+      }),
+    ).pipe(Effect.exit),
   );
   assert.ok(Exit.isFailure(exit) || exit.value.status !== 0);
 });
@@ -212,27 +193,19 @@ test("cancellation cleans a detached child before returning", async (t) => {
   assert.equal(alive(child), false);
 });
 
+const invalidRow = () => Effect.succeed({ status: 0, stdout: "invalid process row", stderr: "" });
+
 test("unavailable process inventory reports incomplete cleanup", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const command = yield* BoundedCommand;
-      return yield* command.run(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
-        diagnosticDirectory: join(directory, "diagnostics"),
+    execute(
+      "setInterval(()=>{},1000)",
+      {
+        diagnosticDirectory: await diagnostics(t),
         timeoutMs: 100,
         termGraceMs: 10,
         pollIntervalMs: 10,
-      });
-    }).pipe(
-      Effect.provide(BoundedCommand.layer),
-      Effect.provideService(
-        CommandRunner,
-        CommandRunner.of({
-          run: () => Effect.succeed({ status: 0, stdout: "invalid process row", stderr: "" }),
-        }),
-      ),
-      Effect.provide(NodeServices.layer),
+      },
+      () => ({ run: invalidRow }),
     ),
   );
   assert.equal(result.status, 124);
@@ -241,61 +214,30 @@ test("unavailable process inventory reports incomplete cleanup", async (t) => {
 });
 
 test("a transient inventory failure does not void cleanup proof", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-transient-inventory-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  let first = true;
   const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const runner = yield* CommandRunner;
-      let first = true;
-      return yield* Effect.gen(function* () {
-        const command = yield* BoundedCommand;
-        return yield* command.run(process.execPath, ["-e", "process.exit(0)"], {
-          diagnosticDirectory: join(directory, "diagnostics"),
-          timeoutMs: 2_000,
-        });
-      }).pipe(
-        Effect.provide(BoundedCommand.layer),
-        Effect.provideService(
-          CommandRunner,
-          CommandRunner.of({
-            run: (command, args, options) =>
-              Effect.suspend(() => {
-                if (command !== "/bin/ps" || !first) return runner.run(command, args, options);
-                first = false;
-                return Effect.succeed({ status: 0, stdout: "invalid process row", stderr: "" });
-              }),
+    execute(
+      "process.exit(0)",
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      (real) => ({
+        run: (command, args, options) =>
+          Effect.suspend(() => {
+            if (command !== "/bin/ps" || !first) return real.run(command, args, options);
+            first = false;
+            return invalidRow();
           }),
-        ),
-      );
-    }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+      }),
+    ),
   );
-  assert.deepEqual(result, {
-    status: 0,
-    timedOut: false,
-    diagnosticPath: undefined,
-    cleanupComplete: true,
-  });
+  assert.deepEqual(result, { status: 0, ...clean });
 });
 
 test("a missed root identity cannot certify cleanup even when the command exits normally", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-missed-root-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const command = yield* BoundedCommand;
-      return yield* command.run(process.execPath, ["-e", "process.exit(0)"], {
-        diagnosticDirectory: join(directory, "diagnostics"),
-        timeoutMs: 2_000,
-      });
-    }).pipe(
-      Effect.provide(BoundedCommand.layer),
-      Effect.provideService(
-        CommandRunner,
-        CommandRunner.of({
-          run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }),
-        }),
-      ),
-      Effect.provide(NodeServices.layer),
+    execute(
+      "process.exit(0)",
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      () => ({ run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }) }),
     ),
   );
   assert.equal(result.status, 0);
@@ -304,37 +246,24 @@ test("a missed root identity cannot certify cleanup even when the command exits 
 });
 
 test("a system account reported with a negative UID does not invalidate the update inventory", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "dotfiles-system-uid-"));
-  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const runner = yield* CommandRunner;
-      return yield* Effect.gen(function* () {
-        const command = yield* BoundedCommand;
-        return yield* command.run(process.execPath, ["-e", "setTimeout(() => {}, 100)"], {
-          diagnosticDirectory: join(directory, "diagnostics"),
-          timeoutMs: 2_000,
-        });
-      }).pipe(
-        Effect.provide(BoundedCommand.layer),
-        Effect.provideService(
-          CommandRunner,
-          CommandRunner.of({
-            run: (command, args, options) =>
-              runner.run(command, args, options).pipe(
-                Effect.map((result) =>
-                  command === "/bin/ps"
-                    ? {
-                        ...result,
-                        stdout: `${result.stdout}\n999999 1 -2 Sun Sep 20 10:53:05 2026 S 0.0\n`,
-                      }
-                    : result,
-                ),
-              ),
-          }),
-        ),
-      );
-    }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+    execute(
+      "setTimeout(() => {}, 100)",
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      (real) => ({
+        run: (command, args, options) =>
+          real.run(command, args, options).pipe(
+            Effect.map((result) =>
+              command === "/bin/ps"
+                ? {
+                    ...result,
+                    stdout: `${result.stdout}\n999999 1 -2 Sun Sep 20 10:53:05 2026 S 0.0\n`,
+                  }
+                : result,
+            ),
+          ),
+      }),
+    ),
   );
   assert.equal(result.status, 0);
   assert.equal(result.cleanupComplete, true);

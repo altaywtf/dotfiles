@@ -101,51 +101,33 @@ test("a missing job cannot silently run an uncoordinated updater", async () => {
   ]);
 });
 
-test("enrolled devboxes start the system updater through the sudo helper", async () => {
+const kickstart = ["/bin/launchctl", "kickstart", systemService];
+test.each([
+  {
+    caller: "enrolled devboxes use the sudo helper",
+    options: { devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n", interactive: false },
+    argv: [process.execPath, join(repoRoot, "identity/sops-devbox-sudo.ts"), "--", ...kickstart],
+  },
+  {
+    caller: "unattended callers without the helper never wait on a sudo prompt",
+    options: { devbox: "DEVBOX_USER=fixture\n", interactive: false },
+    argv: ["/usr/bin/sudo", "-n", "--", ...kickstart],
+    status: 1,
+  },
+  {
+    caller: "terminal callers without the helper get the sudo prompt",
+    options: { interactive: true },
+    argv: ["/usr/bin/sudo", "--", ...kickstart],
+  },
+])("system updater kickstart: $caller", async ({ options, argv, status = 0 }) => {
   const calls: string[][] = [];
-  const result = await runSystemUpdate(systemRunner(calls), {
-    devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
-    interactive: false,
-  });
-  assert.ok(Result.isSuccess(result));
-  const kickstart = calls.at(-1) ?? [];
-  assert.equal(kickstart[0], process.execPath);
-  assert.match(kickstart[1] ?? "", /identity\/sops-devbox-sudo\.ts$/);
-  assert.deepEqual(kickstart.slice(2), ["--", "/bin/launchctl", "kickstart", systemService]);
-});
-
-test("unattended callers without sudo helper config never wait on a sudo prompt", async () => {
-  const calls: string[][] = [];
-  const result = await runSystemUpdate(systemRunner(calls, 1), {
-    devbox: "DEVBOX_USER=fixture\n",
-    interactive: false,
-  });
-  assert.deepEqual(calls.at(-1), [
-    "/usr/bin/sudo",
-    "-n",
-    "--",
-    "/bin/launchctl",
-    "kickstart",
-    systemService,
-  ]);
-  assert.ok(Result.isFailure(result));
-  assert.match(
-    String(result.failure),
-    new RegExp(`run: sudo /bin/launchctl kickstart ${systemService.replaceAll(".", "\\.")}`),
-  );
-});
-
-test("terminal callers without the helper get the sudo prompt", async () => {
-  const calls: string[][] = [];
-  const result = await runSystemUpdate(systemRunner(calls), { interactive: true });
-  assert.ok(Result.isSuccess(result));
-  assert.deepEqual(calls.at(-1), [
-    "/usr/bin/sudo",
-    "--",
-    "/bin/launchctl",
-    "kickstart",
-    systemService,
-  ]);
+  const result = await runSystemUpdate(systemRunner(calls, status), options);
+  assert.deepEqual(calls.at(-1), argv);
+  if (status === 0) assert.ok(Result.isSuccess(result));
+  else {
+    assert.ok(Result.isFailure(result));
+    assert.ok(String(result.failure).includes(`run: sudo ${kickstart.join(" ")}`));
+  }
 });
 
 test("on-demand launch failures reach the caller", async () => {
@@ -344,16 +326,6 @@ const fixturePlist = {
   },
 };
 
-test("plist comparison covers only arguments and environment, never the schedule", () => {
-  const loaded = parseLaunchdPrint(launchdPrintFixture);
-  const rescheduled = {
-    ...fixturePlist,
-    StartCalendarInterval: [{ Hour: 3, Minute: 0 }],
-    WorkingDirectory: "/elsewhere",
-  };
-  assert.deepEqual(comparePlist(loaded, rescheduled), { comparable: true, drift: [] });
-});
-
 test("launchctl print parsing extracts only the job's own arguments and environment", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
   assert.deepEqual(loaded.arguments, fixtureArguments);
@@ -380,6 +352,16 @@ test("launchctl print parsing extracts only the job's own arguments and environm
 test("drift detection compares the loaded job against the rendered plist defensively", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
   assert.deepEqual(comparePlist(loaded, fixturePlist), { comparable: true, drift: [] });
+  const rescheduled = {
+    ...fixturePlist,
+    StartCalendarInterval: [{ Hour: 3, Minute: 0 }],
+    WorkingDirectory: "/elsewhere",
+  };
+  assert.deepEqual(
+    comparePlist(loaded, rescheduled),
+    { comparable: true, drift: [] },
+    "schedule and working directory are outside the comparison",
+  );
   const changedArguments = {
     ...fixturePlist,
     ProgramArguments: [...fixtureArguments.slice(0, -1), "--dry-run"],
