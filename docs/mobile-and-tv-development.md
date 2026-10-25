@@ -24,27 +24,10 @@ xcodebuild -downloadPlatform tvOS
 
 ## Android TV
 
-On Linux, install the Android SDK under `~/Android/Sdk` first. Pick packages
-for the app's API level and host architecture, for example:
-
-```zsh
-sdkmanager --licenses
-sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
-avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
-emulator -list-avds
-```
-
-Select another JDK per project (`mise use java@temurin-17`), not in the shared
-toolchain.
-
-## CocoaPods and Fastlane
-
-Use the app's Ruby environment and `Gemfile`:
-
-```zsh
-bundle install
-cd ios && bundle exec pod install
-```
+On Linux, install the Android SDK under `~/Android/Sdk`, where the shell
+looks for it. Select another JDK per project (`mise use java@temurin-17`), not
+in the shared toolchain. Run CocoaPods and Fastlane through the app's
+`Gemfile` with `bundle exec`.
 
 ## Tizen
 

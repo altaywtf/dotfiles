@@ -20,8 +20,6 @@ secrets. Share JSON summaries, not raw output.
 - [.gitleaks.toml](../.gitleaks.toml) allowlists exact synthetic fixture values
   only: no real keys, whole paths, commits, or provider rules.
 - A passing devbox audit does not prove privacy for every project descendant.
-- Missing or malformed scanner reports, incomplete runs, and exceeded
-  deadlines fail the audit whatever the findings.
 
 For a real secret:
 

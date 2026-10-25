@@ -42,25 +42,15 @@ mise run dotfiles:apply workstation
 - Use `private_` for owner-only files. `exact_` at home-directory scope deletes
   unmanaged files; keep live app and auth state out of `chezmoi add`.
 
-To test apply behavior in isolated homes:
-
-```zsh
-mise run verify:domain config
-mise run verify:domain profiles
-node verify/home-fixture.ts   # focused domains skip it
-```
-
 ### Local Overrides
 
-| Path                                                  | Use                                                            |
-| ----------------------------------------------------- | -------------------------------------------------------------- |
-| `~/.ssh/config.local`                                 | Host-specific SSH directives                                   |
-| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                               |
-| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                     |
-| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                            |
-| `~/.config/dotfiles/claude-automode.json`             | Private Claude auto mode rules                                 |
-| `~/.config/dotfiles/codex.rules`                      | Private Codex command rules                                    |
-| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](docs/devbox.md#local-configuration) |
+| Path                              | Use                                                            |
+| --------------------------------- | -------------------------------------------------------------- |
+| `~/.ssh/config.local`             | Host-specific SSH directives                                   |
+| `~/.ssh/config.d/*.conf`          | Fragments written by other tools                               |
+| `~/.config/dotfiles/zshenv.local` | Machine-specific, non-secret shell exports                     |
+| Agent rule fragments              | [Private agent rules](docs/agents.md#global-rules)             |
+| `~/.config/dotfiles/devbox.env`   | [Per-user devbox settings](docs/devbox.md#local-configuration) |
 
 - Point tools that write SSH config at their own `config.d` fragment, not
   `~/.ssh/config`.
