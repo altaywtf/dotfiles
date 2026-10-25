@@ -3,36 +3,17 @@
 Public macOS and Ubuntu bootstrap framework. `CLAUDE.md` links here; keep one
 authored agent guide.
 
-## Layout
+## Where Code Goes
 
-| Path                             | Responsibility                                |
-| -------------------------------- | --------------------------------------------- |
-| [dotfiles](dotfiles)             | Pre-Node launcher                             |
-| [mise.toml](mise.toml)           | Repository tasks                              |
-| [vite.config.ts](vite.config.ts) | Lint, formatting, and test policy             |
-| [bootstrap/](bootstrap/)         | Per-user setup orchestration                  |
-| [maintenance/](maintenance/)     | Updates, scheduling, and cleanup              |
-| [homebrew/](homebrew/)           | Brewfiles, composition, and prefix management |
-| [agents/](agents/)               | Harness integration and manifests             |
-| [profiles/](profiles/)           | Profile resolution and validation             |
-| [identity/](identity/)           | Git, SSH, and age setup                       |
-| [audit/](audit/)                 | Security audits                               |
-| [verify/](verify/)               | Repository gates and integration fixtures     |
-| [lib/](lib/)                     | Infrastructure shared across domains          |
-| [chezmoi/](chezmoi/)             | Managed home files in Chezmoi's source layout |
-| [docs/](docs/)                   | Operator procedures and rationale             |
-
-Keep implementations, configuration, and unit tests with their domain. Put
-platform code under that domain's `darwin/` or `linux/` directory; create
-neither until needed. Use `lib/` only for code that several domains share.
-Policy and inventories live in code or config; Markdown links to them and
-explains manual actions, recovery, and rationale.
-
-[Managed files](bootstrap/managed-files.ts) own backup handling.
-[Audit scanning](audit/secrets/), [repository cleanup](maintenance/repositories.ts),
-and [external Homebrew capabilities](homebrew/external-capabilities.ts) keep their
-policies separate from their callers. [Agent catalogs](agents/skills/catalog.ts)
-serve both synchronization and read-only inventory.
+- Keep implementation, configuration, and unit tests in their domain directory
+  ([bootstrap/](bootstrap/), [maintenance/](maintenance/), [homebrew/](homebrew/),
+  [agents/](agents/), [profiles/](profiles/), [identity/](identity/),
+  [audit/](audit/), [verify/](verify/)). Platform code goes under the domain's
+  `darwin/` or `linux/`; create neither until needed. [lib/](lib/) holds only
+  code several domains share.
+- Policy and inventories live in code or config. Markdown links to them and
+  covers manual steps and recovery.
+- Managed home files live under [chezmoi/](chezmoi/) in Chezmoi's source layout.
 
 ## Work
 
@@ -55,6 +36,6 @@ serve both synchronization and read-only inventory.
 ## Verify and Deliver
 
 - Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery. Pick focused checks by domain from [checks.json](verify/checks.json); docs-only changes need no live profile checks or audits.
-- Run live checks only on the matching host and user. A green push workflow proves release evaluation, not verification.
+- Run live checks only on the matching host and user.
 - A push to `main` rolls out: machines with the [scheduled updater](docs/software-updates.md#dotfiles-convergence) fast-forward a clean checkout and apply their profile, without rollback.
 - Use proper-case headings and sentence-case prose.

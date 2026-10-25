@@ -1,39 +1,27 @@
 # Security Audits
 
-Audits report findings without applying remediation. Prepare tooling with
-`./dotfiles prepare`; run host checks as the user being audited.
-
-## Run an Audit
-
-Choose a scope from the [`audit` task](../mise.toml) and its
-[scope dispatcher](../audit/run.ts). For example:
+Audits report findings and change nothing. Run host checks as the audited user
+after `./dotfiles prepare`. Scopes live in the [`audit` task](../mise.toml) and
+[audit/run.ts](../audit/run.ts):
 
 ```zsh
 mise run audit workstation
 mise run audit devbox --format json
 ```
 
-Use `mise run verify` for the repository's full deterministic checks and
-secret scans. Direct audit entrypoints accept `--json`.
+Scanner output and kept reports are sensitive: some scanners print matched
+secrets. Share JSON summaries, not raw output.
 
-Treat scanner output and retained reports as sensitive. Local Gitleaks reports
-sanitized locators and counts; other scanners may print matched secrets. Share
-JSON summaries, not raw output.
+## Findings
 
-## Interpret Findings
-
-- [Gitleaks policy](../audit/secrets/gitleaks-policy.json) owns rule severity;
-  `summarizeFindings()` in the [finding classifier](../audit/secrets/findings.ts)
-  applies it. Inspect `generic-api-key` findings before dismissing them: the
+- [gitleaks-policy.json](../audit/secrets/gitleaks-policy.json) owns rule
+  severity. Inspect `generic-api-key` findings before dismissing them; the
   detector often matches shell assignments.
-- [Gitleaks allowlists](../.gitleaks.toml) hold exact synthetic fixture values
+- [.gitleaks.toml](../.gitleaks.toml) allowlists exact synthetic fixture values
   only: no real keys, whole paths, commits, or provider rules.
-- Live credential stores get permission and structure checks instead of the
-  generic scan. For example, `~/.npmrc` must be owner-only with
-  registry-scoped auth. Backups stay scan targets.
-- The [workstation](../audit/workstation.ts) and [devbox](../audit/devbox.ts)
-  policies own individual checks and path coverage. A passing devbox audit
-  does not prove privacy for every project descendant.
+- A passing devbox audit does not prove privacy for every project descendant.
+- Missing or malformed scanner reports, incomplete runs, and exceeded
+  deadlines fail the audit whatever the findings.
 
 For a real secret:
 
@@ -41,30 +29,23 @@ For a real secret:
 2. Remove it from the repository and history when needed.
 3. Record detector, affected surface, and rotation outcome without the value.
 
-## Repository and Scope Policy
+## Policy
 
-- [Repository scan selection](../audit/repo.ts) owns local scan scope;
-  [Contributing](../CONTRIBUTING.md#deliver) covers what CI scans.
-- In a linked worktree, the TruffleHog filesystem pass scans only tracked and
-  unignored files, so ignored trees such as `node_modules` stay out.
-- Set accepted GitHub scopes and drift thresholds in the installed
-  `~/.config/dotfiles/audit.env`, or select another file with
-  `AUDIT_POLICY_FILE=/path/to/file`. See the
-  [policy template](../chezmoi/private_dot_config/private_dotfiles/private_audit.env)
-  and `loadAuditSettings()` in the [policy loader](../audit/engine.ts). Keep it
-  public-safe: no credentials or identity-specific values.
+Set accepted GitHub scopes and drift thresholds in
+`~/.config/dotfiles/audit.env`, or point `AUDIT_POLICY_FILE` at another file.
+Start from the
+[policy template](../chezmoi/private_dot_config/private_dotfiles/private_audit.env)
+and keep it free of credentials and identity-specific values.
 
 ## Deeper Host Checks
 
 ```zsh
 node audit/host.ts --allow-sudo-prompt
+node audit/host.ts --keep-artifacts DIR   # keep Lynis reports; they hold hostnames, paths, and network details
 ```
 
-Lynis reports are deleted after summarizing. `--keep-artifacts DIR` keeps them
-for manual review; they include hostnames, paths, packages, and network
-details.
-
-mSCP is optional and lives outside this repository. Prepare its baseline:
+The optional mSCP check needs its baseline outside this repository. Replace
+`26` with the host's macOS major version:
 
 ```zsh
 mkdir -p ~/projects/security
@@ -78,23 +59,6 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
   custom/baselines/800-53r5_moderate_macos_26.0.yaml --script --no-docs
 ```
 
-- Replace `26` with the host's macOS major version. Return to the dotfiles
-  checkout before running its audit commands.
-- [repo.ts](../audit/repo.ts) derives the generated `build/` script path from
-  `sw_vers`. Pass `--mscp-script PATH` for a custom path, and
-  `--allow-sudo-prompt` for privileged checks.
-- The adapter only runs the script's `--check`; review exceptions before any
-  remediation.
-- References: [Lynis](https://cisofy.com/documentation/lynis/),
-  [mSCP](https://pages.nist.gov/macos_security/).
-
-## Scan Completeness
-
-Malformed or missing Gitleaks reports and incomplete scanner runs fail the
-audit regardless of finding severity. File symlinks take part in discovery;
-broken links and nested directory links produce coverage warnings instead of
-vanishing or looping.
-
-The [audit runtime](../audit/runtime.ts) and scanner adapters own deadlines
-and output limits; exceeding either fails the command. Local TruffleHog output
-is discarded, and its exit status supplies the sanitized finding.
+`node audit/repo.ts` runs only the script's `--check`; pass
+`--mscp-script PATH` for a custom location and `--allow-sudo-prompt` for
+privileged checks. Review exceptions before any remediation.
