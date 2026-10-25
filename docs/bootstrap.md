@@ -39,7 +39,7 @@ export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 
 `age` and `sops` come from the host or Homebrew, not mise, because the
 [sudo wrapper](../identity/sops-devbox-sudo.ts) calls them by fixed path.
-Other tool pins live in the [mise configuration](mise.md#runtime-pins).
+Other tool pins live in the [mise configuration](../README.md#runtime-pins).
 
 ### macOS
 
@@ -132,7 +132,7 @@ DOTFILES_SKIP_SPOTLIGHT_CHECK=1 ./dotfiles check "$profile"
 ```
 
 To keep skipping it, export the variable in your machine-local
-[`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides). `apply` never
+[`~/.config/dotfiles/zshenv.local`](../README.md#local-overrides). `apply` never
 configures Spotlight. An explicit `configure-spotlight.ts` run still disables
 indexing, even with the variable set.
 
