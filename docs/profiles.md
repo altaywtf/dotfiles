@@ -22,7 +22,7 @@ Profiles configure one Unix user; host permissions provide isolation.
   Linux. `developer` and the `devbox` profiles run on both.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
   Homebrew layers, agent selections, and install steps. The referenced
-  Brewfiles own macOS packages; [mise templates](mise.md) own runtime and tool pins.
+  Brewfiles own macOS packages; [mise templates](../README.md#runtime-pins) own runtime and tool pins.
 
 ## Host and User Boundaries
 
