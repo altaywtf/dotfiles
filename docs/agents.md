@@ -50,9 +50,11 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   (`https://github.com/OWNER/REPO/tree/SHA`); Renovate proposes new ones.
 - Sync removes only entries its locks under `~/.local/state/dotfiles/agents/`
   record, so manual installs survive.
-- Machine-specific skills and MCP servers go in an optional, gitignored
-  `agents/local.json` with `skills` and `servers` arrays in the manifest entry
-  shapes. Entries only add; keep credentials out of it.
+- Machine-specific skills, MCP servers, and plugins go in an optional,
+  gitignored `agents/local.json` with `skills`, `servers`, and `plugins` arrays
+  in the manifest entry shapes. Entries only add; keep credentials out of it.
+- A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
+  absolute path. Sources other than `owner/repo` need a `marketplaceId`.
 
 ## MCP Authentication
 

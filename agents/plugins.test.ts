@@ -216,12 +216,23 @@ test("honours an explicit marketplaceId when the marketplace name diverges", () 
   assert.equal(readPlugins(manifestPath(repoDir, "developer"))[0]?.marketplaceId, "renamed");
 });
 
-const ENTRY_SHAPE = /expected owner\/repo marketplace and safe plugin name strings/;
+const ENTRY_SHAPE = /expected a marketplace .* and a safe plugin name/;
 const HARNESS_SET = /harnesses must be a unique/;
 
 test.each([
   ["a marketplace that is not owner/repo", { marketplace: "fixture", name: "one" }, ENTRY_SHAPE],
   ["an unsafe plugin name", { marketplace: "fixture/market", name: "../escape" }, ENTRY_SHAPE],
+  [
+    "an HTTPS marketplace with credentials",
+    { marketplace: "https://user:secret@git.fixture.test/m.git", name: "one", marketplaceId: "m" },
+    ENTRY_SHAPE,
+  ],
+  ["a relative path marketplace", { marketplace: "./market", name: "one" }, ENTRY_SHAPE],
+  [
+    "a Git URL without marketplaceId",
+    { marketplace: "https://git.fixture.test/m.git", name: "one" },
+    /one needs a marketplaceId because its marketplace is not owner\/repo/,
+  ],
   ["an unknown harness", { marketplace: "f/m", name: "one", harnesses: ["windsurf"] }, HARNESS_SET],
   [
     "a duplicated harness",
@@ -234,6 +245,77 @@ test.each([
   writeManifest(repoDir, "developer", [entry]);
 
   assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), message);
+});
+
+test.each([
+  "https://git.fixture.test/owner/market.git",
+  "ssh://git@git.fixture.test/owner/market.git",
+  "git@git.fixture.test:owner/market.git",
+  "/srv/fixture/market",
+])("accepts the marketplace source %s with an explicit marketplaceId", (marketplace) => {
+  const { repoDir } = createFixture();
+  writeManifest(repoDir, "developer", [{ marketplace, marketplaceId: "market", name: "one" }]);
+
+  assert.deepEqual(readPlugins(manifestPath(repoDir, "developer")), [
+    { marketplace, marketplaceId: "market", name: "one", harnesses: HARNESSES },
+  ]);
+});
+
+function writeLocalPlugins(repoDir: string, plugins: unknown): void {
+  writeFileSync(join(repoDir, "agents", "local.json"), JSON.stringify({ plugins }), {
+    mode: 0o600,
+  });
+}
+
+test("local overlay plugins install after profile layers and skip Codex upgrade for a path", () => {
+  const { repoDir, home } = createFixture();
+  writeLocalPlugins(repoDir, [
+    { marketplace: "/srv/fixture/local-market", marketplaceId: "local-market", name: "local" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main(["--update"], runtime), 0);
+  assert.match(runtime.stdout.value, /Plugin layers: developer, workstation, local/);
+  assert.deepEqual(
+    harnessCalls(runtime, "codex").filter((call) => call.includes("local")),
+    ["plugin marketplace add /srv/fixture/local-market", "plugin add local@local-market"],
+  );
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin install local@local-market"));
+});
+
+test("another checkout without the overlay keeps overlay-owned plugins", () => {
+  const { repoDir, home } = createFixture();
+  writeLocalPlugins(repoDir, [
+    { marketplace: "/srv/fixture/local-market", marketplaceId: "local-market", name: "local" },
+  ]);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  const other = new FixtureRuntime(createFixture().repoDir, home);
+  assert.equal(main([], other), 0);
+  assert.equal(
+    harnessCalls(other, "claude").some((call) => call.includes("uninstall -y local@local-market")),
+    false,
+  );
+  const lock = JSON.parse(readFileSync(pluginLockPath(home), "utf8")) as {
+    plugins: { name: string }[];
+  };
+  assert.ok(lock.plugins.some((plugin) => plugin.name === "local"));
+});
+
+test("dropping a plugin from this checkout's overlay uninstalls it", () => {
+  const { repoDir, home } = createFixture();
+  writeLocalPlugins(repoDir, [
+    { marketplace: "/srv/fixture/local-market", marketplaceId: "local-market", name: "local" },
+  ]);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  writeLocalPlugins(repoDir, []);
+  const runtime = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], runtime), 0);
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y local@local-market"));
+  assert.ok(harnessCalls(runtime, "codex").includes("plugin remove local@local-market"));
 });
 
 test("applies the developer layer across every installed harness", () => {

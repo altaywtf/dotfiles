@@ -3,7 +3,7 @@
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
@@ -20,8 +20,17 @@ import {
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
+import { readLocalOverlay } from "./local.ts";
 import { planOwnership } from "./ownership.ts";
-import { readLockFile, writeLockFile, managedLockLocation, withManagedLock } from "./lock.ts";
+import {
+  guardOverlay,
+  managedLockLocation,
+  type OverlayOwnership,
+  readLockFile,
+  readOverlayOwnership,
+  withManagedLock,
+  writeLockFile,
+} from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -33,7 +42,22 @@ import {
 export { HARNESSES } from "./harness.ts";
 
 // `owner/repo` as accepted by the marketplace-add subcommands.
-const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const GITHUB_MARKETPLACE = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+// scp-like SSH Git source, such as `git@host:owner/repo.git`.
+const SCP_MARKETPLACE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/;
+
+// Both harnesses accept owner/repo, an HTTPS or SSH Git URL, or a local path.
+// URLs must not embed credentials: the source lands in harness config and locks.
+function isMarketplaceSource(source: string): boolean {
+  if (GITHUB_MARKETPLACE.test(source) || SCP_MARKETPLACE.test(source)) return true;
+  if (isAbsolute(source)) return true;
+  if (!URL.canParse(source)) return false;
+  const url = new URL(source);
+  return (
+    (url.protocol === "https:" && url.username === "" && url.password === "") ||
+    (url.protocol === "ssh:" && url.password === "")
+  );
+}
 
 export type Plugin = {
   marketplace: string;
@@ -75,7 +99,11 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
   codex: {
     ...HARNESS_INFO.codex,
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", plugin.marketplace],
-    upgradeMarketplaceArgs: (plugin) => ["plugin", "marketplace", "upgrade", plugin.marketplaceId],
+    // `marketplace upgrade` refreshes Git snapshots only; a local path is read in place.
+    upgradeMarketplaceArgs: (plugin) =>
+      isAbsolute(plugin.marketplace)
+        ? []
+        : ["plugin", "marketplace", "upgrade", plugin.marketplaceId],
     installArgs: (plugin) => ["plugin", "add", pluginRef(plugin)],
   },
 };
@@ -84,55 +112,73 @@ export function pluginRef(plugin: Plugin): string {
   return `${plugin.name}@${plugin.marketplaceId}`;
 }
 
-function readManifestHarnesses(
-  value: unknown,
-  manifestPath: string,
-  name: string,
-): readonly Harness[] {
+function readManifestHarnesses(value: unknown, context: string, name: string): readonly Harness[] {
   if (value === undefined) {
     return HARNESSES;
   }
   return readHarnesses(
     value,
-    `Invalid plugins manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
+    `${context}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
   );
 }
 
-function readPlugin(value: unknown, manifestPath: string): Plugin {
+function readPlugin(value: unknown, context: string): Plugin {
   if (
     typeof value !== "object" ||
     value === null ||
     !("marketplace" in value) ||
     typeof value.marketplace !== "string" ||
-    !MARKETPLACE_PATTERN.test(value.marketplace) ||
+    !isMarketplaceSource(value.marketplace) ||
     !("name" in value) ||
     typeof value.name !== "string" ||
     !isSafeName(value.name)
   ) {
     throw new Error(
-      `Invalid plugins manifest at ${manifestPath}: expected owner/repo marketplace and safe plugin name strings`,
+      `${context}: expected a marketplace (owner/repo, HTTPS or SSH Git URL without credentials, or absolute path) and a safe plugin name`,
     );
   }
 
-  const repository = value.marketplace.split("/")[1] ?? "";
   // Harnesses register a marketplace under the name its manifest declares, which is the
   // repository name for every marketplace we ship; `marketplaceId` overrides the divergent case.
+  // Other sources have no repository name to derive it from.
+  const repository = GITHUB_MARKETPLACE.test(value.marketplace)
+    ? value.marketplace.split("/")[1]
+    : undefined;
   const marketplaceId =
     "marketplaceId" in value && value.marketplaceId !== undefined
       ? value.marketplaceId
       : repository;
-  if (typeof marketplaceId !== "string" || !isSafeName(marketplaceId)) {
+  if (marketplaceId === undefined) {
     throw new Error(
-      `Invalid plugins manifest at ${manifestPath}: ${value.name} marketplaceId must be a safe name`,
+      `${context}: ${value.name} needs a marketplaceId because its marketplace is not owner/repo`,
     );
+  }
+  if (typeof marketplaceId !== "string" || !isSafeName(marketplaceId)) {
+    throw new Error(`${context}: ${value.name} marketplaceId must be a safe name`);
   }
 
   const harnesses = readManifestHarnesses(
     "harnesses" in value ? value.harnesses : undefined,
-    manifestPath,
+    context,
     value.name,
   );
   return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
+}
+
+function parsePlugins(value: unknown, context: string): Plugin[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${context}: expected a plugins array`);
+  }
+  const plugins = value.map((plugin) => readPlugin(plugin, context));
+  const refs = new Set<string>();
+  for (const plugin of plugins) {
+    const ref = pluginRef(plugin);
+    if (refs.has(ref)) {
+      throw new Error(`${context}: ${ref} is defined more than once`);
+    }
+    refs.add(ref);
+  }
+  return plugins;
 }
 
 export function readPlugins(manifestPath: string): Plugin[] {
@@ -144,45 +190,45 @@ export function readPlugins(manifestPath: string): Plugin[] {
     throw new Error(`Invalid plugins manifest at ${manifestPath}: ${errorMessage(error)}`);
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("plugins" in parsed) ||
-    !Array.isArray(parsed.plugins)
-  ) {
+  if (typeof parsed !== "object" || parsed === null || !("plugins" in parsed)) {
     throw new Error(`Invalid plugins manifest at ${manifestPath}: expected a plugins array`);
   }
-
-  const plugins = parsed.plugins.map((plugin) => readPlugin(plugin, manifestPath));
-  const refs = new Set<string>();
-  for (const plugin of plugins) {
-    const ref = pluginRef(plugin);
-    if (refs.has(ref)) {
-      throw new Error(
-        `Invalid plugins manifest at ${manifestPath}: ${ref} is defined more than once`,
-      );
-    }
-    refs.add(ref);
-  }
-  return plugins;
+  return parsePlugins(parsed.plugins, `Invalid plugins manifest at ${manifestPath}`);
 }
+
+export type PluginLayer = AgentLayer | "local";
 
 export function readLayeredPlugins(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
-): { layers: readonly AgentLayer[]; plugins: Plugin[] } {
+): {
+  layers: readonly PluginLayer[];
+  plugins: Plugin[];
+  localPath?: string;
+  localNames?: string[];
+} {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent plugins`);
   }
 
-  const manifests = new Map<AgentLayer, Plugin[]>();
+  const manifests = new Map<PluginLayer, Plugin[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)));
   }
 
+  const selected: PluginLayer[] = [...layers];
+  const local = readLocalOverlay(repoDir);
+  if (local?.document.plugins !== undefined) {
+    manifests.set(
+      "local",
+      parsePlugins(local.document.plugins, `Invalid local agent overlay at ${local.path}`),
+    );
+    selected.push("local");
+  }
+
   const plugins = composeLayers(
-    layers,
+    selected,
     manifests,
     pluginRef,
     (ref) => `Invalid layered plugins: ${ref} is defined more than once`,
@@ -199,12 +245,20 @@ export function readLayeredPlugins(
     }
     marketplaceIds.set(plugin.marketplace, plugin.marketplaceId);
   }
-  return { layers, plugins };
+  return selected.includes("local") && local
+    ? {
+        layers: selected,
+        plugins,
+        localPath: local.path,
+        localNames: (manifests.get("local") ?? []).map(pluginRef),
+      }
+    : { layers: selected, plugins };
 }
 
 type PluginLock = {
   version: 1;
   plugins: Plugin[];
+  overlays?: OverlayOwnership;
 };
 
 function readLockedPlugin(value: unknown, lockPath: string): Plugin {
@@ -213,7 +267,7 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     value === null ||
     !("marketplace" in value) ||
     typeof value.marketplace !== "string" ||
-    !MARKETPLACE_PATTERN.test(value.marketplace) ||
+    !isMarketplaceSource(value.marketplace) ||
     !("name" in value) ||
     typeof value.name !== "string" ||
     !isSafeName(value.name) ||
@@ -265,9 +319,28 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
   return plugins;
 }
 
-function writePluginLock(lockPath: string, plugins: readonly Plugin[]): void {
-  const lock: PluginLock = { version: 1, plugins: [...plugins] };
+function writePluginLock(
+  lockPath: string,
+  plugins: readonly Plugin[],
+  overlays?: OverlayOwnership,
+): void {
+  const lock: PluginLock = { version: 1, plugins: [...plugins], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
+}
+
+// Another checkout's overlay keeps its harnesses even when this checkout selects the same ref.
+function withKept(next: readonly Plugin[], kept: readonly Plugin[]): Plugin[] {
+  const merged = new Map(next.map((plugin) => [pluginRef(plugin), plugin]));
+  for (const plugin of kept) {
+    const current = merged.get(pluginRef(plugin));
+    merged.set(pluginRef(plugin), {
+      ...plugin,
+      harnesses: HARNESSES.filter(
+        (harness) => plugin.harnesses.includes(harness) || current?.harnesses.includes(harness),
+      ),
+    });
+  }
+  return [...merged.values()];
 }
 
 function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
@@ -350,10 +423,11 @@ function planHarness(
         args: marketplaceArgs(plugin),
         marketplace: plugin.marketplace,
       });
-      if (options.update === true && spec.upgradeMarketplaceArgs !== undefined) {
+      const upgradeArgs = spec.upgradeMarketplaceArgs?.(plugin) ?? [];
+      if (options.update === true && upgradeArgs.length > 0) {
         planned.push({
           command: spec.binary,
-          args: spec.upgradeMarketplaceArgs(plugin),
+          args: upgradeArgs,
           marketplace: plugin.marketplace,
           refresh: true,
         });
@@ -610,6 +684,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
+  if (layered.localPath) writeLine(runtime.stdout, `Local overlay: ${layered.localPath}`);
   const available = HARNESSES.filter(
     (harness) =>
       runtime.commandExists(HARNESS_INFO[harness].binary) &&
@@ -621,8 +696,12 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
+  const overlay = guardOverlay(readOverlayOwnership(pluginLockPath), repoDir, layered.localNames);
+  const keptOverlay = (previouslyManaged ?? []).filter((plugin) =>
+    overlay.kept.has(pluginRef(plugin)),
+  );
   const ownership = planOwnership({
-    previous: previouslyManaged ?? [],
+    previous: (previouslyManaged ?? []).filter((plugin) => !keptOverlay.includes(plugin)),
     selected: plugins,
     available,
     keyOf: pluginRef,
@@ -648,7 +727,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       runtime.stdout,
       "Initializing managed plugins lock without removing existing plugins",
     );
-    writePluginLock(pluginLockPath, ownership.nextLock([]));
+    writePluginLock(pluginLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
@@ -674,7 +753,11 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return reportPluginFailures(runtime, failures);
   }
 
-  writePluginLock(pluginLockPath, ownership.nextLock(deferred));
+  writePluginLock(
+    pluginLockPath,
+    withKept(ownership.nextLock(deferred), keptOverlay),
+    overlay.next,
+  );
   writeLine(runtime.stdout, "Done.");
   return 0;
 }
