@@ -31,3 +31,15 @@ test("a child that inherits stdin stays in the caller's terminal process group",
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), caller.stdout.trim());
 });
+
+test("a timeout kills a child that ignores SIGTERM", async () => {
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const runner = yield* CommandRunner;
+      return yield* runner.run("sh", ["-c", "trap '' TERM; while :; do sleep 1; done"], {
+        timeoutMs: 200,
+      });
+    }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+  );
+  assert.equal(result.status, 124);
+}, 15_000);

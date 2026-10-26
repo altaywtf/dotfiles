@@ -64,6 +64,8 @@ export class CommandRunner extends Context.Service<
               // terminal, so password prompts (sudo, xcodes) fall back to echoed
               // stdin. Interactive children stay in the caller's session.
               detached: options.stdin !== "inherit",
+              // Effect waits forever for a child that ignores SIGTERM unless told to escalate.
+              forceKillAfter: options.timeoutMs === undefined ? undefined : "5 seconds",
               stdin:
                 options.stdin instanceof Uint8Array
                   ? Stream.make(options.stdin)
