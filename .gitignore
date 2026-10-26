@@ -19,3 +19,4 @@ chezmoi.toml
 Brewfile.composed.*
 Brewfile.local
 .vitest/
+.claude/worktrees/

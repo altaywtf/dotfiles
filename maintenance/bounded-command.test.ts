@@ -56,11 +56,14 @@ function alive(pid: number): boolean {
     return false;
   }
 }
+// The fixtures ignore SIGTERM; they exit once the test worker is gone so a
+// failed cleanup cannot outlive the run and hold the runner's process group open.
+const untilWorkerExits = `setInterval(()=>{try{process.kill(${process.pid},0)}catch{process.exit(0)}},500)`;
 const treeScript = (path: string) => `
 const {spawn}=require('node:child_process');
-const script = "require('node:fs').writeFileSync(" + JSON.stringify(${JSON.stringify(path)}) + ",String(process.pid)); process.on('SIGTERM',()=>{}); setInterval(()=>{},1000)";
+const script = "require('node:fs').writeFileSync(" + JSON.stringify(${JSON.stringify(path)}) + ",String(process.pid)); process.on('SIGTERM',()=>{}); " + ${JSON.stringify(untilWorkerExits)};
 spawn(process.execPath,['-e',script],{detached:true,stdio:'ignore'}).unref();
-process.on('SIGTERM',()=>{}); setInterval(()=>{},1000);
+process.on('SIGTERM',()=>{}); ${untilWorkerExits};
 `;
 
 for (const status of [0, 23]) {
@@ -118,7 +121,7 @@ for (const diagnosticFailure of [false, true]) {
     const pidFile = join(directory, "child.pid");
     const diagnosticDirectory = join(directory, "diagnostics");
     if (diagnosticFailure) await writeFile(diagnosticDirectory, "blocked");
-    const unrelated = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
+    const unrelated = spawn(process.execPath, ["-e", untilWorkerExits], {
       stdio: "ignore",
     });
     t.onTestFinished(async () => {

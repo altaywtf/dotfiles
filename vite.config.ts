@@ -6,6 +6,7 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       "**/.git/**",
+      ".claude/worktrees/**",
       ...(process.platform === "darwin"
         ? []
         : ["maintenance/darwin/schedule.test.ts", "maintenance/darwin/devbox.test.ts"]),
