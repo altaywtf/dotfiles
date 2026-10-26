@@ -27,8 +27,11 @@ test("rejects malformed JSON, non-objects, and unsupported keys", () => {
   assert.throws(() => readLocalOverlay(root), /Invalid local agent overlay at .*JSON/);
   writeFileSync(path, "[]", { mode: 0o600 });
   assert.throws(() => readLocalOverlay(root), /expected an object/);
-  writeFileSync(path, '{"plugins":[]}', { mode: 0o600 });
-  assert.throws(() => readLocalOverlay(root), /unsupported keys plugins; expected skills, servers/);
+  writeFileSync(path, '{"agents":[]}', { mode: 0o600 });
+  assert.throws(
+    () => readLocalOverlay(root),
+    /unsupported keys agents; expected skills, servers, plugins/,
+  );
 });
 
 test("rejects a symlink and a group or world writable file", () => {
