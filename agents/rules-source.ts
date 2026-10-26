@@ -4,13 +4,13 @@ import { isAbsolute, join, resolve } from "node:path";
 import { CliFailure, fail } from "../lib/program.ts";
 
 // Machine-local fragments linked from a directory the operator names once.
-// Keys are the files the rule renderer reads; values are names in the source.
+// Keys are the files the rule renderer reads; values are paths in the source.
 const ruleLinks = (host: string) =>
   [
-    ["agents.start.md", "agents.md"],
-    ["agents.end.md", `agents.${host}.md`],
-    ["claude-automode.json", "claude-automode.json"],
-    ["codex.rules", "codex.rules"],
+    ["agents.start.md", "rules/agents.md"],
+    ["agents.end.md", `rules/agents.${host}.md`],
+    ["claude-automode.json", "settings/claude-automode.json"],
+    ["codex.rules", "settings/codex.rules"],
   ] as const;
 
 const settingName = "rules-source";

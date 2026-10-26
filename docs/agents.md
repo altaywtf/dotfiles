@@ -27,9 +27,10 @@ files without backup, so keep private edits in fragments:
 - Each fragment, or its symlink target, must be owned by the user and
   writable by nobody else.
 - To keep fragments in a private directory, run
-  `./dotfiles apply PROFILE --rules-source DIR` once. Apply then links each
-  fragment to the same name in `DIR`, except `agents.start.md` to
-  `DIR/agents.md` and `agents.end.md` to `DIR/agents.<short hostname>.md`.
+  `./dotfiles apply PROFILE --rules-source DIR` once. Apply then links
+  `agents.start.md` to `DIR/rules/agents.md`, `agents.end.md` to
+  `DIR/rules/agents.<short hostname>.md`, and the other fragments to the same
+  name in `DIR/settings/`.
 - Setup needs a valid rule cache when fetching fails.
   `DOTFILES_AGENT_RULES_OFFLINE=1` uses the cache without fetching.
 
