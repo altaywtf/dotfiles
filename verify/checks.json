@@ -281,7 +281,8 @@
         "test",
         "audit/data.test.ts",
         "audit/codex-storage.test.ts",
-        "audit/secrets/findings.test.ts"
+        "audit/secrets/findings.test.ts",
+        "audit/secrets/trufflehog.test.ts"
       ],
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },

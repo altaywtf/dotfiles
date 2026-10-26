@@ -16,8 +16,13 @@ import {
   type CommandRunner,
   runCommand,
 } from "./runtime.ts";
+import { classifyTrufflehogFindings, type TrufflehogFindings } from "./secrets/trufflehog.ts";
 
 const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const trufflehogAllowlist = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "secrets/trufflehog-allowlist.json",
+);
 
 export type RepoAuditOptions = {
   format: AuditFormat;
@@ -100,6 +105,35 @@ function scannerResult(
   return true;
 }
 
+// --json output carries raw secrets, so only finding locations are reported.
+function trufflehogHistoryResult(report: AuditReport, result: CommandResult): boolean {
+  if (result.error?.message.includes("ENOENT")) {
+    report.warn("trufflehog is not installed");
+    return false;
+  }
+  if (result.error || result.status !== 0) {
+    report.fail(
+      `trufflehog history scan failed: ${result.error?.message ?? `exit ${result.status}`}`,
+    );
+    return true;
+  }
+  let findings: TrufflehogFindings;
+  try {
+    findings = classifyTrufflehogFindings(result.stdout, trufflehogAllowlist);
+  } catch (error) {
+    report.fail(
+      `cannot read trufflehog findings: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return true;
+  }
+  for (const finding of findings.unexpected) report.fail(`trufflehog finding: ${finding}`);
+  if (findings.unexpected.length === 0)
+    report.ok(
+      `trufflehog found no verified or unknown leaks${findings.allowed ? ` (${findings.allowed} allowlisted)` : ""}`,
+    );
+  return true;
+}
+
 function trufflehogSource(repoRoot: string, command: CommandRunner): string {
   try {
     if (statSync(join(repoRoot, ".git")).isDirectory()) return repoRoot;
@@ -166,16 +200,13 @@ export function runRepoAudit(
   );
 
   const source = trufflehogSource(repoRoot, command);
-  const trufflehogAvailable = scannerResult(
+  const trufflehogAvailable = trufflehogHistoryResult(
     report,
     command(
       "trufflehog",
-      ["git", `file://${source}`, "--no-update", "--results=verified,unknown", "--fail"],
-      output,
+      ["git", `file://${source}`, "--no-update", "--results=verified,unknown", "--json"],
+      { ...output, output: "capture" },
     ),
-    "trufflehog found no verified or unknown leaks",
-    "trufflehog reported verified/unknown leaks or failed",
-    "trufflehog is not installed",
   );
   if (source !== repoRoot && trufflehogAvailable) {
     const files = worktreeFiles(repoRoot, command);

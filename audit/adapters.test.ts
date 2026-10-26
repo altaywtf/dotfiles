@@ -150,7 +150,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
     assert.ok(calls.every(([, args]) => !args.includes("--fix")));
     assert.ok(
       calls
-        .filter(([name]) => name === "gitleaks" || name === "trufflehog")
+        .filter(([name, args]) => name === "gitleaks" || args[0] === "filesystem")
         .every(([, , options]) => options?.output === "discard"),
     );
     assert.equal(mscpPlatformVersion("14.7.7"), "14.0");

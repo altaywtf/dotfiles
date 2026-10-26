@@ -224,7 +224,7 @@ test.each([
   ["an unsafe plugin name", { marketplace: "fixture/market", name: "../escape" }, ENTRY_SHAPE],
   [
     "an HTTPS marketplace with credentials",
-    { marketplace: "https://user:secret@git.fixture.test/m.git", name: "one", marketplaceId: "m" },
+    { marketplace: "https://user:secret@git.fixture.test/m.git", name: "one", marketplaceId: "m" }, // trufflehog:ignore
     ENTRY_SHAPE,
   ],
   ["a relative path marketplace", { marketplace: "./market", name: "one" }, ENTRY_SHAPE],
