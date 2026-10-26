@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { Schema } from "effect";
-import { chmodSync, existsSync, mkdirSync, realpathSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
 import { discoverCheckouts, projectTrustEdits, restrictCodexState } from "./projects.ts";
@@ -18,6 +18,15 @@ type Scalar =
   | string
   | readonly string[]
   | Readonly<Record<string, string>>;
+const Scalar = Schema.Union([
+  Schema.Boolean,
+  Schema.Null,
+  Schema.Number,
+  Schema.String,
+  Schema.Array(Schema.String),
+  Schema.Record(Schema.String, Schema.String),
+]);
+const LocalSettings = Schema.fromJsonString(Schema.Record(Schema.String, Scalar));
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 type UserConfig = { projects: Readonly<Record<string, unknown>> };
 type PlanEdits = (user: UserConfig) => readonly ConfigEdit[];
@@ -85,6 +94,22 @@ function managedEdits(): ConfigEdit[] {
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
   ];
+}
+
+// ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
+export function localEdits(path: string): ConfigEdit[] {
+  if (!existsSync(path)) return [];
+  let settings: typeof LocalSettings.Type;
+  try {
+    settings = Schema.decodeUnknownSync(LocalSettings)(readFileSync(path, "utf8"));
+  } catch (cause) {
+    throw new Error(`${path} must be a JSON object of Codex key paths to values`, { cause });
+  }
+  return Object.entries(settings).map(([keyPath, value]) => ({
+    keyPath,
+    value,
+    mergeStrategy: "upsert",
+  }));
 }
 
 function codexHomePath(): string {
@@ -186,8 +211,11 @@ export type CodexDefaults = { configPath: string; restricted: readonly string[] 
 // projectRoot opts into trusting every checkout directly under it.
 export async function configureDefaults(projectRoot?: string): Promise<CodexDefaults> {
   const checkouts = projectRoot ? discoverCheckouts(projectRoot) : [];
+  const local = localEdits(join(process.env.HOME || "", ".config/dotfiles/codex.json"));
+  const overridden = new Set(local.map((edit) => edit.keyPath));
   const configPath = await writeConfigEdits((user) => [
-    ...managedEdits(),
+    ...managedEdits().filter((edit) => !overridden.has(edit.keyPath)),
+    ...local,
     ...(projectRoot ? projectTrustEdits(projectRoot, checkouts, user.projects) : []),
   ]);
   return { configPath, restricted: restrictCodexState(codexHomePath()) };

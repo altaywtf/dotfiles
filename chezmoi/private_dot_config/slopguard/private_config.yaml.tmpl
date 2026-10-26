@@ -1,0 +1,8 @@
+{{- $local := includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/slopguard.yaml") -}}
+{{- if $local -}}
+{{ $local }}
+{{- else -}}
+engine: codex
+model: gpt-6.1-sol
+reasoning_effort: medium
+{{ end -}}

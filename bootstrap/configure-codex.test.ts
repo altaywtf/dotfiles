@@ -153,3 +153,34 @@ test(
     }
   },
 );
+
+test(
+  "installed Codex lets the local fragment override a managed key",
+  { skip: !codexInstalled },
+  (t) => {
+    const { home, config } = codexConfig(t, "");
+    const userHome = dirname(home);
+    mkdirSync(join(userHome, ".config/dotfiles"), { recursive: true });
+    writeFileSync(
+      join(userHome, ".config/dotfiles/codex.json"),
+      JSON.stringify({ model: "openai/gpt-6.1-sol", model_provider: "gateway" }),
+    );
+    const result = run(home, "workstation", userHome);
+    assert.equal(result.status, 0, result.stderr);
+    const root = readFileSync(config, "utf8").split(/^\[/m)[0];
+    assert.match(root, /^model = "openai\/gpt-6\.1-sol"$/m);
+    assert.match(root, /^model_provider = "gateway"$/m);
+    assert.match(root, /^model_reasoning_effort = "medium"$/m);
+  },
+);
+
+test("rejects a local Codex fragment that is not a key path map", (t) => {
+  const { home, config } = codexConfig(t, "");
+  const userHome = dirname(home);
+  mkdirSync(join(userHome, ".config/dotfiles"), { recursive: true });
+  writeFileSync(join(userHome, ".config/dotfiles/codex.json"), '{"model": {"nested": 1}}');
+  const result = run(home, "workstation", userHome);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /codex\.json must be a JSON object/);
+  assert.equal(readFileSync(config, "utf8"), "");
+});

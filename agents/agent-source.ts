@@ -10,7 +10,10 @@ const ruleLinks = (host: string) =>
     ["agents.start.md", "rules/agents.md"],
     ["agents.end.md", `rules/agents.${host}.md`],
     ["claude-automode.json", "settings/claude-automode.json"],
+    ["claude-settings.json", "settings/claude-settings.json"],
+    ["codex.json", "settings/codex.json"],
     ["codex.rules", "settings/codex.rules"],
+    ["slopguard.yaml", "settings/slopguard.yaml"],
   ] as const;
 
 const settingName = "agent-source";

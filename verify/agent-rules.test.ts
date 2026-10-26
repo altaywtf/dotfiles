@@ -142,6 +142,8 @@ test("links the stored agent source before rendering what reads it", () => {
     [`rules/agents.${host}.md`]: "## Source host rule\n",
     "settings/claude-automode.json": "{}\n",
     "settings/codex.rules": "",
+    "settings/claude-settings.json": '{"model":"local-model","env":{"LOCAL":"1"}}\n',
+    "settings/slopguard.yaml": "engine: codex\nmodel: openai/gpt-6.1-sol\n",
   });
 
   runWrapper(home);
@@ -154,11 +156,22 @@ test("links the stored agent source before rendering what reads it", () => {
     join(source, "settings/claude-automode.json"),
   );
   assert.equal(readlinkSync(join(local, "codex.rules")), join(source, "settings/codex.rules"));
+  assert.equal(
+    readlinkSync(join(local, "slopguard.yaml")),
+    join(source, "settings/slopguard.yaml"),
+  );
+  assert.equal(
+    readFileSync(join(home, ".config/slopguard/config.yaml"), "utf8"),
+    "engine: codex\nmodel: openai/gpt-6.1-sol\n",
+  );
   const rules = assertManagedRules(home);
   assert.match(rules, /^## Source start rule\n/);
   assert.match(rules, /## Source host rule\n$/);
   const settings = JSON.parse(readFileSync(join(home, ".claude/settings.json"), "utf8"));
   assert.deepEqual(settings.autoMode, {});
+  assert.equal(settings.model, "local-model");
+  assert.equal(settings.env.LOCAL, "1");
+  assert.equal(settings.env.DISABLE_ERROR_REPORTING, "1");
   assert.equal(runChezmoi(home, config, "diff"), "");
 });
 
