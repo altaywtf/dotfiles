@@ -97,7 +97,7 @@ function managedEdits(): ConfigEdit[] {
 }
 
 // ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
-export function localEdits(path: string): ConfigEdit[] {
+function localEdits(path: string): ConfigEdit[] {
   if (!existsSync(path)) return [];
   let settings: typeof LocalSettings.Type;
   try {
