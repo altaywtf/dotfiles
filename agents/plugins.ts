@@ -352,9 +352,13 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
   }
 }
 
-// Claude exits 1 when asked to uninstall a plugin it no longer has; Codex exits 0.
+// Claude exits 1 when asked to uninstall a plugin it no longer has; Codex exits 0. Claude says
+// "not installed in user scope" once the plugin's marketplace is gone.
 function alreadyUninstalled(harness: Harness, output: string): boolean {
-  return harness === "claude" && /not found in installed plugins/.test(output);
+  return (
+    harness === "claude" &&
+    /not found in installed plugins|is not installed in user scope/.test(output)
+  );
 }
 
 function removeStalePlugins(
