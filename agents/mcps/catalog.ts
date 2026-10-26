@@ -6,7 +6,7 @@ import { composeLayers, type Harness, HARNESSES, isSafeName, readHarnesses } fro
 import { readLocalOverlay } from "../local.ts";
 import { errorMessage } from "../runtime.ts";
 
-export type McpServer = {
+export type Mcp = {
   name: string;
   url: string;
   harnesses: readonly Harness[];
@@ -22,7 +22,7 @@ function readManifestHarnesses(value: unknown, path: string, name: string): read
   );
 }
 
-function readServer(value: unknown, manifestPath: string): McpServer {
+function readMcp(value: unknown, manifestPath: string): Mcp {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -33,7 +33,7 @@ function readServer(value: unknown, manifestPath: string): McpServer {
     typeof value.url !== "string"
   ) {
     throw new Error(
-      `Invalid MCP manifest at ${manifestPath}: expected safe server name and url strings`,
+      `Invalid MCP manifest at ${manifestPath}: expected safe MCP name and url strings`,
     );
   }
 
@@ -56,25 +56,25 @@ function readServer(value: unknown, manifestPath: string): McpServer {
   return { name: value.name, url: value.url, harnesses };
 }
 
-function parseServers(value: unknown, manifestPath: string): McpServer[] {
+function parseMcps(value: unknown, manifestPath: string): Mcp[] {
   if (!Array.isArray(value)) {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected a servers array`);
+    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected an mcps array`);
   }
 
-  const servers = value.map((server) => readServer(server, manifestPath));
+  const mcps = value.map((mcp) => readMcp(mcp, manifestPath));
   const names = new Set<string>();
-  for (const server of servers) {
-    if (names.has(server.name)) {
+  for (const mcp of mcps) {
+    if (names.has(mcp.name)) {
       throw new Error(
-        `Invalid MCP manifest at ${manifestPath}: ${server.name} is defined more than once`,
+        `Invalid MCP manifest at ${manifestPath}: ${mcp.name} is defined more than once`,
       );
     }
-    names.add(server.name);
+    names.add(mcp.name);
   }
-  return servers;
+  return mcps;
 }
 
-export function readServers(manifestPath: string): McpServer[] {
+export function readMcps(manifestPath: string): Mcp[] {
   let parsed: unknown;
 
   try {
@@ -83,52 +83,52 @@ export function readServers(manifestPath: string): McpServer[] {
     throw new Error(`Invalid MCP manifest at ${manifestPath}: ${errorMessage(error)}`);
   }
 
-  if (typeof parsed !== "object" || parsed === null || !("servers" in parsed)) {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected a servers array`);
+  if (typeof parsed !== "object" || parsed === null || !("mcps" in parsed)) {
+    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected an mcps array`);
   }
-  return parseServers(parsed.servers, manifestPath);
+  return parseMcps(parsed.mcps, manifestPath);
 }
 
 export type McpLayer = AgentLayer | "local";
 
-export function readLayeredServers(
+export function readLayeredMcps(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
 ): {
   layers: readonly McpLayer[];
-  servers: McpServer[];
+  mcps: Mcp[];
   localPath?: string;
   localNames?: string[];
 } {
   if (layers.length === 0) {
-    throw new Error(`Profile ${profile} does not manage MCP servers`);
+    throw new Error(`Profile ${profile} does not manage MCPs`);
   }
 
-  const manifests = new Map<McpLayer, McpServer[]>();
+  const manifests = new Map<McpLayer, Mcp[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
-    manifests.set(layer, readServers(join(repoDir, "agents", "mcps", `${layer}.json`)));
+    manifests.set(layer, readMcps(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
 
   const selected: McpLayer[] = [...layers];
   const local = readLocalOverlay(repoDir);
-  if (local?.document.servers !== undefined) {
-    manifests.set("local", parseServers(local.document.servers, local.path));
+  if (local?.document.mcps !== undefined) {
+    manifests.set("local", parseMcps(local.document.mcps, local.path));
     selected.push("local");
   }
 
-  const servers = composeLayers(
+  const mcps = composeLayers(
     selected,
     manifests,
-    (server) => server.name,
-    (name) => `Invalid layered MCP servers: ${name} is defined more than once`,
+    (mcp) => mcp.name,
+    (name) => `Invalid layered MCPs: ${name} is defined more than once`,
   );
   return selected.includes("local") && local
     ? {
         layers: selected,
-        servers,
+        mcps,
         localPath: local.path,
-        localNames: (manifests.get("local") ?? []).map((server) => server.name),
+        localNames: (manifests.get("local") ?? []).map((mcp) => mcp.name),
       }
-    : { layers: selected, servers };
+    : { layers: selected, mcps };
 }

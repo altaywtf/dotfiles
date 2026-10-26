@@ -336,7 +336,7 @@
         "agents/mcps.test.ts",
         "agents/mcps/catalog.test.ts"
       ],
-      "output": "Declarative MCP server convergence across coding-agent harnesses"
+      "output": "Declarative MCP convergence across coding-agent harnesses"
     },
     {
       "id": "agent-doctor",

@@ -37,7 +37,7 @@ function allowed(file: string, content: string): boolean {
       return content.includes("github.com/uinaf/sops-vault-template");
     case "agents/plugins/developer.json":
       return content.includes("uinaf/ffss");
-    case "agents/rules.json":
+    case "agents/rules/shared.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
     case "verify/profiles.ts":
     case "homebrew/verify/brew-bundle.ts":

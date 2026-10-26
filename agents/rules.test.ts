@@ -34,8 +34,11 @@ function createFixture(
 ): { cache: string; root: string } {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-rules-"));
   const cache = join(root, "state/dotfiles/agent-rules.md");
-  mkdirSync(join(root, "agents"), { recursive: true });
-  writeFileSync(join(root, "agents/rules.json"), `${JSON.stringify({ version: 1, sources })}\n`);
+  mkdirSync(join(root, "agents/rules"), { recursive: true });
+  writeFileSync(
+    join(root, "agents/rules/shared.json"),
+    `${JSON.stringify({ version: 1, sources })}\n`,
+  );
   if (options.cached !== false) {
     mkdirSync(join(root, "state/dotfiles"), { recursive: true });
     writeFileSync(cache, originalRules);

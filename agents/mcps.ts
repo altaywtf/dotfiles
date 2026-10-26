@@ -19,7 +19,7 @@ import {
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
-import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
+import { type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
@@ -40,18 +40,18 @@ import {
 
 type McpFailure = SyncFailure;
 
-type LockedServer = {
+type LockedMcp = {
   name: string;
   harnesses: readonly Harness[];
 };
 
 type McpLock = {
   version: 1;
-  servers: LockedServer[];
+  mcps: LockedMcp[];
   overlays?: OverlayOwnership;
 };
 
-function readServerLock(lockPath: string): LockedServer[] | undefined {
+function readMcpLock(lockPath: string): LockedMcp[] | undefined {
   const parsed = readLockFile(lockPath, "MCP");
   if (parsed === undefined) {
     return undefined;
@@ -61,62 +61,68 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     typeof parsed !== "object" ||
     parsed === null ||
     !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("servers" in parsed) ||
-    !Array.isArray(parsed.servers)
+    parsed.version !== 1
   ) {
     throw new Error(
-      `Invalid managed MCP lock at ${lockPath}: expected version 1 and a servers array`,
+      `Invalid managed MCP lock at ${lockPath}: expected version 1 and an mcps array`,
+    );
+  }
+  // Locks written before the rename keep their entries under `servers`; the
+  // next write stores them as `mcps`.
+  const entries = "mcps" in parsed ? parsed.mcps : "servers" in parsed ? parsed.servers : undefined;
+  if (!Array.isArray(entries)) {
+    throw new Error(
+      `Invalid managed MCP lock at ${lockPath}: expected version 1 and an mcps array`,
     );
   }
 
-  const servers = parsed.servers.map((server, index) => {
+  const mcps = entries.map((mcp: unknown, index) => {
     if (
-      typeof server !== "object" ||
-      server === null ||
-      !("name" in server) ||
-      typeof server.name !== "string" ||
-      !isSafeName(server.name)
+      typeof mcp !== "object" ||
+      mcp === null ||
+      !("name" in mcp) ||
+      typeof mcp.name !== "string" ||
+      !isSafeName(mcp.name)
     ) {
       throw new Error(
-        `Invalid managed MCP lock at ${lockPath}: servers[${index}] must have a safe name`,
+        `Invalid managed MCP lock at ${lockPath}: mcps[${index}] must have a safe name`,
       );
     }
     return {
-      name: server.name,
+      name: mcp.name,
       harnesses: readHarnesses(
-        "harnesses" in server ? server.harnesses : undefined,
-        `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
+        "harnesses" in mcp ? mcp.harnesses : undefined,
+        `Invalid managed MCP lock at ${lockPath}: ${mcp.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
       ),
     };
   });
-  const names = servers.map((server) => server.name);
+  const names = mcps.map((mcp) => mcp.name);
   if (new Set(names).size !== names.length) {
-    throw new Error(`Invalid managed MCP lock at ${lockPath}: server names must be unique`);
+    throw new Error(`Invalid managed MCP lock at ${lockPath}: MCP names must be unique`);
   }
-  return servers;
+  return mcps;
 }
 
-function writeServerLock(
+function writeMcpLock(
   lockPath: string,
-  servers: readonly LockedServer[],
+  mcps: readonly LockedMcp[],
   overlays?: OverlayOwnership,
 ): void {
-  const lock: McpLock = { version: 1, servers: [...servers], ...(overlays ? { overlays } : {}) };
+  const lock: McpLock = { version: 1, mcps: [...mcps], ...(overlays ? { overlays } : {}) };
   writeLockFile(lockPath, lock);
 }
 
-const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
+const mcpName = (mcp: { name: string; harnesses: readonly Harness[] }) => mcp.name;
 
 // Another checkout's overlay keeps its harnesses even when this checkout selects the same name.
-function withKept(next: readonly LockedServer[], kept: readonly LockedServer[]): LockedServer[] {
-  const merged = new Map(next.map((server) => [server.name, server]));
-  for (const server of kept) {
-    const current = merged.get(server.name);
-    merged.set(server.name, {
-      name: server.name,
+function withKept(next: readonly LockedMcp[], kept: readonly LockedMcp[]): LockedMcp[] {
+  const merged = new Map(next.map((mcp) => [mcp.name, mcp]));
+  for (const mcp of kept) {
+    const current = merged.get(mcp.name);
+    merged.set(mcp.name, {
+      name: mcp.name,
       harnesses: HARNESSES.filter(
-        (harness) => server.harnesses.includes(harness) || current?.harnesses.includes(harness),
+        (harness) => mcp.harnesses.includes(harness) || current?.harnesses.includes(harness),
       ),
     });
   }
@@ -151,48 +157,48 @@ function runPlanned(
   return true;
 }
 
-// `codex mcp add` upserts the config but then probes the server and can start an
+// `codex mcp add` upserts the config but then probes the mcp and can start an
 // interactive OAuth login, so converge through get: a matching URL is a no-op,
 // and an add whose config landed before the login step failed is a warning.
-function applyCodex(runtime: Runtime, servers: readonly McpServer[], failures: McpFailure[]): void {
+function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
   const label = "Codex";
-  const selected = servers.filter((server) => server.harnesses.includes("codex"));
+  const selected = mcps.filter((mcp) => mcp.harnesses.includes("codex"));
 
   if (!runtime.commandExists("codex")) {
-    writeLine(runtime.stdout, `Skipping ${label} MCP servers: 'codex' is not installed`);
+    writeLine(runtime.stdout, `Skipping ${label} MCPs: 'codex' is not installed`);
     return;
   }
   if (selected.length === 0) {
-    writeLine(runtime.stdout, `No ${label} MCP servers are selected for this profile`);
+    writeLine(runtime.stdout, `No ${label} MCPs are selected for this profile`);
     return;
   }
 
-  for (const server of selected) {
-    const configuredUrl = `url: ${server.url}\n`;
-    const existing = runtime.run("codex", ["mcp", "get", server.name], {
+  for (const mcp of selected) {
+    const configuredUrl = `url: ${mcp.url}\n`;
+    const existing = runtime.run("codex", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
     if (existing.status === 0 && existing.stdout.includes(configuredUrl)) {
-      writeLine(runtime.stdout, `${label}: ${server.name} is already configured`);
+      writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
       continue;
     }
 
-    const addArgs = ["mcp", "add", server.name, "--url", server.url];
+    const addArgs = ["mcp", "add", mcp.name, "--url", mcp.url];
     writeLine(runtime.stdout, `${label}: codex ${addArgs.join(" ")}`);
     const added = runtime.run("codex", addArgs, { stdout: "capture", stderr: "capture" });
     if (added.status === 0) {
       continue;
     }
 
-    const converged = runtime.run("codex", ["mcp", "get", server.name], {
+    const converged = runtime.run("codex", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
     if (converged.status === 0 && converged.stdout.includes(configuredUrl)) {
       writeLine(
         runtime.stdout,
-        `${label}: ${server.name} is configured, but its login did not finish; run 'codex mcp login ${server.name}' if the server needs one`,
+        `${label}: ${mcp.name} is configured, but its login did not finish; run 'codex mcp login ${mcp.name}' if the mcp needs one`,
       );
       continue;
     }
@@ -205,38 +211,34 @@ function applyCodex(runtime: Runtime, servers: readonly McpServer[], failures: M
 
 // `claude mcp add` refuses an existing name instead of updating it, so converge
 // through get: matching URL is a no-op, anything else is removed and re-added.
-function applyClaude(
-  runtime: Runtime,
-  servers: readonly McpServer[],
-  failures: McpFailure[],
-): void {
+function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
   const label = "Claude Code";
-  const selected = servers.filter((server) => server.harnesses.includes("claude"));
+  const selected = mcps.filter((mcp) => mcp.harnesses.includes("claude"));
 
   if (!runtime.commandExists("claude")) {
-    writeLine(runtime.stdout, `Skipping ${label} MCP servers: 'claude' is not installed`);
+    writeLine(runtime.stdout, `Skipping ${label} MCPs: 'claude' is not installed`);
     return;
   }
   if (selected.length === 0) {
-    writeLine(runtime.stdout, `No ${label} MCP servers are selected for this profile`);
+    writeLine(runtime.stdout, `No ${label} MCPs are selected for this profile`);
     return;
   }
 
-  for (const server of selected) {
-    const existing = runtime.run("claude", ["mcp", "get", server.name], {
+  for (const mcp of selected) {
+    const existing = runtime.run("claude", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
     if (existing.status === 0) {
-      if (existing.stdout.includes(`URL: ${server.url}\n`)) {
-        writeLine(runtime.stdout, `${label}: ${server.name} is already configured`);
+      if (existing.stdout.includes(`URL: ${mcp.url}\n`)) {
+        writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
         continue;
       }
       const removed = runPlanned(
         runtime,
         label,
         "claude",
-        ["mcp", "remove", "-s", "user", server.name],
+        ["mcp", "remove", "-s", "user", mcp.name],
         failures,
       );
       if (!removed) {
@@ -247,22 +249,22 @@ function applyClaude(
       runtime,
       label,
       "claude",
-      ["mcp", "add", "-t", "http", "-s", "user", server.name, server.url],
+      ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url],
       failures,
     );
   }
 }
 
-function removeStaleServers(
+function removeStaleMcps(
   runtime: Runtime,
-  stale: readonly LockedServer[],
+  stale: readonly LockedMcp[],
   failures: McpFailure[],
-): LockedServer[] {
-  const leftover: LockedServer[] = [];
+): LockedMcp[] {
+  const leftover: LockedMcp[] = [];
 
-  for (const server of stale) {
+  for (const mcp of stale) {
     const leftoverHarnesses: Harness[] = [];
-    for (const harness of server.harnesses) {
+    for (const harness of mcp.harnesses) {
       const { binary, label } = HARNESS_INFO[harness];
       if (!runtime.commandExists(binary)) {
         leftoverHarnesses.push(harness);
@@ -270,8 +272,8 @@ function removeStaleServers(
         continue;
       }
 
-      const args = mcpRemoveArgs(harness, server.name);
-      writeLine(runtime.stdout, `Removing stale managed MCP server: ${server.name} from ${label}`);
+      const args = mcpRemoveArgs(harness, mcp.name);
+      writeLine(runtime.stdout, `Removing stale managed MCP: ${mcp.name} from ${label}`);
       const removed = runPlanned(runtime, label, binary, args, failures);
       if (!removed) {
         leftoverHarnesses.push(harness);
@@ -279,7 +281,7 @@ function removeStaleServers(
     }
 
     if (leftoverHarnesses.length > 0) {
-      leftover.push({ name: server.name, harnesses: leftoverHarnesses });
+      leftover.push({ name: mcp.name, harnesses: leftoverHarnesses });
     }
   }
 
@@ -299,7 +301,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, servers, localPath, localNames } = readLayeredServers(
+  const { layers, mcps, localPath, localNames } = readLayeredMcps(
     repoDir,
     profileName,
     profile.agentLayers,
@@ -310,22 +312,22 @@ function apply(runtime: Runtime, options: McpOptions): number {
   if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
 
   const mcpLockPath = managedLockLocation(runtime.env, "mcps");
-  const previouslyManaged = readServerLock(mcpLockPath);
+  const previouslyManaged = readMcpLock(mcpLockPath);
   const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
-  const keptOverlay = (previouslyManaged ?? []).filter((server) => overlay.kept.has(server.name));
+  const keptOverlay = (previouslyManaged ?? []).filter((mcp) => overlay.kept.has(mcp.name));
   const ownership = planOwnership({
-    previous: (previouslyManaged ?? []).filter((server) => !keptOverlay.includes(server)),
-    selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
+    previous: (previouslyManaged ?? []).filter((mcp) => !keptOverlay.includes(mcp)),
+    selected: mcps.map((mcp) => ({ name: mcp.name, harnesses: mcp.harnesses })),
     available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
-    keyOf: serverName,
+    keyOf: mcpName,
   });
 
   const failures: McpFailure[] = [];
   for (const harness of HARNESSES) {
     if (harness === "claude") {
-      applyClaude(runtime, servers, failures);
+      applyClaude(runtime, mcps, failures);
     } else {
-      applyCodex(runtime, servers, failures);
+      applyCodex(runtime, mcps, failures);
     }
   }
 
@@ -339,18 +341,18 @@ function apply(runtime: Runtime, options: McpOptions): number {
       writeLine(runtime.stdout, "Done.");
       return 0;
     }
-    writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing servers");
-    writeServerLock(mcpLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
+    writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing MCPs");
+    writeMcpLock(mcpLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
 
-  const deferred = removeStaleServers(runtime, ownership.removals, failures);
+  const deferred = removeStaleMcps(runtime, ownership.removals, failures);
   if (failures.length > 0) {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(mcpLockPath, withKept(ownership.nextLock(deferred), keptOverlay), overlay.next);
+  writeMcpLock(mcpLockPath, withKept(ownership.nextLock(deferred), keptOverlay), overlay.next);
   writeLine(runtime.stdout, "Done.");
   return 0;
 }

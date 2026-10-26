@@ -71,7 +71,7 @@ function createFixture(): { repoDir: string; home: string } {
     writeFileSync(
       join(repoDir, `agents/mcps/${layer}.json`),
       JSON.stringify({
-        servers:
+        mcps:
           layer === "developer"
             ? [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }]
             : [],
@@ -98,7 +98,7 @@ test("reports every harness usable and exits 0", () => {
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /ok {4}Claude Code: shared-mcp - connected/);
   assert.match(runtime.stdout.value, /\? {5}Codex: shared-mcp - o_auth/);
-  assert.match(runtime.stdout.value, /All managed MCP servers are usable\./);
+  assert.match(runtime.stdout.value, /All managed MCPs are usable\./);
   assert.doesNotMatch(runtime.stdout.value, /repair:/);
 });
 
@@ -114,7 +114,7 @@ test("names the login command for each expired harness and exits 1", () => {
     runtime.stdout.value,
     /LOGIN Claude Code: shared-mcp[^\n]*\n {6}repair: claude mcp login shared-mcp/,
   );
-  assert.match(runtime.stdout.value, /1 MCP server state\(s\) need attention\./);
+  assert.match(runtime.stdout.value, /1 MCP state\(s\) need attention\./);
 });
 
 test("skips harnesses that are not installed", () => {

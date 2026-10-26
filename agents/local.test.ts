@@ -30,7 +30,7 @@ test("rejects malformed JSON, non-objects, and unsupported keys", () => {
   writeFileSync(path, '{"agents":[]}', { mode: 0o600 });
   assert.throws(
     () => readLocalOverlay(root),
-    /unsupported keys agents; expected skills, servers, plugins/,
+    /unsupported keys agents; expected skills, mcps, plugins/,
   );
 });
 

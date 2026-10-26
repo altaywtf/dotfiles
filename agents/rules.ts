@@ -241,7 +241,7 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function* (
   cachePath: string,
   options: { readonly offline?: boolean; readonly runtime?: RuleRuntime } = {},
 ) {
-  const configPath = join(repoRoot, "agents/rules.json");
+  const configPath = join(repoRoot, "agents/rules/shared.json");
   const config = yield* readRequiredFile(configPath, "agent rule source config").pipe(
     Effect.flatMap(parseRuleSourceConfig),
   );

@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { errorMessage } from "./runtime.ts";
 
-const LOCAL_OVERLAY_KEYS = ["skills", "servers", "plugins"] as const;
+const LOCAL_OVERLAY_KEYS = ["skills", "mcps", "plugins"] as const;
 
 export type LocalOverlay = {
   path: string;

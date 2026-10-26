@@ -96,11 +96,11 @@ arg "<profile>" help="Profile to preview" {
 run = './bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'
 
 [tasks."agents:sync"]
-description = "Sync selected global coding-agent skills, plugins, and MCP servers"
+description = "Sync selected global coding-agent skills, plugins, and MCPs"
 run = ["./agents/sync.ts", "./agents/plugins.ts", "./agents/mcps.ts"]
 
 [tasks."agents:update"]
-description = "Update selected global coding-agent skills and plugins, then sync MCP servers"
+description = "Update selected global coding-agent skills and plugins, then sync MCPs"
 run = ["./agents/sync.ts --update", "./agents/plugins.ts --update", "./agents/mcps.ts"]
 
 [tasks."agents:doctor"]

@@ -95,7 +95,7 @@ test("local overlay skills append after profile layers and reject conflicts", ()
     /Invalid local agent overlay at .*expected non-empty name\/source strings/,
   );
 
-  writeFileSync(path, JSON.stringify({ servers: [] }));
+  writeFileSync(path, JSON.stringify({ mcps: [] }));
   const skillsOnlyLayers = readLayeredSkills(root, "developer", ["developer"]);
   assert.deepEqual(skillsOnlyLayers.layers, ["developer"]);
   assert.equal(skillsOnlyLayers.localPath, undefined);

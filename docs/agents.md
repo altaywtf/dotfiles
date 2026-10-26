@@ -1,7 +1,7 @@
 # Agent Setup
 
 The selected [profile](profiles.md) controls global rules, skills, plugins,
-and MCP servers. Setup replaces drifted harness defaults on each run; the
+and MCPs. Setup replaces drifted harness defaults on each run; the
 [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json),
 [Codex configuration](../agents/codex/config.ts), and
 [Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml)
@@ -12,7 +12,7 @@ fetch that auto mode, Remote Control, and cross-machine messaging need.
 
 ## Global Rules
 
-[rules.json](../agents/rules.json) lists the shared rule sources; the text must
+[rules/shared.json](../agents/rules/shared.json) lists the shared rule sources; the text must
 start with a `##` heading. Apply renders `~/AGENTS.md`, which
 `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link to. Apply replaces these
 files without backup, so keep private edits in fragments:
@@ -51,16 +51,16 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   (`https://github.com/OWNER/REPO/tree/SHA`); Renovate proposes new ones.
 - Sync removes only entries its locks under `~/.local/state/dotfiles/agents/`
   record, so manual installs survive.
-- Machine-specific skills, MCP servers, and plugins go in an optional,
-  gitignored `agents/local.json` with `skills`, `servers`, and `plugins` arrays
+- Machine-specific skills, MCPs, and plugins go in an optional,
+  gitignored `agents/local.json` with `skills`, `mcps`, and `plugins` arrays
   in the manifest entry shapes. Entries only add; keep credentials out of it.
 - A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
 
 ## MCP Authentication
 
-Plugin-shipped servers sign in through each harness's MCP menu. For manifest
-servers, `mise run agents:doctor` prints a repair command per row.
+Plugin-shipped MCPs sign in through each harness's MCP menu. For manifest
+MCPs, `mise run agents:doctor` prints a repair command per row.
 
 Over SSH, run the login under `ssh -t` and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
