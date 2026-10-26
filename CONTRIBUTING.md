@@ -31,6 +31,11 @@ Focused domain runs skip `scope: "complete"` checks in
 [pre-push hook](verify/install-pre-push-hook.ts) rejects whitespace errors and
 conflict markers; it runs no tests.
 
+History cannot drop a committed false positive. After review, pin it by commit,
+file, line, and detector in
+[trufflehog-allowlist.json](audit/secrets/trufflehog-allowlist.json) and tag the
+live line `trufflehog:ignore`.
+
 ## Deliver
 
 - Use Conventional Commits; update the [owning guide](README.md#guides) when behavior changes.
