@@ -29,6 +29,7 @@ cask "tuna"
 
 # Platform development
 cask "raspberry-pi-imager"
+brew "scrcpy"
 
 # Media utilities
 cask "the-unarchiver"
