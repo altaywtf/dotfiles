@@ -31,6 +31,9 @@ files without backup, so keep private edits in fragments:
   `agents.start.md` to `DIR/rules/agents.md`, `agents.end.md` to
   `DIR/rules/agents.<short hostname>.md`, and the other fragments to the same
   name in `DIR/settings/`.
+- An agent source provides only `rules/` and `settings/`. Ship its skills and
+  MCPs as a plugin, and list that plugin in a [plugins/](../agents/plugins/)
+  layer.
 - Setup needs a valid rule cache when fetching fails.
   `DOTFILES_AGENT_RULES_OFFLINE=1` uses the cache without fetching.
 
