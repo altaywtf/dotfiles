@@ -352,6 +352,11 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
   }
 }
 
+// Claude exits 1 when asked to uninstall a plugin it no longer has; Codex exits 0.
+function alreadyUninstalled(harness: Harness, output: string): boolean {
+  return harness === "claude" && /not found in installed plugins/.test(output);
+}
+
 function removeStalePlugins(
   runtime: Runtime,
   stale: readonly Plugin[],
@@ -384,7 +389,12 @@ function removeStalePlugins(
         `Removing stale managed plugin: ${pluginRef(plugin)} from ${spec.label}`,
       );
       const result = runtime.run(spec.binary, args, { stdout: "capture", stderr: "capture" });
-      if (result.status !== 0) {
+      if (
+        result.status !== 0 &&
+        alreadyUninstalled(harness, `${result.stdout}\n${result.stderr}`)
+      ) {
+        writeLine(runtime.stdout, `${spec.label}: ${pluginRef(plugin)} is already uninstalled`);
+      } else if (result.status !== 0) {
         leftoverHarnesses.push(harness);
         failures.push({
           diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),

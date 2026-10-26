@@ -748,6 +748,34 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
 });
 
+test("drops a stale plugin Claude has already uninstalled from ownership", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  writePluginLock(home, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      [
+        "claude plugin uninstall -y retired-plugin@retired-market",
+        {
+          stdout: "",
+          stderr:
+            '✘ Failed to uninstall plugin "retired-plugin@retired-market": Plugin "retired-plugin@retired-market" not found in installed plugins',
+        },
+      ],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.match(
+    runtime.stdout.value,
+    /Claude Code: retired-plugin@retired-market is already uninstalled/,
+  );
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(home), "utf8")), {
+    version: 1,
+    plugins: fixtureSharedPlugins.map(lockPlugin),
+  });
+});
+
 test.each([
   [
     "an unsafe plugin name",
