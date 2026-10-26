@@ -121,23 +121,23 @@ test("requires fetched machine-local rules instead of a repository copy", () => 
   assert.match(result.stderr, /agent-rules\.md/);
 });
 
-function rulesSourceFixture(home: string, files: Record<string, string>): string {
-  const source = join(home, "rules-source");
+function agentSourceFixture(home: string, files: Record<string, string>): string {
+  const source = join(home, "agent-source");
   mkdirSync(source, { recursive: true });
   for (const [name, contents] of Object.entries(files)) {
     mkdirSync(dirname(join(source, name)), { recursive: true });
     writeFileSync(join(source, name), contents, { mode: 0o600 });
   }
   mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
-  writeFileSync(join(home, ".config/dotfiles/rules-source"), `${source}\n`, { mode: 0o600 });
+  writeFileSync(join(home, ".config/dotfiles/agent-source"), `${source}\n`, { mode: 0o600 });
   return source;
 }
 
 const host = hostname().split(".")[0];
 
-test("links the stored rules source before rendering what reads it", () => {
+test("links the stored agent source before rendering what reads it", () => {
   const { config, home } = createFixture();
-  const source = rulesSourceFixture(home, {
+  const source = agentSourceFixture(home, {
     "rules/agents.md": "## Source start rule\n",
     [`rules/agents.${host}.md`]: "## Source host rule\n",
     "settings/claude-automode.json": "{}\n",
@@ -162,9 +162,9 @@ test("links the stored rules source before rendering what reads it", () => {
   assert.equal(runChezmoi(home, config, "diff"), "");
 });
 
-test("drops a rules source link whose file is gone and skips missing host rules", () => {
+test("drops a agent source link whose file is gone and skips missing host rules", () => {
   const { home } = createFixture();
-  const source = rulesSourceFixture(home, { "rules/agents.md": "## Source start rule\n" });
+  const source = agentSourceFixture(home, { "rules/agents.md": "## Source start rule\n" });
   runWrapper(home);
   assert.equal(existsSync(join(home, ".config/dotfiles/agents.end.md")), false);
 
@@ -175,9 +175,9 @@ test("drops a rules source link whose file is gone and skips missing host rules"
   assert.match(assertManagedRules(home), /^## General guidelines/);
 });
 
-test("refuses to replace a hand-written fragment with a rules source link", () => {
+test("refuses to replace a hand-written fragment with a agent source link", () => {
   const { home } = createFixture();
-  rulesSourceFixture(home, { "rules/agents.md": "## Source start rule\n" });
+  agentSourceFixture(home, { "rules/agents.md": "## Source start rule\n" });
   writeFileSync(join(home, ".config/dotfiles/agents.start.md"), "## Mine\n", { mode: 0o600 });
 
   const result = runWrapperResult(home);

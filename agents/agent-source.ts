@@ -13,12 +13,12 @@ const ruleLinks = (host: string) =>
     ["codex.rules", "settings/codex.rules"],
   ] as const;
 
-const settingName = "rules-source";
+const settingName = "agent-source";
 
 const expandHome = (path: string) =>
   path === "~" || path.startsWith("~/") ? join(homedir(), path.slice(1)) : path;
 
-export const saveRulesSource = Effect.fn("saveRulesSource")(function* (
+export const saveAgentSource = Effect.fn("saveAgentSource")(function* (
   configDir: string,
   input: string,
 ) {
@@ -26,13 +26,13 @@ export const saveRulesSource = Effect.fn("saveRulesSource")(function* (
   const source = resolve(expandHome(input));
   const info = yield* fs.stat(source).pipe(Effect.option);
   if (Option.isNone(info) || info.value.type !== "Directory")
-    return yield* fail(`rules source must be an existing directory: ${source}`, 2);
+    return yield* fail(`agent source must be an existing directory: ${source}`, 2);
   yield* fs.makeDirectory(configDir, { recursive: true, mode: 0o700 });
   yield* fs.writeFileString(join(configDir, settingName), `${source}\n`, { mode: 0o600 });
   yield* fs.chmod(join(configDir, settingName), 0o600);
 }, Effect.mapError(asCliFailure));
 
-const readRulesSource = Effect.fn("readRulesSource")(function* (configDir: string) {
+const readAgentSource = Effect.fn("readAgentSource")(function* (configDir: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = join(configDir, settingName);
   if (!(yield* fs.exists(path))) return Option.none<string>();
@@ -45,17 +45,17 @@ const readRulesSource = Effect.fn("readRulesSource")(function* (configDir: strin
   if (!isAbsolute(source)) return yield* fail(`${path} must hold an absolute directory path`);
   const sourceInfo = yield* fs.stat(source).pipe(Effect.option);
   if (Option.isNone(sourceInfo) || sourceInfo.value.type !== "Directory")
-    return yield* fail(`rules source from ${path} is not a directory: ${source}`);
+    return yield* fail(`agent source from ${path} is not a directory: ${source}`);
   return Option.some(source);
 });
 
-export const linkRulesSource = Effect.fn("linkRulesSource")(function* (
+export const linkAgentSource = Effect.fn("linkAgentSource")(function* (
   configDir: string,
   host: string,
   dryRun: boolean,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const source = yield* readRulesSource(configDir);
+  const source = yield* readAgentSource(configDir);
   if (Option.isNone(source)) return;
   if (!dryRun) yield* fs.makeDirectory(configDir, { recursive: true, mode: 0o700 });
   for (const [name, sourceName] of ruleLinks(host)) {
@@ -75,7 +75,7 @@ export const linkRulesSource = Effect.fn("linkRulesSource")(function* (
     if (Option.isSome(current) && current.value === target) continue;
     if (Option.isNone(current) && (yield* fs.exists(destination)))
       return yield* fail(
-        `${destination} is a regular file; remove it to link ${target} from the rules source`,
+        `${destination} is a regular file; remove it to link ${target} from the agent source`,
       );
     if (dryRun) {
       yield* Console.log(`would link ${destination} -> ${target}`);
@@ -89,5 +89,5 @@ export const linkRulesSource = Effect.fn("linkRulesSource")(function* (
 function asCliFailure(error: unknown): CliFailure {
   return error instanceof CliFailure
     ? error
-    : new CliFailure({ exitCode: 1, message: `rules source: ${String(error)}` });
+    : new CliFailure({ exitCode: 1, message: `agent source: ${String(error)}` });
 }

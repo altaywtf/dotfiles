@@ -6,7 +6,7 @@ import { hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateLocalAgentRules } from "../agents/rules-local.ts";
-import { linkRulesSource } from "../agents/rules-source.ts";
+import { linkAgentSource } from "../agents/agent-source.ts";
 import { backupPreexistingTargets, type ChezmoiContext } from "./managed-files.ts";
 import { convergeUserManager } from "./linux/user-manager.ts";
 import { refreshAgentRules } from "../agents/rules.ts";
@@ -161,7 +161,7 @@ const program = Effect.gen(function* () {
     ],
     dryRun: args.dryRun,
   };
-  yield* linkRulesSource(configDir, hostname().split(".")[0] ?? "", args.dryRun);
+  yield* linkAgentSource(configDir, hostname().split(".")[0] ?? "", args.dryRun);
   yield* validateLocalAgentRules(configDir, args.dryRun);
   yield* refreshAgentRules(repoRoot, agentRulesPath, {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
