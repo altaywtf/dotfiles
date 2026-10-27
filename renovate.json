@@ -56,6 +56,14 @@
       "matchManagers": ["mise"],
       "matchPackageNames": ["uinaf/ffss"],
       "extractVersion": "^slopguard/v(?<version>.+)$"
+    },
+    {
+      "description": "Agent skill digests merge after checks in their own group, so a manual digest elsewhere never holds them",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["agents/skills/*.json"],
+      "matchUpdateTypes": ["digest"],
+      "groupName": "agent skill digests",
+      "automerge": true
     }
   ],
   "customManagers": [
