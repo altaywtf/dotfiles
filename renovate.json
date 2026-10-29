@@ -58,11 +58,18 @@
       "extractVersion": "^slopguard/v(?<version>.+)$"
     },
     {
-      "description": "Agent skill digests merge after checks in their own group, so a manual digest elsewhere never holds them",
+      "description": "Agent skill digests merge after checks in their own group",
       "matchManagers": ["custom.regex"],
       "matchFileNames": ["agents/skills/*.json"],
       "matchUpdateTypes": ["digest"],
       "groupName": "agent skill digests",
+      "automerge": true
+    },
+    {
+      "description": "Oh My Zsh digests merge after checks",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["bootstrap/install-oh-my-zsh.ts"],
+      "matchUpdateTypes": ["digest"],
       "automerge": true
     }
   ],
