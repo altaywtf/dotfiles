@@ -110,6 +110,34 @@ test("single-owner Darwin devboxes retain the service probe without shared Homeb
   );
 });
 
+for (const [name, capabilities, expected] of [
+  ["workstation", { workstation: true }, false],
+  ["personal-workstation", { workstation: true, personal: true }, true],
+  ["devbox", { workstation: false, devbox: true }, true],
+] as const) {
+  test(`${name} host checks ${expected ? "require" : "skip"} the Tailscale probes`, async () => {
+    const snapshot = await collectMaintenanceSnapshot(
+      {
+        ...context(),
+        ownsHomebrew: true,
+        profile: name,
+        profileConfig: {
+          ...profileConfig,
+          agentLayers: [],
+          capabilities: { ...profileConfig.capabilities, ...capabilities },
+        },
+      },
+      hostRunner((command) =>
+        command === "brew" ? result('{"formulae":[],"casks":[]}') : undefined,
+      ),
+    );
+    for (const key of ["tailscale_status", "tailscale_version"]) {
+      assert.equal(snapshot.probes[key]?.required, expected ? true : undefined);
+    }
+    assert.equal(snapshot.summary.required_failures, 0);
+  });
+}
+
 test("Homebrew backlog parsing keeps exact installed and current versions", () => {
   assert.deepEqual(
     parseBrewBacklog(
