@@ -39,9 +39,13 @@ const program = Effect.scoped(
       "repo",
     ])
       yield* fs.makeDirectory(join(home, path), { recursive: true });
-    yield* fs.writeFileString(join(home, "fake-tools/mise"), "#!/bin/sh\nexit 0\n", {
-      mode: 0o755,
-    });
+    // .zshrc fronts the shims ahead of Homebrew, so a host mise cannot win there.
+    for (const dir of ["fake-tools", ".local/share/mise/shims"])
+      yield* fs.writeFileString(
+        join(home, dir, "mise"),
+        '#!/bin/sh\n[ "$1" = activate ] && echo "$*" >> "$HOME/mise-activate.log"\nexit 0\n',
+        { mode: 0o755 },
+      );
     yield* runner.run("git", ["-C", join(home, "repo"), "init", "-q"]);
     yield* runner.run("git", ["-C", join(home, "repo"), "symbolic-ref", "HEAD", "refs/heads/demo"]);
     const check = Effect.fn("zshPromptCheck")(function* (
@@ -84,6 +88,23 @@ const program = Effect.scoped(
       { HOME: home, PATH: inheritedPath },
       ["-dfc"],
     );
+    const activateLog = join(home, "mise-activate.log");
+    yield* fs.remove(activateLog, { force: true });
+    yield* check(
+      'source "$1" 2>/dev/null; [[ "$(<"$HOME/mise-activate.log")" == "activate zsh --shims" ]]',
+      { HOME: home, PATH: inheritedPath },
+      ["-dfic"],
+    );
+    yield* fs.remove(activateLog, { force: true });
+    const promptShell = yield* runner.run(
+      "/usr/bin/env",
+      ["-i", `HOME=${home}`, `PATH=${inheritedPath}`, "/bin/zsh", "-dfi"],
+      { stdin: new TextEncoder().encode(`source ${zshrc} 2>/dev/null\nexit\n`) },
+    );
+    if (promptShell.status !== 0) return yield* fail(promptShell.stderr);
+    const promptActivation = yield* fs.readFileString(activateLog);
+    if (promptActivation.trim() !== "activate zsh")
+      return yield* fail(`prompt shell ran: ${promptActivation}`);
     const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
     yield* fs.makeDirectory(join(home, ".local/state/dotfiles/updates"), { recursive: true });
     yield* fs.writeFileString(receipt, "{}");
@@ -107,7 +128,7 @@ const program = Effect.scoped(
       ["-dfc"],
     );
     yield* Console.log(
-      "ok login PATH, mise shim precedence, devbox zsh prompt substitution, Android SDK environment, and stale updater warning",
+      "ok login PATH, mise shim precedence, mise activation mode, devbox zsh prompt substitution, Android SDK environment, and stale updater warning",
     );
   }).pipe(
     Effect.catchCause((cause) => fail(Cause.pretty(cause))),
