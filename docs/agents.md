@@ -13,7 +13,7 @@ fetch that auto mode, Remote Control, and cross-machine messaging need.
 ## Global Rules
 
 [rules/shared.json](../agents/rules/shared.json) lists the shared rule sources; the text must
-start with a `##` heading. Apply renders `~/AGENTS.md`, which
+start with a `##` heading. Apply renders `~/.agents/AGENTS.md`, which
 `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link to. Apply replaces these
 files without backup, so keep private edits in fragments:
 

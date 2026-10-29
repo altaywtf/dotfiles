@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
@@ -13,7 +13,12 @@ import {
 afterEach(cleanupFixtures);
 
 function assertNoBackups(home: string): void {
-  for (const directory of [home, join(home, ".claude"), join(home, ".codex")]) {
+  for (const directory of [
+    home,
+    join(home, ".agents"),
+    join(home, ".claude"),
+    join(home, ".codex"),
+  ]) {
     assert.deepEqual(
       readdirSync(directory).filter((name) => name.includes(".backup.")),
       [],
@@ -29,7 +34,8 @@ test.each([
       mkdirSync(join(home, ".claude"), { recursive: true });
       mkdirSync(join(home, ".codex"), { recursive: true });
       writeFileSync(join(home, ".claude/CLAUDE.md"), "unmanaged fixture rules\n");
-      writeFileSync(join(home, "AGENTS.md"), "unmanaged fixture rules\n");
+      mkdirSync(join(home, ".agents"), { recursive: true });
+      writeFileSync(join(home, ".agents/AGENTS.md"), "unmanaged fixture rules\n");
       symlinkSync("../missing/AGENTS.md", join(home, ".codex/AGENTS.md"));
     },
   ],
@@ -63,5 +69,16 @@ test("does not replace managed rule paths again", () => {
 
   assertManagedRules(home);
   assert.doesNotMatch(output, /removed conflicting generated agent rules/);
+  assertNoBackups(home);
+});
+
+test("removes rules rendered at the old home-root path", () => {
+  const { home } = createFixture();
+  writeFileSync(join(home, "AGENTS.md"), "previously rendered rules\n");
+
+  runWrapper(home);
+
+  assertManagedRules(home);
+  assert.equal(existsSync(join(home, "AGENTS.md")), false);
   assertNoBackups(home);
 });
