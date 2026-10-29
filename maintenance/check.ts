@@ -350,9 +350,14 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       ),
       probe("disk", "df", ["-Pk", "/"], parseDisk),
       probe("uptime", "uptime", [], (result) => result.stdout.trim()),
-      probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),
-      probe("tailscale_version", "tailscale", ["version"], firstLine),
     );
+    // Only the devbox and personal Brewfiles install Tailscale.
+    if (context.profileConfig.capabilities.devbox || context.profileConfig.capabilities.personal) {
+      probes.push(
+        probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),
+        probe("tailscale_version", "tailscale", ["version"], firstLine),
+      );
+    }
   }
   if (
     context.profileConfig.capabilities.personal &&
