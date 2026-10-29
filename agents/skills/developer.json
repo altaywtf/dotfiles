@@ -6,11 +6,11 @@
     },
     {
       "name": "create-formal-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/6f6c9e62585436f69e560138d46709026fa5c69f"
+      "source": "https://github.com/cursor/plugins/tree/1ba91fc25c0977741dd0e267849e6234b037ed0a"
     },
     {
       "name": "create-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/6f6c9e62585436f69e560138d46709026fa5c69f"
+      "source": "https://github.com/cursor/plugins/tree/1ba91fc25c0977741dd0e267849e6234b037ed0a"
     },
     {
       "name": "diagnosing-bugs",
@@ -26,11 +26,11 @@
     },
     {
       "name": "maintain-formal-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/6f6c9e62585436f69e560138d46709026fa5c69f"
+      "source": "https://github.com/cursor/plugins/tree/1ba91fc25c0977741dd0e267849e6234b037ed0a"
     },
     {
       "name": "maintain-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/6f6c9e62585436f69e560138d46709026fa5c69f"
+      "source": "https://github.com/cursor/plugins/tree/1ba91fc25c0977741dd0e267849e6234b037ed0a"
     },
     {
       "name": "security-audit",
