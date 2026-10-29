@@ -10,8 +10,8 @@ typeset -U path PATH
 # interactive .zshrc sessions. Agent harnesses inherit this login-shell PATH.
 path+=("$HOME/.local/bin")
 
-# Add mise shims for non-interactive login shells. Interactive shells activate
-# fully near the end of .zshrc after PATH edits, which also fronts the shims.
+# Add mise shims for non-interactive login shells. .zshrc activates near its
+# end after PATH edits: fully in prompt shells, with shims otherwise.
 if [[ ! -o interactive ]] && command -v mise >/dev/null 2>&1; then
   eval "$(mise activate zsh --shims)"
   # A nested login shell from a mise-active parent inherits the shim directory
