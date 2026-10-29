@@ -93,7 +93,7 @@ test("omits private layers for blank Markdown", () => {
 test("shows rule changes in diff and waits for an explicit apply", () => {
   const { config, home } = createFixture();
   runChezmoi(home, config, "apply");
-  const rulesPath = join(home, "AGENTS.md");
+  const rulesPath = join(home, ".agents/AGENTS.md");
   const before = readFileSync(rulesPath, "utf8");
 
   appendFileSync(

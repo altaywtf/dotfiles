@@ -33,7 +33,10 @@ test("restricts linked local Markdown that a checkout update left group and othe
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stderr, /restricted local agent rules to owner-only access/);
     assert.equal(statSync(target).mode & 0o777, 0o600);
-    assert.match(readFileSync(join(home, "AGENTS.md"), "utf8"), /Shared checkout fixture rule/);
+    assert.match(
+      readFileSync(join(home, ".agents/AGENTS.md"), "utf8"),
+      /Shared checkout fixture rule/,
+    );
   }
 });
 

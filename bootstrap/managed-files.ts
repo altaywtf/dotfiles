@@ -119,6 +119,20 @@ const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
   yield* Console.log(`removed conflicting generated agent rules at ${target}`);
 });
 
+const removeLegacyAgentRules = Effect.fn("removeLegacyAgentRules")(function* (
+  context: ChezmoiContext,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const legacy = join(context.home, "AGENTS.md");
+  if (!(yield* fs.exists(legacy))) return;
+  if (context.dryRun) {
+    yield* Console.log(`would remove legacy agent rules at ${legacy}`);
+    return;
+  }
+  yield* fs.remove(legacy, { force: true });
+  yield* Console.log(`removed legacy agent rules at ${legacy}`);
+});
+
 const managedTargets = Effect.fn("managedTargets")(function* (
   context: ChezmoiContext,
   include: "files" | "symlinks",
@@ -135,8 +149,11 @@ const managedTargets = Effect.fn("managedTargets")(function* (
 export const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
   context: ChezmoiContext,
 ) {
+  // Rules used to render at ~/AGENTS.md, which harnesses also load as
+  // project rules for every directory under home.
+  yield* removeLegacyAgentRules(context);
   for (const target of yield* managedTargets(context, "files")) {
-    if (target === join(context.home, "AGENTS.md")) {
+    if (target === join(context.home, ".agents/AGENTS.md")) {
       yield* replaceAgentPath(context, target, "file");
     } else {
       yield* backupPath(context, target, "file");
