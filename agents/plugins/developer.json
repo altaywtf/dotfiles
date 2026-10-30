@@ -4,12 +4,6 @@
       "marketplace": "uinaf/ffss",
       "name": "ffss",
       "harnesses": ["claude", "codex"]
-    },
-    {
-      "marketplace": "openai/codex-plugin-cc",
-      "marketplaceId": "openai-codex",
-      "name": "codex",
-      "harnesses": ["claude"]
     }
   ]
 }
