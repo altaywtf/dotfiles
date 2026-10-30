@@ -100,7 +100,6 @@ jobs:
           home="$(mktemp -d)"
           chezmoi --source chezmoi --destination "$home" --override-data '{"dotfilesProfile":"devbox"}' cat "$home/.config/mise/config.toml" > "$home/mise.toml"
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
-          MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise exec github:uinaf/ffss -- slopguard version
 
       # chezmoi resolves .chezmoi.homeDir from the real user, and systemd-analyze
       # requires the ExecStart binary, so a stub node lives in the runner's home.

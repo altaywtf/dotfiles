@@ -121,8 +121,8 @@ const invalidModels: Array<[string, (model: RawModel) => void, RegExp?]> = [
   ...(
     [
       null,
-      "slopguard",
-      ["slopguard"],
+      "example",
+      ["example"],
       [{ packageType: "tap", name: "example/tap" }],
       [{ packageType: "cask", name: "" }],
       [{ packageType: "cask", name: "example", extra: true }],

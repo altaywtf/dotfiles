@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { configureExternalCapabilities } from "../external-capabilities.ts";
 import { fail, runMain } from "../../lib/program.ts";
-import { readProfileModelEffect } from "../../profiles/model.ts";
+import { readProfileModelEffect, requireProfile, type ProfileModel } from "../../profiles/model.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 type Capability = Record<string, unknown>;
@@ -67,6 +67,7 @@ const program = Effect.scoped(
     const validate = Effect.fn("validateExternalHomebrewFixture")(function* (
       profile = "workstation",
       extra: Readonly<Record<string, string>> = {},
+      profiles: ProfileModel = model,
     ) {
       Object.assign(process.env, {
         DOTFILES_EXTERNAL_HOMEBREW_FILE: config,
@@ -81,7 +82,7 @@ const program = Effect.scoped(
         "HOMEBREW_BUNDLE_MAS_SKIP",
       ])
         if (!(key in extra)) delete process.env[key];
-      return yield* configureExternalCapabilities(repoRoot, model, profile);
+      return yield* configureExternalCapabilities(repoRoot, profiles, profile);
     });
     yield* write([
       command("brew", "git", ["--label=hello | dünya", " spaced value "]),
@@ -142,18 +143,34 @@ const program = Effect.scoped(
     );
     delete process.env.MANAGED_TOOL_EXIT;
 
-    const agentCapabilities = [command("cask", "uinaf/tap/slopguard", ["version"])];
-    yield* write(agentCapabilities);
+    const managedCask = "example/tap/managed-tool";
+    const externalModel: ProfileModel = {
+      ...model,
+      profiles: {
+        ...model.profiles,
+        workstation: {
+          ...requireProfile(model, "workstation"),
+          externalHomebrew: [{ packageType: "cask", name: managedCask }],
+        },
+      },
+    };
+    yield* write([command("cask", managedCask, ["version"])]);
+    assert.deepEqual(yield* validate("workstation", {}, externalModel), {});
+    assert.equal(
+      (yield* validate("workstation", { MANAGED_TOOL_EXIT: "23" }, externalModel).pipe(
+        Effect.option,
+      ))._tag,
+      "None",
+    );
+    delete process.env.MANAGED_TOOL_EXIT;
+    assert.equal((yield* validate("devbox", {}, externalModel).pipe(Effect.option))._tag, "None");
+    yield* fs.writeFileString(local, `cask "${managedCask}"\n`);
+    yield* fs.chmod(local, 0o600);
     for (const profile of ["workstation", "devbox"]) {
-      assert.deepEqual(yield* validate(profile), {});
       assert.equal(
-        (yield* validate(profile, { MANAGED_TOOL_EXIT: "23" }).pipe(Effect.option))._tag,
-        "None",
+        (yield* validate(profile, { DOTFILES_BREWFILE_LOCAL: local })).HOMEBREW_BUNDLE_CASK_SKIP,
+        managedCask,
       );
-      delete process.env.MANAGED_TOOL_EXIT;
-    }
-    for (const profile of ["personal-workstation", "personal-devbox"]) {
-      assert.equal((yield* validate(profile)).HOMEBREW_BUNDLE_CASK_SKIP, "uinaf/tap/slopguard");
     }
     yield* write([command("cask", "uinaf/tap/slopwake", ["version"])]);
     assert.equal((yield* validate().pipe(Effect.option))._tag, "None");

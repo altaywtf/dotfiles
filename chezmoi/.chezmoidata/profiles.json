@@ -20,12 +20,6 @@
           "install-gh-extensions",
           "configure-codex",
           "sync-agents"
-        ],
-        "externalHomebrew": [
-          {
-            "packageType": "cask",
-            "name": "uinaf/tap/slopguard"
-          }
         ]
       },
       "personal-workstation": {
@@ -95,12 +89,6 @@
           "install-gh-extensions",
           "configure-codex",
           "sync-agents"
-        ],
-        "externalHomebrew": [
-          {
-            "packageType": "cask",
-            "name": "uinaf/tap/slopguard"
-          }
         ]
       },
       "devbox": {
@@ -121,12 +109,6 @@
           "install-gh-extensions",
           "configure-codex",
           "sync-agents"
-        ],
-        "externalHomebrew": [
-          {
-            "packageType": "cask",
-            "name": "uinaf/tap/slopguard"
-          }
         ]
       }
     }

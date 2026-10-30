@@ -143,7 +143,6 @@ test("links the stored agent source before rendering what reads it", () => {
     "settings/claude-automode.json": "{}\n",
     "settings/codex.rules": "",
     "settings/claude-settings.json": '{"model":"local-model","env":{"LOCAL":"1"}}\n',
-    "settings/slopguard.yaml": "engine: codex\nmodel: openai/gpt-6.1-sol\n",
   });
 
   runWrapper(home);
@@ -156,14 +155,6 @@ test("links the stored agent source before rendering what reads it", () => {
     join(source, "settings/claude-automode.json"),
   );
   assert.equal(readlinkSync(join(local, "codex.rules")), join(source, "settings/codex.rules"));
-  assert.equal(
-    readlinkSync(join(local, "slopguard.yaml")),
-    join(source, "settings/slopguard.yaml"),
-  );
-  assert.equal(
-    readFileSync(join(home, ".config/slopguard/config.yaml"), "utf8"),
-    "engine: codex\nmodel: openai/gpt-6.1-sol\n",
-  );
   const rules = assertManagedRules(home);
   assert.match(rules, /^## Source start rule\n/);
   assert.match(rules, /## Source host rule\n$/);

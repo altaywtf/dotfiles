@@ -13,7 +13,6 @@ chezmoi.toml
 **/.config/dotfiles/claude-settings.json
 **/.config/dotfiles/codex.json
 **/.config/dotfiles/codex.rules
-**/.config/dotfiles/slopguard.yaml
 **/.config/dotfiles/zshenv.local
 /chezmoi/*dot_config/*dotfiles/*zshenv.local*
 Brewfile.composed.*

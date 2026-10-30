@@ -34,8 +34,7 @@
         "git-filter-repo",
         "github:anthropics/claude-code",
         "xcodegen",
-        "btop",
-        "github:uinaf/ffss"
+        "btop"
       ],
       "matchUpdateTypes": ["patch", "minor", "pin"],
       "minimumReleaseAge": null,
@@ -51,11 +50,6 @@
       "description": "Keep PyYAML install and live verification together",
       "matchPackageNames": ["PyYAML"],
       "groupName": "PyYAML"
-    },
-    {
-      "matchManagers": ["mise"],
-      "matchPackageNames": ["uinaf/ffss"],
-      "extractVersion": "^slopguard/v(?<version>.+)$"
     },
     {
       "description": "Agent skill digests merge after checks in their own group",

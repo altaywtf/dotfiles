@@ -15,20 +15,13 @@ function containsAny(content: string, values: readonly string[]): boolean {
 
 function allowed(file: string, content: string): boolean {
   switch (file) {
-    case "chezmoi/.chezmoitemplates/linux/mise.toml":
-      return content.startsWith('"github:uinaf/ffss" =');
-    case "chezmoi/private_dot_config/mise/config.toml.tmpl":
-      return content.trim() === '"github:uinaf/ffss",';
     case "homebrew/Brewfile.personal":
     case "homebrew/Brewfile.personal-workstation":
       return content.includes("uinaf/tap");
     case "LICENSE":
       return content.includes("Copyright (c) 2026 uinaf");
-    case "renovate.json":
-      return containsAny(content, ['"uinaf/ffss"', '"github:uinaf/ffss"']);
     case ".github/workflows/verify.yml":
       return containsAny(content, [
-        "mise exec github:uinaf/ffss -- slopguard version",
         "uses: uinaf/.github/.github/actions/scan@",
         "client-id: ${{ vars.UINAF_CI_APP_CLIENT_ID }}",
         "private-key: ${{ secrets.UINAF_CI_APP_PRIVATE_KEY }}",
@@ -39,10 +32,8 @@ function allowed(file: string, content: string): boolean {
       return content.includes("uinaf/ffss");
     case "agents/rules/shared.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
-    case "verify/profiles.ts":
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
-    case "chezmoi/.chezmoidata/profiles.json":
       return content.includes("uinaf/tap");
     default:
       return false;

@@ -2,10 +2,8 @@
 
 The selected [profile](profiles.md) controls global rules, skills, plugins,
 and MCPs. Setup replaces drifted harness defaults on each run; the
-[Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json),
-[Codex configuration](../agents/codex/config.ts), and
-[Slopguard configuration](../chezmoi/private_dot_config/slopguard/private_config.yaml.tmpl)
-own them.
+[Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
+and [Codex configuration](../agents/codex/config.ts) own them.
 
 Keep Claude telemetry on: `DISABLE_TELEMETRY` also stops the feature-flag
 fetch that auto mode, Remote Control, and cross-machine messaging need.
@@ -25,7 +23,6 @@ files without backup, so keep private edits in fragments:
 | `~/.config/dotfiles/claude-settings.json` | Deep-merged over the managed Claude settings               |
 | `~/.config/dotfiles/codex.json`           | Codex key paths to values; each replaces the managed value |
 | `~/.config/dotfiles/codex.rules`          | Renders to `~/.codex/rules/local.rules`                    |
-| `~/.config/dotfiles/slopguard.yaml`       | Replaces the managed `~/.config/slopguard/config.yaml`     |
 
 - Each fragment, or its symlink target, must be owned by the user and
   writable by nobody else.

@@ -13,7 +13,6 @@ const ruleLinks = (host: string) =>
     ["claude-settings.json", "settings/claude-settings.json"],
     ["codex.json", "settings/codex.json"],
     ["codex.rules", "settings/codex.rules"],
-    ["slopguard.yaml", "settings/slopguard.yaml"],
   ] as const;
 
 const settingName = "agent-source";

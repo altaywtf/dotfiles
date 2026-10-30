@@ -4,7 +4,6 @@ tap "openclaw/tap", trusted: true
 tap "putdotio/tap", trusted: true
 
 # Personal development tools
-cask "uinaf/tap/slopguard"
 brew "asc"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"

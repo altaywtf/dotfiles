@@ -14,7 +14,6 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
     join(configDir, "claude-settings.json"),
     join(configDir, "codex.json"),
     join(configDir, "codex.rules"),
-    join(configDir, "slopguard.yaml"),
   ]) {
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
