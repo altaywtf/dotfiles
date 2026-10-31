@@ -2,7 +2,7 @@
   "skills": [
     {
       "name": "codebase-design",
-      "source": "https://github.com/mattpocock/skills/tree/a496f5513d4a4cf889bc48e189e579f4b0bdf6aa"
+      "source": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
     },
     {
       "name": "create-formal-verification-skill",
@@ -14,15 +14,15 @@
     },
     {
       "name": "diagnosing-bugs",
-      "source": "https://github.com/mattpocock/skills/tree/a496f5513d4a4cf889bc48e189e579f4b0bdf6aa"
+      "source": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
     },
     {
       "name": "grilling",
-      "source": "https://github.com/mattpocock/skills/tree/a496f5513d4a4cf889bc48e189e579f4b0bdf6aa"
+      "source": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
     },
     {
       "name": "handoff",
-      "source": "https://github.com/mattpocock/skills/tree/a496f5513d4a4cf889bc48e189e579f4b0bdf6aa"
+      "source": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
     },
     {
       "name": "install-anti-slop",
@@ -42,7 +42,7 @@
     },
     {
       "name": "writing-for-agents",
-      "source": "https://github.com/mattpocock/skills/tree/a496f5513d4a4cf889bc48e189e579f4b0bdf6aa"
+      "source": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
     }
   ]
 }
