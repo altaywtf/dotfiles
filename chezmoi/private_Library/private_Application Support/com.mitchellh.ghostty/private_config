@@ -6,3 +6,5 @@ shell-integration-features = ssh-env,ssh-terminfo
 font-family = Berkeley Mono Variable
 font-family = Menlo
 font-size = 16
+
+auto-update = download
