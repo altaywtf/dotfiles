@@ -1,0 +1,10 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $settings := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $settings = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- /* T3 Code rewrites this file in its own key order; keep its bytes when nothing managed changed. */ -}}
+{{- $before := toJson $settings -}}
+{{- $homes := joinPath .chezmoi.homeDir ".config/t3-gateway" -}}
+{{- $managed := $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.setupMode" "existing" | setValueAtPath "providerInstances.codex.config.homePath" (joinPath $homes "codex") | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.homePath" (joinPath $homes "claude") -}}
+{{ if eq (toJson $managed) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $managed | toPrettyJson }}{{ end }}

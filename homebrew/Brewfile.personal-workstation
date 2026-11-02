@@ -19,6 +19,7 @@ cask "basecamp/tap/hey"
 
 # Agent tools
 cask "uinaf/tap/slopwake"
+cask "t3-code"
 
 # Cloud tooling
 cask "gcloud-cli"

@@ -4,6 +4,10 @@
 .config/zed
 Library/Application Support/com.mitchellh.ghostty
 {{ end }}
+{{ if not (and $profile.capabilities.workstation $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json"))) }}
+.config/t3-gateway
+.t3
+{{ end }}
 {{ if ne .chezmoi.os "darwin" }}
 Library
 {{ end }}
