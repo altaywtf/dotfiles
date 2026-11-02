@@ -127,7 +127,7 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
 ## Check Available Updates
 
 ```sh
-mise run maintenance:check        # pending macOS, Homebrew, mise, npm, and agent updates
+mise run maintenance:check        # pending macOS, Homebrew, mise, npm, and agent updates; macOS content caches
 node maintenance/check.ts --fresh # force a live macOS scan
 mise run maintenance:verify       # adds bootstrap verification
 ```
