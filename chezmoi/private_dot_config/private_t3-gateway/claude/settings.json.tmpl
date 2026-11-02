@@ -1,2 +1,0 @@
-{{- $gateway := includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json") | fromJson -}}
-{{- dict "apiKeyHelper" $gateway.keyCommand "env" (dict "ANTHROPIC_BASE_URL" (trimSuffix "/v1" $gateway.baseUrl) "DISABLE_ERROR_REPORTING" "1" "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY" "1") "permissions" (dict "defaultMode" "auto") "attribution" (dict "commit" "" "pr" "" "sessionUrl" false) | toPrettyJson }}
