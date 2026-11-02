@@ -70,6 +70,28 @@ function result(stdout: string, status = 0): RawCommandResult {
 }
 
 // Healthy host probe answers; `override` handles the calls a test cares about.
+const cacheServer = {
+  advice: { connectTimeout: 0.5, supportsUrgency: true, validUntil: "2026-11-02 08:57:51 +0000" },
+  favored: false,
+  guid: "00000000-0000-4000-8000-000000000000",
+  healthy: true,
+  hostport: "192.0.2.10:59308",
+  rank: 1,
+};
+const contentCacheLocator = JSON.stringify({
+  results: {
+    "public IP address": "203.0.113.1",
+    system: {
+      "might have": true,
+      "refreshed servers": {
+        "all servers": [cacheServer],
+        "personal caching": [],
+        "shared caching": [cacheServer],
+      },
+    },
+  },
+});
+
 function hostRunner(
   override: (command: string, args: readonly string[]) => RawCommandResult | undefined = () =>
     undefined,
@@ -231,6 +253,7 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
       return result('+-o Fixture1AP <class IOPlatformExpertDevice>\n{\n"model" = <"Mac99,1">\n}\n');
     if (command === "softwareupdate")
       return result("Software Update Tool\nNo new software available.\n");
+    if (command === "AssetCacheLocatorUtil") return result(contentCacheLocator);
     return undefined;
   });
   const updateIO: MacOSUpdateIO = {
@@ -286,6 +309,9 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
   assert.equal(inventory?.installed.os.build, "25G83");
   assert.equal(inventory?.installed.device.software_update_id, "Fixture1AP");
   assert.equal(inventory?.upstream.apple_gdmf.status, "ok");
+  assert.deepEqual(snapshot.probes.content_cache?.value, [
+    { hostport: "192.0.2.10:59308", healthy: true },
+  ]);
 });
 
 test("interrupting the collector reaps every owned probe before completing", async (t) => {

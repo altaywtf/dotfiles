@@ -248,6 +248,30 @@ function parseTailscale(result: RawCommandResult) {
   };
 }
 
+const CacheLocator = Schema.Struct({
+  results: Schema.Struct({
+    system: Schema.Struct({
+      "refreshed servers": Schema.Struct({
+        "shared caching": Schema.Array(
+          Schema.Struct({ hostport: Schema.String, healthy: Schema.Boolean }),
+        ),
+      }),
+    }),
+  }),
+});
+
+function parseContentCaches(result: RawCommandResult) {
+  let locator: typeof CacheLocator.Type;
+  try {
+    locator = Schema.decodeUnknownSync(CacheLocator)(JSON.parse(result.stdout));
+  } catch (cause) {
+    throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause });
+  }
+  return locator.results.system["refreshed servers"]["shared caching"].map(
+    ({ hostport, healthy }) => ({ hostport, healthy }),
+  );
+}
+
 function parseGitStatus(result: RawCommandResult) {
   const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
   return { branch: lines[0] ?? "", dirty_entries: Math.max(0, lines.length - 1) };
@@ -351,6 +375,13 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       probe("disk", "df", ["-Pk", "/"], parseDisk),
       probe("uptime", "uptime", [], (result) => result.stdout.trim()),
     );
+    if (context.platform === "darwin") {
+      probes.push(
+        probe("content_cache", "AssetCacheLocatorUtil", ["-j"], parseContentCaches, {
+          required: false,
+        }),
+      );
+    }
     // Only the devbox and personal Brewfiles install Tailscale.
     if (context.profileConfig.capabilities.devbox || context.profileConfig.capabilities.personal) {
       probes.push(
