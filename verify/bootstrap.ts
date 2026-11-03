@@ -155,7 +155,6 @@ const program = Effect.gen(function* () {
       "glab --version",
       "aws --version",
       "topgrade --version",
-      ...(darwin ? ["mole --version"] : []),
     ]);
     // Homebrew supplies the Android command-line tools on macOS; a Linux user installs the SDK.
     const androidHome = yield* shell('printf %s "$ANDROID_HOME"');

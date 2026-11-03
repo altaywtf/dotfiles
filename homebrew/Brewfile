@@ -41,6 +41,3 @@ brew "teamookla/speedtest/speedtest"
 
 # Security
 brew "lynis"
-
-# Maintenance utilities
-brew "mole"
