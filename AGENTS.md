@@ -23,6 +23,7 @@ authored agent guide.
 - Keep the repository standalone; it runs without a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
+- Effect repository setup: `effect-ts` skill; keep the pinned `effect` version.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
 - Import test APIs from `vite-plus/test`. Keep Chezmoi templates in their native syntax.
 
