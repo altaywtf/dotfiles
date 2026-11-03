@@ -25,16 +25,13 @@
         "shellcheck",
         "actionlint",
         "chezmoi",
-        "direnv",
         "gitleaks",
         "trufflehog",
         "topgrade",
         "awscli",
         "glab",
-        "git-filter-repo",
         "github:anthropics/claude-code",
-        "xcodegen",
-        "btop"
+        "xcodegen"
       ],
       "matchUpdateTypes": ["patch", "minor", "pin"],
       "minimumReleaseAge": null,

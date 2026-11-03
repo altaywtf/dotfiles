@@ -1,7 +1,6 @@
 # Bootstrap and runtime tools
 brew "git"
 brew "mise"
-brew "btop"
 brew "tmux"
 
 # Called by fixed path from privileged flows (sudo askpass, Xcode selection),
@@ -14,18 +13,13 @@ brew "xcodes"
 # the pinned cross-platform CLI for interactive use.
 brew "gh"
 
-# Taps
-tap "teamookla/speedtest", trusted: true
-
 # Development CLI
-brew "git-crypt"
 brew "watchman"
 
 # Platform development
 cask "android-commandlinetools"
 
-# Download and media helpers
-brew "aria2"
+# Media helpers
 brew "ffmpeg"
 
 # Containers
@@ -34,10 +28,6 @@ brew "docker"
 brew "docker-buildx"
 brew "docker-compose"
 brew "docker-credential-helper"
-
-# Networking and diagnostics
-brew "fping"
-brew "teamookla/speedtest/speedtest"
 
 # Security
 brew "lynis"

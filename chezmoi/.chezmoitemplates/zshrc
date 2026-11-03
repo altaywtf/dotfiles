@@ -115,12 +115,6 @@ else
   echo "mise not found; see docs/bootstrap.md" >&2
 fi
 
-if command -v direnv >/dev/null 2>&1; then
-  eval "$(direnv hook zsh)"
-else
-  echo "direnv not found; run ./dotfiles apply" >&2
-fi
-
 # The updater rewrites this receipt whenever a run starts or finishes, so an old
 # receipt means scheduled runs stopped before they could report anything, unless
 # maintenance:disable stopped them on purpose.

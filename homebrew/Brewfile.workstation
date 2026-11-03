@@ -9,6 +9,3 @@ cask "slack"
 cask "claude"
 cask "chatgpt"
 cask "zed"
-
-# Hardware security
-brew "ykman"
