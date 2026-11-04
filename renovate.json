@@ -29,6 +29,7 @@
         "trufflehog",
         "topgrade",
         "awscli",
+        "terraform",
         "glab",
         "github:anthropics/claude-code",
         "xcodegen"
