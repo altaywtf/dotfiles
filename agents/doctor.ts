@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { accessSync, constants, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
@@ -7,7 +8,8 @@ import { Effect } from "effect";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
-import { type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { configuredHeadersHelper } from "./mcps/claude-config.ts";
 import {
   createRuntime,
   errorMessage,
@@ -19,7 +21,8 @@ import {
 const USAGE = `Usage: ./agents/doctor.ts [--profile PROFILE]
 
 Reports the MCP authentication state of every managed MCP in each installed
-harness and the command that repairs it. Exits 1 when an MCP needs a login.`;
+harness, including headers helpers, and the command that repairs it. Exits 1
+when an MCP needs a login or a working headers helper.`;
 
 type Status = "ok" | "needs_login" | "unknown" | "failed";
 
@@ -39,14 +42,57 @@ function capture(runtime: Runtime, command: string, args: readonly string[]) {
   return { ...result, text: stripAnsi(`${result.stdout}\n${result.stderr}`) };
 }
 
+function helperProblem(path: string): string | undefined {
+  const info = statSync(path, { throwIfNoEntry: false });
+  if (!info) return "is missing";
+  if (!info.isFile()) return "is not a regular file";
+  try {
+    accessSync(path, constants.X_OK);
+  } catch {
+    return "is not executable";
+  }
+  return undefined;
+}
+
+function helperFinding(runtime: Runtime, mcp: Mcp, helper: string): Finding | undefined {
+  const problem = helperProblem(helper);
+  if (problem !== undefined) {
+    return {
+      harness: "claude",
+      mcp: mcp.name,
+      status: "failed",
+      detail: `headers helper ${helper} ${problem}`,
+      repair: `create an executable ${helper} that prints the headers as JSON`,
+    };
+  }
+  if (configuredHeadersHelper(runtime.env, mcp.name) !== helper) {
+    return {
+      harness: "claude",
+      mcp: mcp.name,
+      status: "failed",
+      detail: "headers helper is not configured",
+      repair: "mise run agents:sync",
+    };
+  }
+  return undefined;
+}
+
 function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
+  const helper =
+    mcp.headersHelper === undefined
+      ? undefined
+      : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
+  const helperFailure = helper === undefined ? undefined : helperFinding(runtime, mcp, helper);
+  if (helperFailure !== undefined) return helperFailure;
+
   const result = capture(runtime, "claude", ["mcp", "get", mcp.name]);
   const statusLine =
     result.text
       .split("\n")
       .find((line) => line.trim().startsWith("Status:"))
       ?.trim() ?? "";
-  const repair = `claude mcp login ${mcp.name}`;
+  const repair =
+    helper === undefined ? `claude mcp login ${mcp.name}` : `check the headers ${helper} prints`;
   if (result.status !== 0) {
     return {
       harness: "claude",
@@ -57,7 +103,12 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
     };
   }
   if (statusLine.includes("Connected")) {
-    return { harness: "claude", mcp: mcp.name, status: "ok", detail: "connected" };
+    return {
+      harness: "claude",
+      mcp: mcp.name,
+      status: "ok",
+      detail: helper === undefined ? "connected" : "connected via headers helper",
+    };
   }
   if (/auth/i.test(statusLine)) {
     return {

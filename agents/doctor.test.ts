@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
@@ -123,4 +123,47 @@ test("skips harnesses that are not installed", () => {
   runtime.installedCommands.delete("codex");
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /Skipping Codex: 'codex' is not installed/);
+});
+
+function writeHelperManifest(repoDir: string): void {
+  writeFileSync(
+    join(repoDir, "agents/mcps/developer.json"),
+    JSON.stringify({
+      mcps: [
+        {
+          name: "shared-mcp",
+          url: "https://mcp.fixture.test/mcp",
+          harnesses: ["claude"],
+          headersHelper: "~/bin/auth-headers",
+        },
+      ],
+    }),
+  );
+}
+
+test("reports a missing headers helper before probing Claude", () => {
+  const { repoDir, home } = createFixture();
+  writeHelperManifest(repoDir);
+  const runtime = new FixtureRuntime(repoDir, home, healthy);
+  assert.equal(main([], runtime), 1);
+  assert.match(
+    runtime.stdout.value,
+    /Claude Code: shared-mcp - headers helper [^\n]*bin\/auth-headers is missing\n {6}repair: create an executable/,
+  );
+});
+
+test("reports a connected mcp through its configured headers helper", () => {
+  const { repoDir, home } = createFixture();
+  writeHelperManifest(repoDir);
+  const helper = join(home, "bin/auth-headers");
+  mkdirSync(dirname(helper), { recursive: true });
+  writeFileSync(helper, "#!/bin/sh\n");
+  chmodSync(helper, 0o700);
+  writeFileSync(
+    join(home, ".claude.json"),
+    JSON.stringify({ mcpServers: { "shared-mcp": { headersHelper: helper } } }),
+  );
+  const runtime = new FixtureRuntime(repoDir, home, healthy);
+  assert.equal(main([], runtime), 0);
+  assert.match(runtime.stdout.value, /Claude Code: shared-mcp - connected via headers helper/);
 });

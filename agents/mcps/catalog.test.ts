@@ -65,6 +65,16 @@ test.each([
     [{ name: "one", url, harnesses: ["windsurf"] }],
     /harnesses must be a unique/,
   ],
+  [
+    "a headers helper for Codex",
+    [{ name: "one", url, headersHelper: "/opt/helper" }],
+    /headersHelper needs harnesses \["claude"\]/,
+  ],
+  [
+    "a relative headers helper",
+    [{ name: "one", url, harnesses: ["claude"], headersHelper: "bin/helper" }],
+    /headersHelper must be an absolute or ~\/ path/,
+  ],
 ])("rejects a manifest with %s", (_case, mcps, message) => {
   const { repoDir } = createFixture();
   writeManifest(repoDir, "developer", mcps);

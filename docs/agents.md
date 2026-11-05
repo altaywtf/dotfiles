@@ -58,6 +58,10 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
 - Machine-specific skills, MCPs, and plugins go in an optional,
   gitignored `agents/local.json` with `skills`, `mcps`, and `plugins` arrays
   in the manifest entry shapes. Entries only add; keep credentials out of it.
+- A remote MCP that needs a bearer token sets `headersHelper` to an absolute
+  or `~/` path and `harnesses` to `["claude"]`; Codex has no equivalent. The
+  helper prints the headers as JSON and reads the token from a mode-0600 file
+  or a secret manager.
 - A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
 
