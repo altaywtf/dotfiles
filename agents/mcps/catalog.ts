@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { type AgentLayer } from "../../profiles/model.ts";
 import { composeLayers, type Harness, HARNESSES, isSafeName, readHarnesses } from "../harness.ts";
@@ -10,7 +10,40 @@ export type Mcp = {
   name: string;
   url: string;
   harnesses: readonly Harness[];
+  headersHelper?: string;
 };
+
+export function expandHeadersHelper(path: string, home: string | undefined): string {
+  if (!path.startsWith("~/")) return path;
+  if (home === undefined || home.length === 0) {
+    throw new Error(`Cannot expand headers helper ${path}: HOME is not set`);
+  }
+  return join(home, path.slice(2));
+}
+
+function readHeadersHelper(
+  value: unknown,
+  harnesses: readonly Harness[],
+  path: string,
+  name: string,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== "string" ||
+    !(isAbsolute(value) || value.startsWith("~/")) ||
+    /\s/.test(value)
+  ) {
+    throw new Error(
+      `Invalid MCP manifest at ${path}: ${name} headersHelper must be an absolute or ~/ path without whitespace`,
+    );
+  }
+  if (harnesses.length !== 1 || harnesses[0] !== "claude") {
+    throw new Error(
+      `Invalid MCP manifest at ${path}: ${name} headersHelper needs harnesses ["claude"]; Codex cannot run it`,
+    );
+  }
+  return value;
+}
 
 function readManifestHarnesses(value: unknown, path: string, name: string): readonly Harness[] {
   if (value === undefined) {
@@ -53,7 +86,16 @@ function readMcp(value: unknown, manifestPath: string): Mcp {
     value.name,
   );
 
-  return { name: value.name, url: value.url, harnesses };
+  const headersHelper = readHeadersHelper(
+    "headersHelper" in value ? value.headersHelper : undefined,
+    harnesses,
+    manifestPath,
+    value.name,
+  );
+
+  return headersHelper === undefined
+    ? { name: value.name, url: value.url, harnesses }
+    : { name: value.name, url: value.url, harnesses, headersHelper };
 }
 
 function parseMcps(value: unknown, manifestPath: string): Mcp[] {

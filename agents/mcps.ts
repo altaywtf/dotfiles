@@ -19,7 +19,8 @@ import {
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
-import { type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { configuredHeadersHelper } from "./mcps/claude-config.ts";
 import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
@@ -209,8 +210,17 @@ function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure
   }
 }
 
+function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): string[] {
+  if (headersHelper === undefined) {
+    return ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url];
+  }
+  const config = JSON.stringify({ type: "http", url: mcp.url, headersHelper });
+  return ["mcp", "add-json", "-s", "user", mcp.name, config];
+}
+
 // `claude mcp add` refuses an existing name instead of updating it, so converge
-// through get: matching URL is a no-op, anything else is removed and re-added.
+// through get: matching URL and headers helper is a no-op, anything else is
+// removed and re-added.
 function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
   const label = "Claude Code";
   const selected = mcps.filter((mcp) => mcp.harnesses.includes("claude"));
@@ -225,12 +235,19 @@ function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailur
   }
 
   for (const mcp of selected) {
+    const headersHelper =
+      mcp.headersHelper === undefined
+        ? undefined
+        : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
     const existing = runtime.run("claude", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
     if (existing.status === 0) {
-      if (existing.stdout.includes(`URL: ${mcp.url}\n`)) {
+      if (
+        existing.stdout.includes(`URL: ${mcp.url}\n`) &&
+        configuredHeadersHelper(runtime.env, mcp.name) === headersHelper
+      ) {
         writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
         continue;
       }
@@ -245,13 +262,7 @@ function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailur
         continue;
       }
     }
-    runPlanned(
-      runtime,
-      label,
-      "claude",
-      ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url],
-      failures,
-    );
+    runPlanned(runtime, label, "claude", claudeAddArgs(mcp, headersHelper), failures);
   }
 }
 

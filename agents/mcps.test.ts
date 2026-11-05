@@ -211,6 +211,74 @@ test("replaces a Claude mcp whose URL changed", () => {
   ]);
 });
 
+function writeHelperMcp(repoDir: string): void {
+  writeManifest(repoDir, "developer", [
+    {
+      name: "auth-mcp",
+      url: "https://auth.fixture.test/mcp",
+      harnesses: ["claude"],
+      headersHelper: "~/bin/auth-headers",
+    },
+  ]);
+}
+
+function writeClaudeConfig(home: string, headersHelper?: string): void {
+  const entry = {
+    type: "http",
+    url: "https://auth.fixture.test/mcp",
+    ...(headersHelper ? { headersHelper } : {}),
+  };
+  writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { "auth-mcp": entry } }));
+}
+
+const configuredAuthMcp = new Map([
+  ["claude mcp get auth-mcp", "auth-mcp:\n  Type: http\n  URL: https://auth.fixture.test/mcp\n"],
+]);
+
+test("adds a Claude mcp with its expanded headers helper", () => {
+  const { repoDir, home } = createFixture();
+  writeHelperMcp(repoDir);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([["claude mcp get auth-mcp", { stdout: "", stderr: "not found" }]]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  const config = JSON.stringify({
+    type: "http",
+    url: "https://auth.fixture.test/mcp",
+    headersHelper: join(home, "bin/auth-headers"),
+  });
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "mcp get auth-mcp",
+    `mcp add-json -s user auth-mcp ${config}`,
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), []);
+});
+
+test("keeps a Claude mcp whose headers helper already matches", () => {
+  const { repoDir, home } = createFixture();
+  writeHelperMcp(repoDir);
+  writeClaudeConfig(home, join(home, "bin/auth-headers"));
+  const runtime = new FixtureRuntime(repoDir, home, { outputs: configuredAuthMcp });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), ["mcp get auth-mcp"]);
+});
+
+test("re-adds a Claude mcp whose config lacks its headers helper", () => {
+  const { repoDir, home } = createFixture();
+  writeHelperMcp(repoDir);
+  writeClaudeConfig(home);
+  const runtime = new FixtureRuntime(repoDir, home, { outputs: configuredAuthMcp });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude").slice(0, 2), [
+    "mcp get auth-mcp",
+    "mcp remove -s user auth-mcp",
+  ]);
+  assert.match(harnessCalls(runtime, "claude")[2] ?? "", /^mcp add-json -s user auth-mcp /);
+});
+
 test("downgrades a Codex add whose config landed before its login step failed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
