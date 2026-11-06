@@ -1,3 +1,3 @@
 [tools]
 # See darwin/mise.toml for why Claude Code uses GitHub releases.
-"github:anthropics/claude-code" = { version = "2.1.318", matching_regex = "^claude-linux-(arm64|x64)\\.tar\\.gz$" }
+"github:anthropics/claude-code" = { version = "2.1.319", matching_regex = "^claude-linux-(arm64|x64)\\.tar\\.gz$" }
