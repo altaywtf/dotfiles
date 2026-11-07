@@ -36,6 +36,8 @@ const buildNames = new Set(["target", ".build"]);
 const buildIdleDays = 3;
 const cacheTagSignature = "Signature: 8a477f597d28d172789f06886806bc55";
 
+const claudeRemoteInstalls = [".claude/remote/ccd-cli", ".claude/remote/srv"];
+
 // Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
 // same tree Codex writes to. Empty and relative values fall back rather than
 // resolving against the working directory, where they would name siblings of
@@ -192,6 +194,34 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         ),
       );
     }
+    if (yield* commandAvailable("pgrep"))
+      for (const relative of claudeRemoteInstalls) {
+        const root = join(home, relative);
+        const names = yield* fs.readDirectory(root).pipe(Effect.orElseSucceed(() => []));
+        const installs: { path: string; modified: number }[] = [];
+        for (const name of names) {
+          const info = yield* fs.stat(join(root, name)).pipe(Effect.option);
+          if (Option.isSome(info))
+            installs.push({
+              path: join(root, name),
+              modified: Option.getOrElse(info.value.mtime, () => new Date(0)).getTime(),
+            });
+        }
+        installs.sort((left, right) => right.modified - left.modified);
+        for (const { path } of installs.slice(1)) {
+          if ((yield* command("pgrep", ["-f", path])).status !== 1) continue;
+          yield* log(`remove superseded Claude remote install: ${path}`);
+          if (!apply) continue;
+          yield* fs.remove(path, { recursive: true }).pipe(
+            Effect.catch(() =>
+              Effect.gen(function* () {
+                failed = true;
+                yield* log(`warning: failed to remove ${path}`);
+              }),
+            ),
+          );
+        }
+      }
     if (
       (yield* commandAvailable("xcrun")) &&
       (yield* command("xcrun", ["--find", "simctl"])).status === 0

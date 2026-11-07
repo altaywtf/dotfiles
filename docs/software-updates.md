@@ -52,8 +52,9 @@ git config --local dotfiles.hygiene skip # exclude this owning clone
 git config --local --unset dotfiles.hygiene # include it again
 ```
 
-The [cache sweep](../maintenance/cache-cleanup.ts) also runs `mise prune` and
-permanently deletes aged Codex session history.
+The [cache sweep](../maintenance/cache-cleanup.ts) also runs `mise prune`,
+permanently deletes aged Codex session history, and removes Claude app remote
+installs older than the newest one unless a process still runs them.
 
 ## Logs and Alerts
 

@@ -25,7 +25,7 @@ async function fixture(t: TestContext) {
     if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = previousCodexHome;
   });
-  for (const name of ["xcrun", "pnpm", "docker", "mise"])
+  for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"])
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
@@ -43,6 +43,7 @@ async function fixture(t: TestContext) {
       spawnFailure?: boolean;
       probeFailure?: boolean;
       miseVersion?: string;
+      running?: readonly string[];
     } = {},
   ) =>
     Effect.runPromise(
@@ -57,6 +58,12 @@ async function fixture(t: TestContext) {
               return options.spawnFailure
                 ? Effect.fail(new CommandError({ command, message: "fixture spawn failure" }))
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
+            if (command === "pgrep")
+              return Effect.succeed({
+                status: options.running?.includes(args[1] ?? "") ? 0 : 1,
+                stdout: "",
+                stderr: "",
+              });
             if (command === "find" || command === "git")
               return live.run(`/usr/bin/${command}`, args, commandOptions);
             return Effect.succeed({
@@ -314,4 +321,44 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   });
   await access(join(f.home, ".claude/worktrees/pnpm/review/.gitignore"));
   await Promise.all(kept.map((path) => access(path)));
+});
+
+test("superseded Claude remote installs go, keeping the newest and any still running", async (t) => {
+  const { home, run } = await fixture(t);
+  const cli = join(home, ".claude/remote/ccd-cli");
+  const srv = join(home, ".claude/remote/srv");
+  const install = async (path: string, days: number, directory = false) => {
+    await mkdir(directory ? path : join(path, ".."), { recursive: true });
+    if (directory) await writeFile(join(path, "server"), "fixture");
+    else await writeFile(path, "fixture");
+    const when = new Date(Date.now() - days * 86400_000);
+    await utimes(path, when, when);
+  };
+  await install(join(cli, "2.1.304-old"), 20);
+  await install(join(cli, "2.1.309-running"), 10);
+  await install(join(cli, "2.1.317-new"), 0);
+  await install(join(srv, "old"), 20, true);
+  await install(join(srv, "new"), 0, true);
+  const running = [join(cli, "2.1.309-running")];
+  const present = (path: string) =>
+    access(path).then(
+      () => true,
+      () => false,
+    );
+
+  await run(false, { running });
+  assert.equal(await present(join(cli, "2.1.304-old")), true);
+  assert.equal(await present(join(srv, "old")), true);
+
+  await run(true, { running });
+  assert.deepEqual(
+    await Promise.all(
+      ["2.1.304-old", "2.1.309-running", "2.1.317-new"].map((name) => present(join(cli, name))),
+    ),
+    [false, true, true],
+  );
+  assert.deepEqual(await Promise.all(["old", "new"].map((name) => present(join(srv, name)))), [
+    false,
+    true,
+  ]);
 });
