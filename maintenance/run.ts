@@ -2,7 +2,7 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { hostname, userInfo } from "node:os";
+import { hostname, uptime, userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
@@ -29,7 +29,10 @@ const SendResult = Schema.Struct({
     permanent_bounces: Schema.Array(Schema.String),
   }),
 });
-const PreviousReceipt = Schema.Struct({ cleanupComplete: Schema.optionalKey(Schema.Boolean) });
+const PreviousReceipt = Schema.Struct({
+  startedAt: Schema.optionalKey(Schema.String),
+  cleanupComplete: Schema.optionalKey(Schema.Boolean),
+});
 type Alert = "not-configured" | "not-needed" | "sent" | "failed";
 
 export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
@@ -38,6 +41,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   command: string,
   args: readonly string[],
   send: typeof fetch = fetch,
+  bootedAt: Date = new Date(Date.now() - uptime() * 1000),
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* BoundedCommand;
@@ -114,7 +118,11 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     const previous = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PreviousReceipt))(
       yield* fs.readFileString(path),
     );
-    return previous.cleanupComplete === false;
+    if (previous.cleanupComplete !== false) return false;
+    const previousStart = Date.parse(previous.startedAt ?? "");
+    if (!(previousStart < bootedAt.getTime())) return true;
+    yield* Console.log("The previous update ended with a reboot; none of its processes remain.");
+    return false;
   }).pipe(Effect.catch(() => Effect.succeed(true)));
   if (blocked)
     yield* Console.error(

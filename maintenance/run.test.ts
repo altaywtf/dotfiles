@@ -80,8 +80,9 @@ const update = (
   home: string,
   command: Parameters<typeof BoundedCommand.of>[0],
   send?: typeof fetch,
+  bootedAt?: Date,
 ) =>
-  runUpdate("software-update", home, "fixture", [], send).pipe(
+  runUpdate("software-update", home, "fixture", [], send, bootedAt).pipe(
     Effect.provideService(BoundedCommand, command),
     Effect.provide(NodeServices.layer),
   );
@@ -362,6 +363,28 @@ for (const previous of ["incomplete", "unreadable"] as const) {
     assert.equal(command.executions, 1);
   });
 }
+
+test("an incomplete receipt from before the last boot no longer blocks updates", async (t) => {
+  const home = await tempHome(t, "dotfiles-update-rebooted-");
+  await mkdir(join(home, ".local/state/dotfiles/updates"), { recursive: true });
+  const interrupted = JSON.stringify({
+    startedAt: "2026-11-02T09:00:06.000Z",
+    cleanupComplete: false,
+  });
+  const command = fixedCommand({ status: 0 });
+  await writeFile(receiptPath(home), interrupted);
+  const bootedBefore = new Date("2026-11-02T08:00:00.000Z");
+  assert.equal(
+    await Effect.runPromise(update(home, command.service, undefined, bootedBefore)),
+    125,
+  );
+  assert.equal(command.executions, 0);
+  await writeFile(receiptPath(home), interrupted);
+  const bootedAfter = new Date("2026-11-02T09:06:00.000Z");
+  assert.equal(await Effect.runPromise(update(home, command.service, undefined, bootedAfter)), 0);
+  assert.equal(command.executions, 1);
+  assert.notEqual((await readReceipt(home)).cleanupComplete, false);
+});
 
 test("a pre-spawn failure remains retryable without removing the receipt", async (t) => {
   const home = await tempHome(t, "dotfiles-update-spawn-");

@@ -86,9 +86,10 @@ mise run maintenance:disable
   enable. Script-only changes need no reload.
 - Linux: `./dotfiles apply` reloads changed units.
 - An interrupted run leaves its receipt at `cleanupComplete: false`, and later
-  runs exit `125` until it is removed. Inspect logs, package state, and
-  leftover processes; once the previous update and its children have stopped,
-  remove `~/.local/state/dotfiles/updates/software-update.json`.
+  runs exit `125` until the host reboots or the receipt is removed. Inspect
+  logs, package state, and leftover processes; once the previous update and its
+  children have stopped, remove
+  `~/.local/state/dotfiles/updates/software-update.json`.
 - Never delete Homebrew locks during another package run.
 
 ## Headless Devbox Updates
