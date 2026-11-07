@@ -60,7 +60,9 @@ async function fixture(t: TestContext) {
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
             if (command === "pgrep")
               return Effect.succeed({
-                status: options.running?.includes(args[1] ?? "") ? 0 : 1,
+                status: options.running?.some((path) => new RegExp(args[1] ?? "").test(path))
+                  ? 0
+                  : 1,
                 stdout: "",
                 stderr: "",
               });
@@ -335,11 +337,11 @@ test("superseded Claude remote installs go, keeping the newest and any still run
     await utimes(path, when, when);
   };
   await install(join(cli, "2.1.304-old"), 20);
-  await install(join(cli, "2.1.309-running"), 10);
+  await install(join(cli, "2.1.309 (running)"), 10);
   await install(join(cli, "2.1.317-new"), 0);
   await install(join(srv, "old"), 20, true);
   await install(join(srv, "new"), 0, true);
-  const running = [join(cli, "2.1.309-running")];
+  const running = [join(cli, "2.1.309 (running)")];
   const present = (path: string) =>
     access(path).then(
       () => true,
@@ -353,7 +355,7 @@ test("superseded Claude remote installs go, keeping the newest and any still run
   await run(true, { running });
   assert.deepEqual(
     await Promise.all(
-      ["2.1.304-old", "2.1.309-running", "2.1.317-new"].map((name) => present(join(cli, name))),
+      ["2.1.304-old", "2.1.309 (running)", "2.1.317-new"].map((name) => present(join(cli, name))),
     ),
     [false, true, true],
   );
@@ -361,4 +363,39 @@ test("superseded Claude remote installs go, keeping the newest and any still run
     false,
     true,
   ]);
+});
+
+test("a Claude remote install whose running state is unknown stays", async (t) => {
+  const { home, run } = await fixture(t);
+  const cli = join(home, ".claude/remote/ccd-cli");
+  await mkdir(cli, { recursive: true });
+  for (const [name, days] of [
+    ["old", 20],
+    ["new", 0],
+  ] as const) {
+    await writeFile(join(cli, name), "fixture");
+    const when = new Date(Date.now() - days * 86400_000);
+    await utimes(join(cli, name), when, when);
+  }
+  const result = await run(true, { failure: "pgrep", spawnFailure: true });
+  await access(join(cli, "old"));
+  assert.equal(result.status, 1);
+});
+
+test("a symlinked Claude remote directory is never followed", async (t) => {
+  const { home, run } = await fixture(t);
+  const outside = join(home, "outside");
+  await mkdir(outside, { recursive: true });
+  for (const [name, days] of [
+    ["old", 20],
+    ["new", 0],
+  ] as const) {
+    await writeFile(join(outside, name), "fixture");
+    const when = new Date(Date.now() - days * 86400_000);
+    await utimes(join(outside, name), when, when);
+  }
+  await mkdir(join(home, ".claude/remote"), { recursive: true });
+  await symlink(outside, join(home, ".claude/remote/ccd-cli"));
+  await run(true);
+  await access(join(outside, "old"));
 });

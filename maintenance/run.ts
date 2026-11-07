@@ -2,7 +2,9 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { hostname, uptime, userInfo } from "node:os";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { hostname, userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
@@ -30,9 +32,21 @@ const SendResult = Schema.Struct({
   }),
 });
 const PreviousReceipt = Schema.Struct({
-  startedAt: Schema.optionalKey(Schema.String),
+  bootId: Schema.optionalKey(Schema.String),
   cleanupComplete: Schema.optionalKey(Schema.Boolean),
 });
+
+function currentBootId(): string | undefined {
+  try {
+    const id =
+      process.platform === "darwin"
+        ? execFileSync("/usr/sbin/sysctl", ["-n", "kern.bootsessionuuid"], { encoding: "utf8" })
+        : readFileSync("/proc/sys/kernel/random/boot_id", "utf8");
+    return id.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 type Alert = "not-configured" | "not-needed" | "sent" | "failed";
 
 export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
@@ -41,11 +55,12 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   command: string,
   args: readonly string[],
   send: typeof fetch = fetch,
-  bootedAt: Date = new Date(Date.now() - uptime() * 1000),
+  readBootId: () => string | undefined = currentBootId,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* BoundedCommand;
   const startedAt = new Date().toISOString();
+  const bootId = readBootId();
   const directory = join(home, ".local/state/dotfiles/updates");
   const path = join(directory, `${job}.json`);
   const configPath = join(home, ".config/dotfiles/update-alerts.json");
@@ -56,7 +71,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
   const receipt = Effect.fn("writeUpdateReceipt")(
     function* (fields: Record<string, unknown>) {
-      const record = `${JSON.stringify({ version: 1, job, startedAt, ...fields })}\n`;
+      const record = `${JSON.stringify({ version: 1, job, startedAt, ...(bootId ? { bootId } : {}), ...fields })}\n`;
       yield* Console.log(`Update receipt: ${record.trim()}`);
       yield* Effect.gen(function* () {
         const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
@@ -119,8 +134,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       yield* fs.readFileString(path),
     );
     if (previous.cleanupComplete !== false) return false;
-    const previousStart = Date.parse(previous.startedAt ?? "");
-    if (!(previousStart < bootedAt.getTime())) return true;
+    if (!previous.bootId || !bootId || previous.bootId === bootId) return true;
     yield* Console.log("The previous update ended with a reboot; none of its processes remain.");
     return false;
   }).pipe(Effect.catch(() => Effect.succeed(true)));

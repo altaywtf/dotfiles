@@ -1,4 +1,5 @@
 import { DateTime, Effect, FileSystem, Option } from "effect";
+import { lstatSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { commandAvailable } from "../lib/command-available.ts";
 import { CommandRunner } from "../lib/command.ts";
@@ -194,9 +195,30 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         ),
       );
     }
+    const inUse = Effect.fn("cacheCleanup.inUse")(function* (path: string) {
+      const pattern = path.replace(/[.[\]()*+?{}|^$\\]/g, "\\$&");
+      const probe = yield* runner
+        .run("pgrep", ["-f", pattern], {
+          cwd: home,
+          output: "capture",
+          env: { HOME: home },
+        })
+        .pipe(Effect.option);
+      if (Option.isSome(probe) && probe.value.status <= 1) return probe.value.status === 0;
+      failed = true;
+      yield* log(`warning: cannot tell whether ${path} is running; kept`);
+      return true;
+    });
+    const realDirectory = (path: string) =>
+      Effect.try(() => lstatSync(path)).pipe(
+        Effect.map((info) => info.isDirectory() && !info.isSymbolicLink()),
+        Effect.orElseSucceed(() => false),
+      );
     if (yield* commandAvailable("pgrep"))
       for (const relative of claudeRemoteInstalls) {
         const root = join(home, relative);
+        const ancestry = [join(home, ".claude"), join(home, ".claude/remote"), root];
+        if (!(yield* Effect.forEach(ancestry, realDirectory)).every(Boolean)) continue;
         const names = yield* fs.readDirectory(root).pipe(Effect.orElseSucceed(() => []));
         const installs: { path: string; modified: number }[] = [];
         for (const name of names) {
@@ -209,7 +231,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         }
         installs.sort((left, right) => right.modified - left.modified);
         for (const { path } of installs.slice(1)) {
-          if ((yield* command("pgrep", ["-f", path])).status !== 1) continue;
+          if (yield* inUse(path)) continue;
           yield* log(`remove superseded Claude remote install: ${path}`);
           if (!apply) continue;
           yield* fs.remove(path, { recursive: true }).pipe(
