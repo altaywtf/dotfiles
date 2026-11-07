@@ -179,11 +179,11 @@ importers:
   .:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.7
-        version: 4.0.7(effect@4.0.7)(redis@6.2.1)
+        specifier: 4.1.2
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1)
       effect:
-        specifier: 4.0.7
-        version: 4.0.7
+        specifier: 4.1.2
+        version: 4.1.2
       smol-toml:
         specifier: 1.9.1
         version: 1.9.1
@@ -221,18 +221,18 @@ packages:
   '@blazediff/core@1.10.0':
     resolution: {integrity: sha512-AOQff0zgR7cGsZL+4E7hVkmujoPUpm0J9xzWGWZj5wCjd3gmxESXAPfKyuzs93VdpQNFhHlBhfOjrcZ+XTERtQ==}
 
-  '@effect/platform-node-shared@4.0.7':
-    resolution: {integrity: sha512-uCeBJ00hliKQsb7gMfvyEXUL1XmUKQcRzKi1X8ISG0UxTDMAdPRigOyKDnKxUTxE5PoT4kxLHQvOxo6U405FGg==}
-    engines: {node: '>=18.0.0'}
+  '@effect/platform-node-shared@4.1.2':
+    resolution: {integrity: sha512-wSwl9A/G1hcVvF8nLI+YfB3EyOIDvWS6+lsTZBkmgDnPBL7m8YWZF+1HD+mdEsb52SUGfukip46Q3gRwSdk3QA==}
+    engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.0.7
+      effect: ^4.1.2
 
-  '@effect/platform-node@4.0.7':
-    resolution: {integrity: sha512-YXUh0A4ZjuPAONt/yXb5zBM7zPR6eUPYUBtyj1374zq0P5SUpdcz8Lf54JSavXb8mdrc1glsXWHFVINpJyrlWA==}
-    engines: {node: '>=18.0.0'}
+  '@effect/platform-node@4.1.2':
+    resolution: {integrity: sha512-ye0UjxORdd5Qu3paZ1LljgGOALWHt7muP9VTpjUSCNfcesiB/Hm7wPJIvZeu4gnwpTe5BtEnO1VHngWqjJp8mA==}
+    engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.0.7
-      redis: '>=5.0.0 <7.0.0'
+      effect: ^4.1.2
+      redis: '>=5.1.0 <7.0.0'
 
   '@emnapi/core@1.11.2':
     resolution: {integrity: sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA==}
@@ -1381,8 +1381,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  effect@4.0.7:
-    resolution: {integrity: sha512-47CiUzNAmeLr40pDT9vKMxxtB8o3bdpZEKU4IUM3fVxsK2GYzPsV7fQoZP0I41A308BZd71nMxqJ0KRh3s9u2g==}
+  effect@4.1.2:
+    resolution: {integrity: sha512-d3Oah1WyKxFLFh19yWheS5IXIVaITzxZ71JkE1rkUozq/6EcJSU5nPk5bF2QrSygZ3SQoiNQB8TsxFriyMeMaQ==}
 
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
@@ -1751,6 +1751,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.22.1:
+    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   yaml@2.9.1:
     resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
     engines: {node: '>= 14.6'}
@@ -1781,19 +1793,19 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@effect/platform-node-shared@4.0.7(effect@4.0.7)':
+  '@effect/platform-node-shared@4.1.2(effect@4.1.2)':
     dependencies:
       '@types/ws': 8.18.2
-      effect: 4.0.7
-      ws: 8.22.0
+      effect: 4.1.2
+      ws: 8.22.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.7(effect@4.0.7)(redis@6.2.1)':
+  '@effect/platform-node@4.1.2(effect@4.1.2)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.7(effect@4.0.7)
-      effect: 4.0.7
+      '@effect/platform-node-shared': 4.1.2(effect@4.1.2)
+      effect: 4.1.2
       redis: 6.2.1
       undici: 8.12.3
     transitivePeerDependencies:
@@ -2462,7 +2474,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  effect@4.0.7: {}
+  effect@4.1.2: {}
 
   es-module-lexer@2.3.2: {}
 
@@ -2897,6 +2909,8 @@ snapshots:
   why-is-node-running@3.2.1: {}
 
   ws@8.22.0: {}
+
+  ws@8.22.1: {}
 
   yaml@2.9.1: {}
 
