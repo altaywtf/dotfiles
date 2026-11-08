@@ -42,6 +42,7 @@ files without backup, so keep private edits in fragments:
 
 Keep stack-specific skills in the consuming repository; the `slopskills` skill
 from the [workflow plugin](../agents/plugins/developer.json) installs them.
+One-time setup skills such as `effect-ts` install globally.
 [profiles.json](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`;
 edit the selected layer's manifest under [skills/](../agents/skills/),
 [plugins/](../agents/plugins/), or [mcps/](../agents/mcps/).
