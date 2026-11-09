@@ -41,6 +41,7 @@ const managedEnv = {
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
   DISABLE_ERROR_REPORTING: "1",
   DISABLE_FEEDBACK_COMMAND: "1",
+  ENABLE_CLAUDEAI_MCP_SERVERS: "false",
 };
 
 function unmanagedEnv(env: Record<string, unknown> | undefined) {
