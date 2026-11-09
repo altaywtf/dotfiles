@@ -12,13 +12,7 @@
 {{- $codexArgs = append $codexArgs (printf "-c %s" (squote .)) -}}
 {{- end -}}
 {{- $claudeSettings := joinPath .chezmoi.homeDir ".config/t3-gateway/claude-settings.json" -}}
-{{- /* The desktop app syncs claude.ai plugins into one folder per login instead of installing them. T3 keeps one value per flag, and a folder of plugins loads each child. */ -}}
 {{- $claudeArgs := list (printf "--settings %s" (squote $claudeSettings)) -}}
-{{- range glob (joinPath .chezmoi.homeDir ".claude/plugins/synced/*") -}}
-{{- if and (stat .).isDir (not (hasPrefix "." (base .))) -}}
-{{- $claudeArgs = list (printf "--settings %s" (squote $claudeSettings)) (printf "--plugin-dir %s" (squote .)) -}}
-{{- end -}}
-{{- end -}}
 {{- $managed := $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
 {{- $_ := unset $managed.providerInstances.codex.config "homePath" -}}
 {{- $_ = unset $managed.providerInstances.codex.config "setupMode" -}}

@@ -531,155 +531,6 @@ function applyHarness(
   }
 }
 
-// A signed-out Claude, such as one under launchd without keychain access, lists
-// no plugins, so planning against it would install copies that shadow synced ones.
-function claudeSignedIn(runtime: Runtime): boolean {
-  const result = runtime.run(HARNESS_SPECS.claude.binary, ["auth", "status"], {
-    stdout: "capture",
-    stderr: "capture",
-  });
-  let parsed: unknown;
-  try {
-    if (result.status !== 0) {
-      throw new Error(`exit ${result.status}`);
-    }
-    parsed = JSON.parse(result.stdout);
-  } catch (error) {
-    writeLine(
-      runtime.stdout,
-      `Claude: could not read sign-in status (${errorMessage(error)}); leaving plugins unchanged`,
-    );
-    return false;
-  }
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("loggedIn" in parsed) ||
-    parsed.loggedIn !== true
-  ) {
-    writeLine(runtime.stdout, "Claude: not signed in for this run; leaving plugins unchanged");
-    return false;
-  }
-  return true;
-}
-
-type ClaudeInstall = { id: string; scope?: string };
-
-// Claude loads plugins enabled on claude.ai as `<name>@synced`, and a same-named
-// marketplace install shadows them, so the sync yields those names to claude.ai.
-function readClaudeInstalls(runtime: Runtime): readonly ClaudeInstall[] {
-  const result = runtime.run(HARNESS_SPECS.claude.binary, ["plugin", "list", "--json"], {
-    stdout: "capture",
-    stderr: "capture",
-  });
-  let parsed: unknown;
-  try {
-    if (result.status !== 0) {
-      throw new Error(`exit ${result.status}`);
-    }
-    parsed = JSON.parse(result.stdout);
-    if (!Array.isArray(parsed)) {
-      throw new Error("expected an array");
-    }
-  } catch (error) {
-    writeLine(
-      runtime.stdout,
-      `Claude: could not read synced plugins (${errorMessage(error)}); installing every selected plugin`,
-    );
-    return [];
-  }
-
-  return parsed.flatMap((entry: unknown): ClaudeInstall[] => {
-    if (
-      typeof entry !== "object" ||
-      entry === null ||
-      !("id" in entry) ||
-      typeof entry.id !== "string" ||
-      ("enabled" in entry && entry.enabled === false)
-    ) {
-      return [];
-    }
-    const scope = "scope" in entry && typeof entry.scope === "string" ? entry.scope : undefined;
-    return [{ id: entry.id, scope }];
-  });
-}
-
-function syncedClaudePlugins(installs: readonly ClaudeInstall[]): ReadonlySet<string> {
-  return new Set(
-    installs
-      .filter((install) => install.id.endsWith("@synced"))
-      .map((install) => install.id.slice(0, -"@synced".length)),
-  );
-}
-
-// Uninstalls user-scope marketplace installs that shadow a selected synced plugin.
-// Returns the refs it removed so ownership pruning does not uninstall them twice.
-function removeShadowingClaudeInstalls(
-  runtime: Runtime,
-  plugins: readonly Plugin[],
-  installs: readonly ClaudeInstall[],
-  failures: PluginFailure[],
-): ReadonlySet<string> {
-  const synced = syncedClaudePlugins(installs);
-  const names = new Set(
-    plugins
-      .filter((plugin) => plugin.harnesses.includes("claude") && synced.has(plugin.name))
-      .map((plugin) => plugin.name),
-  );
-  const removed = new Set<string>();
-
-  for (const install of installs) {
-    const separator = install.id.lastIndexOf("@");
-    const name = install.id.slice(0, separator);
-    const marketplaceId = install.id.slice(separator + 1);
-    if (
-      separator <= 0 ||
-      marketplaceId === "synced" ||
-      !names.has(name) ||
-      (install.scope !== undefined && install.scope !== "user")
-    ) {
-      continue;
-    }
-
-    writeLine(
-      runtime.stdout,
-      `Claude: ${install.id} shadows ${name}@synced from claude.ai; uninstalling`,
-    );
-    const args = ["plugin", "uninstall", "-y", install.id];
-    const result = runtime.run(HARNESS_SPECS.claude.binary, args, {
-      stdout: "capture",
-      stderr: "capture",
-    });
-    if (result.status === 0) {
-      removed.add(install.id);
-    } else {
-      failures.push({
-        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
-        summary: `${HARNESS_SPECS.claude.label}: ${args.join(" ")} (exit ${result.status})`,
-      });
-    }
-  }
-  return removed;
-}
-
-function yieldSyncedClaudePlugins(
-  runtime: Runtime,
-  plugins: readonly Plugin[],
-  synced: ReadonlySet<string>,
-): Plugin[] {
-  return plugins.flatMap((plugin) => {
-    if (!plugin.harnesses.includes("claude") || !synced.has(plugin.name)) {
-      return [plugin];
-    }
-    writeLine(
-      runtime.stdout,
-      `Claude: ${pluginRef(plugin)} is synced from claude.ai; not installing`,
-    );
-    const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
-    return harnesses.length > 0 ? [{ ...plugin, harnesses }] : [];
-  });
-}
-
 type PluginOptions = {
   profile?: string;
   update: boolean;
@@ -699,14 +550,10 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
   if (layered.localPath) writeLine(runtime.stdout, `Local overlay: ${layered.localPath}`);
-  const available = HARNESSES.filter(
-    (harness) =>
-      runtime.commandExists(HARNESS_INFO[harness].binary) &&
-      (harness !== "claude" || claudeSignedIn(runtime)),
+  const available = HARNESSES.filter((harness) =>
+    runtime.commandExists(HARNESS_INFO[harness].binary),
   );
-  const installs = available.includes("claude") ? readClaudeInstalls(runtime) : [];
-  const synced = syncedClaudePlugins(installs);
-  const plugins = yieldSyncedClaudePlugins(runtime, layered.plugins, synced);
+  const plugins = layered.plugins;
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
@@ -722,7 +569,6 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   });
 
   const failures: PluginFailure[] = [];
-  const unshadowed = removeShadowingClaudeInstalls(runtime, layered.plugins, installs, failures);
   for (const harness of HARNESSES) {
     applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
@@ -746,23 +592,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     return 0;
   }
 
-  // A synced plugin with no user-scope install left needs no uninstall; claude.ai owns it in
-  // Claude. `plugin uninstall` acts on user scope only, so other scopes don't count.
-  const installed = new Set(
-    installs
-      .filter((install) => install.scope === undefined || install.scope === "user")
-      .map((install) => install.id),
-  );
-  const removals = ownership.removals.flatMap((plugin) => {
-    const ref = pluginRef(plugin);
-    const syncedOnly = synced.has(plugin.name) && !installed.has(ref);
-    if (!unshadowed.has(ref) && !syncedOnly) {
-      return [plugin];
-    }
-    const harnesses = plugin.harnesses.filter((harness) => harness !== "claude");
-    return harnesses.length > 0 ? [{ ...plugin, harnesses }] : [];
-  });
-  const deferred = removeStalePlugins(runtime, removals, available, failures);
+  const deferred = removeStalePlugins(runtime, ownership.removals, available, failures);
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }
