@@ -21,6 +21,7 @@ cask "android-commandlinetools"
 
 # Media helpers
 brew "ffmpeg"
+brew "webp"
 
 # Containers
 brew "colima"
