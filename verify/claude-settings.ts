@@ -82,6 +82,10 @@ const fixtures: Fixture[] = [
     expected: { theme: "dark", env: { KEEP: "yes" } },
   },
   {
+    contents: '{"syncClaudeAiPlugins":true,"theme":"dark"}',
+    expected: { theme: "dark" },
+  },
+  {
     contents: '{"advisorModel":"claude-fable-5-1","theme":"dark"}',
     expected: { theme: "dark" },
   },
@@ -175,6 +179,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             effortLevel: undefined,
             outputStyle: undefined,
             attribution: undefined,
+            syncClaudeAiPlugins: undefined,
             permissions: { ...actual.permissions, [managedMode]: undefined },
           },
           {
@@ -191,6 +196,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             effortLevel: undefined,
             outputStyle: undefined,
             attribution: undefined,
+            syncClaudeAiPlugins: undefined,
             autoMemoryDirectory: memoryDirectory,
             autoMemoryEnabled: true,
             permissions: { ...expected.permissions, [managedMode]: undefined },
@@ -200,6 +206,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.modelSettings?.["claude-opus-5-5"]?.effortLevel, "medium");
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
+        assert.equal(actual.syncClaudeAiPlugins, false);
         assert.equal(actual.autoMemoryEnabled, true);
         assert.equal(actual.autoMemoryDirectory, memoryDirectory);
         assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
