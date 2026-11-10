@@ -1,0 +1,88 @@
+{
+  "t3": {
+    "settings": {
+      "storageCleanup": {
+        "worktreeAfterDays": 8,
+        "worktreeOnMerge": true,
+        "worktreeOnDelete": true
+      },
+      "defaultAutoPull": true,
+      "defaultModelSelection": {
+        "instanceId": "claudeAgent",
+        "model": "claude-opus-5-5"
+      },
+      "fallbackModelSelection": {
+        "instanceId": "codex",
+        "model": "gpt-6.1-sol",
+        "options": [
+          { "id": "reasoningEffort", "value": "medium" },
+          { "id": "serviceTier", "value": "default" }
+        ]
+      },
+      "textGenerationModelSelection": {
+        "instanceId": "claudeAgent",
+        "model": "claude-sonnet-5-5"
+      },
+      "defaultRuntimeMode": "auto",
+      "enableAgentDeviceAccess": true,
+      "enableDeviceSupport": true,
+      "idleCompaction": "onReturn",
+      "sidebarAutoSettleOnMerge": false
+    },
+    "clientSettings": {
+      "notificationMode": "off",
+      "inAppNotificationsEnabled": false,
+      "diffColorScheme": "red-green",
+      "chatWidth": "comfortable",
+      "effortDisplay": "label",
+      "loadBalancingEnabled": false,
+      "appearanceContrast": 100,
+      "panelAnimationDurationMs": 0,
+      "browserDefaultViewport": { "_tag": "fill" },
+      "browserDefaultZoomFactor": 1,
+      "browserDefaultAppearance": "system",
+      "browserRecordingFrameRate": 60,
+      "browserRecordingShowKeyPresses": false,
+      "browserRecordingShowMousePresses": false,
+      "browserLinkTarget": "system",
+      "browserSearchEngine": "google",
+      "browserAutoShowFloatingPreview": false,
+      "confirmQuit": "direct",
+      "confirmThreadArchive": false,
+      "confirmThreadDelete": true,
+      "confirmThreadUnpin": false,
+      "diffFilesCollapsed": true,
+      "diffIgnoreWhitespace": true,
+      "diffLayout": "stacked",
+      "environmentIdentificationMode": "artwork",
+      "glassOpacity": 80,
+      "fontSizeInterface": 16,
+      "fontSizePrompt": 14,
+      "fontSizeCode": 13,
+      "fontSizeTerminal": 12,
+      "fontFamilyCode": "Berkeley Mono Variable",
+      "fontSmoothing": true,
+      "persistComposerContextStrip": false,
+      "pullRequestLinksOpenInApp": true,
+      "planModeEnabled": false,
+      "contextWindowMeterEnabled": false,
+      "composerRichTextEnabled": true,
+      "sendShortcut": "enter",
+      "followUpBehavior": "steer",
+      "proactivePanelsEnabled": false,
+      "showSkillsInSlashMenu": true,
+      "boringSidebarEnabled": true,
+      "boringSidebarMultilineRows": false,
+      "threadDetailsUsageEnabled": false,
+      "legacySidebarEnabled": false,
+      "sidebarWorkingShelfEnabled": true,
+      "sidebarProjectGroupingMode": "repository",
+      "sidebarProjectSortOrder": "updated_at",
+      "sidebarThreadSortOrder": "updated_at",
+      "timestampFormat": "locale",
+      "snapShotEnabled": false,
+      "wordWrap": true,
+      "mathRenderingEnabled": false
+    }
+  }
+}

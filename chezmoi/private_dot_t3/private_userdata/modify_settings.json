@@ -5,7 +5,13 @@
 {{- end -}}
 {{- /* T3 Code rewrites this file in its own key order; keep its bytes when nothing managed changed. */ -}}
 {{- $before := toJson $settings -}}
-{{- $gateway := includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json") | fromJson -}}
+{{- range $key, $value := .t3.settings -}}
+{{- $settings = $settings | setValueAtPath $key $value -}}
+{{- end -}}
+{{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
+{{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
+{{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
 {{- $codex := list "model_provider=\"gateway\"" "model_providers.gateway.name=\"Gateway\"" (printf "model_providers.gateway.base_url=%s" ($gateway.baseUrl | toJson)) "model_providers.gateway.wire_api=\"responses\"" "model_providers.gateway.requires_openai_auth=false" "model_providers.gateway.supports_websockets=true" "model_providers.gateway.http_headers={\"X-OpenAI-Actor-Authorization\"=\"local-proxy\"}" (printf "model_providers.gateway.auth.command=%s" ($gateway.keyCommand | toJson)) "model_providers.gateway.auth.timeout_ms=10000" "model_providers.gateway.auth.refresh_interval_ms=0" -}}
 {{- $codexArgs := list -}}
 {{- range $codex -}}
@@ -13,8 +19,9 @@
 {{- end -}}
 {{- $claudeSettings := joinPath .chezmoi.homeDir ".config/t3-gateway/claude-settings.json" -}}
 {{- $claudeArgs := list (printf "--settings %s" (squote $claudeSettings)) -}}
-{{- $managed := $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
-{{- $_ := unset $managed.providerInstances.codex.config "homePath" -}}
-{{- $_ = unset $managed.providerInstances.codex.config "setupMode" -}}
-{{- $_ = unset $managed.providerInstances.claudeAgent.config "homePath" -}}
-{{ if eq (toJson $managed) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $managed | toPrettyJson }}{{ end }}
+{{- $settings = $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
+{{- $_ := unset $settings.providerInstances.codex.config "homePath" -}}
+{{- $_ = unset $settings.providerInstances.codex.config "setupMode" -}}
+{{- $_ = unset $settings.providerInstances.claudeAgent.config "homePath" -}}
+{{- end -}}
+{{ if eq (toJson $settings) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $settings | toPrettyJson }}{{ end }}

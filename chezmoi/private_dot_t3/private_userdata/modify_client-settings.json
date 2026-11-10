@@ -1,0 +1,11 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $settings := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $settings = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- /* T3 Code rewrites this file in its own key order; keep its bytes when nothing managed changed. */ -}}
+{{- $before := toJson $settings -}}
+{{- range $key, $value := .t3.clientSettings -}}
+{{- $settings = $settings | setValueAtPath $key $value -}}
+{{- end -}}
+{{ if eq (toJson $settings) $before }}{{ .chezmoi.stdin }}{{ else }}{{ toJson $settings }}{{ end }}
