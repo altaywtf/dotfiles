@@ -27,6 +27,7 @@
       "enableAgentDeviceAccess": true,
       "enableDeviceSupport": true,
       "idleCompaction": "onReturn",
+      "sidebarAutoSettleAfterDays": null,
       "sidebarAutoSettleOnMerge": false
     },
     "clientSettings": {
