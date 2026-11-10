@@ -41,7 +41,6 @@ const managedEnv = {
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
   DISABLE_ERROR_REPORTING: "1",
   DISABLE_FEEDBACK_COMMAND: "1",
-  ENABLE_CLAUDEAI_MCP_SERVERS: "false",
 };
 
 function unmanagedEnv(env: Record<string, unknown> | undefined) {
@@ -85,6 +84,10 @@ const fixtures: Fixture[] = [
   {
     contents: '{"advisorModel":"claude-fable-5-1","theme":"dark"}',
     expected: { theme: "dark" },
+  },
+  {
+    contents: '{"env":{"ENABLE_CLAUDEAI_MCP_SERVERS":"false","KEEP":"yes"}}',
+    expected: { env: { KEEP: "yes" } },
   },
   { contents: '{"env":', malformed: true },
 ];
