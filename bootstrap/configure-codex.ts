@@ -21,8 +21,9 @@ if (import.meta.main) {
     const { capabilities } = requireProfile(model, profile);
     const projectRoot =
       capabilities.personal || capabilities.devbox ? join(homedir(), "projects") : undefined;
+    const gateway = capabilities.personal && (capabilities.workstation || capabilities.devbox);
     const { configPath, restricted } = yield* Effect.tryPromise({
-      try: () => configureDefaults(projectRoot),
+      try: () => configureDefaults(projectRoot, gateway),
       catch: (error) => error,
     });
     yield* Console.log(`configured Codex defaults in ${configPath}`);

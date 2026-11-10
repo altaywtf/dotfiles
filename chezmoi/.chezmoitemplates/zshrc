@@ -115,6 +115,12 @@ else
   echo "mise not found; see docs/bootstrap.md" >&2
 fi
 
+{{ if and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json")) -}}
+claude() {
+  command claude --settings "$HOME/.config/t3-gateway/claude-settings.json" "$@"
+}
+
+{{ end -}}
 # The updater rewrites this receipt whenever a run starts or finishes, so an old
 # receipt means scheduled runs stopped before they could report anything, unless
 # maintenance:disable stopped them on purpose.

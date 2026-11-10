@@ -184,3 +184,38 @@ test("rejects a local Codex fragment that is not a key path map", (t) => {
   assert.match(result.stderr, /codex\.json must be a JSON object/);
   assert.equal(readFileSync(config, "utf8"), "");
 });
+
+test(
+  "installed Codex routes personal profiles through the gateway config",
+  { skip: !codexInstalled },
+  (t) => {
+    for (const [profile, routed] of [
+      ["personal-workstation", true],
+      ["workstation", false],
+    ] as const) {
+      const { home, config } = codexConfig(t, "");
+      const userHome = dirname(home);
+      mkdirSync(join(userHome, ".config/dotfiles"), { recursive: true });
+      writeFileSync(
+        join(userHome, ".config/dotfiles/t3-gateway.json"),
+        JSON.stringify({ baseUrl: "https://gateway.test/v1", keyCommand: "/bin/echo key" }),
+      );
+      const result = run(home, profile, userHome);
+      assert.equal(result.status, 0, result.stderr);
+      const contents = readFileSync(config, "utf8");
+      const root = contents.split(/^\[/m)[0];
+      if (!routed) {
+        assert.doesNotMatch(root, /^model_provider\s*=/m, profile);
+        continue;
+      }
+      assert.match(root, /^model_provider = "gateway"$/m);
+      const provider = contents.split(/^\[model_providers\.gateway\][ \t]*$/m)[1]?.split(/^\[/m)[0];
+      assert.match(provider ?? "", /^base_url = "https:\/\/gateway\.test\/v1"$/m);
+      assert.match(provider ?? "", /^requires_openai_auth = false$/m);
+      const auth = contents
+        .split(/^\[model_providers\.gateway\.auth\][ \t]*$/m)[1]
+        ?.split(/^\[/m)[0];
+      assert.match(auth ?? "", /^command = "\/bin\/echo key"$/m);
+    }
+  },
+);

@@ -112,6 +112,37 @@ function localEdits(path: string): ConfigEdit[] {
   }));
 }
 
+const Gateway = Schema.fromJsonString(
+  Schema.Struct({ baseUrl: Schema.String, keyCommand: Schema.String }),
+);
+
+function gatewayEdits(path: string): ConfigEdit[] {
+  if (!existsSync(path)) return [];
+  let gateway: typeof Gateway.Type;
+  try {
+    gateway = Schema.decodeUnknownSync(Gateway)(readFileSync(path, "utf8"));
+  } catch (cause) {
+    throw new Error(`${path} must be a JSON object with baseUrl and keyCommand strings`, { cause });
+  }
+  const provider = "model_providers.gateway";
+  return [
+    { keyPath: "model_provider", value: "gateway", mergeStrategy: "replace" },
+    { keyPath: `${provider}.name`, value: "Gateway", mergeStrategy: "replace" },
+    { keyPath: `${provider}.base_url`, value: gateway.baseUrl, mergeStrategy: "replace" },
+    { keyPath: `${provider}.wire_api`, value: "responses", mergeStrategy: "replace" },
+    { keyPath: `${provider}.requires_openai_auth`, value: false, mergeStrategy: "replace" },
+    { keyPath: `${provider}.supports_websockets`, value: true, mergeStrategy: "replace" },
+    {
+      keyPath: `${provider}.http_headers`,
+      value: { "X-OpenAI-Actor-Authorization": "local-proxy" },
+      mergeStrategy: "replace",
+    },
+    { keyPath: `${provider}.auth.command`, value: gateway.keyCommand, mergeStrategy: "replace" },
+    { keyPath: `${provider}.auth.timeout_ms`, value: 10000, mergeStrategy: "replace" },
+    { keyPath: `${provider}.auth.refresh_interval_ms`, value: 0, mergeStrategy: "replace" },
+  ];
+}
+
 function codexHomePath(): string {
   return resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
 }
@@ -209,12 +240,20 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
 export type CodexDefaults = { configPath: string; restricted: readonly string[] };
 
 // projectRoot opts into trusting every checkout directly under it.
-export async function configureDefaults(projectRoot?: string): Promise<CodexDefaults> {
+export async function configureDefaults(
+  projectRoot?: string,
+  gateway = false,
+): Promise<CodexDefaults> {
   const checkouts = projectRoot ? discoverCheckouts(projectRoot) : [];
-  const local = localEdits(join(process.env.HOME || "", ".config/dotfiles/codex.json"));
+  const home = process.env.HOME || "";
+  const local = localEdits(join(home, ".config/dotfiles/codex.json"));
   const overridden = new Set(local.map((edit) => edit.keyPath));
+  const managed = [
+    ...managedEdits(),
+    ...(gateway ? gatewayEdits(join(home, ".config/dotfiles/t3-gateway.json")) : []),
+  ];
   const configPath = await writeConfigEdits((user) => [
-    ...managedEdits().filter((edit) => !overridden.has(edit.keyPath)),
+    ...managed.filter((edit) => !overridden.has(edit.keyPath)),
     ...local,
     ...(projectRoot ? projectTrustEdits(projectRoot, checkouts, user.projects) : []),
   ]);
