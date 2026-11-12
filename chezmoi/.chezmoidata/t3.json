@@ -77,7 +77,7 @@
       "threadDetailsUsageEnabled": false,
       "legacySidebarEnabled": false,
       "sidebarWorkingShelfEnabled": true,
-      "sidebarProjectGroupingMode": "repository",
+      "sidebarProjectGroupingMode": "separate",
       "sidebarProjectSortOrder": "updated_at",
       "sidebarThreadSortOrder": "updated_at",
       "timestampFormat": "locale",
