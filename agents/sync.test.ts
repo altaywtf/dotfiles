@@ -86,16 +86,15 @@ class FixtureRuntime implements Runtime {
     }
 
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
-      const skillFlag = args.indexOf("-s");
-      const skill = skillFlag >= 0 ? args[skillFlag + 1] : undefined;
-      if (skill === undefined) {
-        throw new Error("skills installer call must include -s <name>");
+      const skills = requestedSkills(args);
+      for (const skill of skills) {
+        const diagnostic = this.failures.get(skill);
+        if (diagnostic !== undefined) {
+          return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
+        }
       }
-      const diagnostic = this.failures.get(skill);
-      if (diagnostic !== undefined) {
-        return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
-      }
-      if (!this.falseSuccesses.has(skill)) {
+      for (const skill of skills) {
+        if (this.falseSuccesses.has(skill)) continue;
         const skillDir = join(this.home, ".agents", "skills", skill);
         mkdirSync(skillDir, { recursive: true });
         writeFileSync(
@@ -186,17 +185,23 @@ function createFixture(): { repoDir: string; home: string } {
   return { repoDir, home };
 }
 
+function requestedSkills(args: readonly string[]): string[] {
+  const skillFlag = args.indexOf("-s");
+  const skills = skillFlag >= 0 ? args.slice(skillFlag + 1) : [];
+  if (skills.length === 0 || skills.some((skill) => skill.startsWith("-"))) {
+    throw new Error("skills installer call must end with -s <name...>");
+  }
+  return skills;
+}
+
+function installCalls(runtime: FixtureRuntime): CommandCall[] {
+  return runtime.calls.filter(
+    (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "add",
+  );
+}
+
 function installedSkillNames(runtime: FixtureRuntime): string[] {
-  return runtime.calls
-    .filter((call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "add")
-    .map((call) => {
-      const skillFlag = call.args.indexOf("-s");
-      const skill = skillFlag >= 0 ? call.args[skillFlag + 1] : undefined;
-      if (skill === undefined) {
-        throw new Error("recorded skills installer call must include -s <name>");
-      }
-      return skill;
-    });
+  return installCalls(runtime).flatMap((call) => requestedSkills(call.args));
 }
 
 function removedSkillNames(runtime: FixtureRuntime): string[] {
@@ -254,6 +259,39 @@ test("reports every installer failure after attempting the full manifest", () =>
   assert.match(runtime.stderr.value, /package source was not found/);
   assert.doesNotMatch(runtime.stderr.value, /stdout-secret|stderr-secret/);
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
+});
+
+test("clones each source once for all of its skills", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    join(repoDir, "agents", "skills", "developer.json"),
+    JSON.stringify(
+      {
+        skills: [
+          { name: "shared-a", source: "fixture/shared" },
+          { name: "solo", source: "fixture/solo" },
+          { name: "shared-b", source: "fixture/shared" },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([["shared-b", { stdout: "", stderr: "HTTP 429" }]]),
+  });
+
+  assert.equal(main([], runtime), 1);
+  assert.deepEqual(
+    installCalls(runtime).map((call) => [call.args[3], requestedSkills(call.args)]),
+    [
+      ["fixture/shared", ["shared-a", "shared-b"]],
+      ["fixture/solo", ["solo"]],
+    ],
+  );
+  assert.match(runtime.stderr.value, /Skill installation failed for 2 skills:/);
+  assert.match(runtime.stderr.value, /shared-a \(fixture\/shared, exit 1\)/);
+  assert.match(runtime.stderr.value, /shared-b \(fixture\/shared, exit 1\)/);
 });
 
 test("rejects a false-success installer result when the installed artifact is missing", () => {

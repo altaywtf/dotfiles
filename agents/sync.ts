@@ -104,39 +104,33 @@ function installSkills(
 ): number {
   const failures: SkillFailure[] = [];
 
-  for (const skill of skills) {
-    writeLine(runtime.stdout, `Installing skill: ${skill.name} from ${skill.source}`);
+  const skillsBySource = Map.groupBy(skills, (skill) => skill.source);
+
+  for (const [source, sourceSkills] of skillsBySource) {
+    const names = sourceSkills.map((skill) => skill.name);
+    writeLine(runtime.stdout, `Installing skills: ${names.join(" ")} from ${source}`);
     const result = runtime.run(
       "pnpm",
-      [
-        "dlx",
-        `skills@${cliVersion}`,
-        "add",
-        skill.source,
-        "-g",
-        "-y",
-        "-a",
-        ...agents,
-        "-s",
-        skill.name,
-      ],
+      ["dlx", `skills@${cliVersion}`, "add", source, "-g", "-y", "-a", ...agents, "-s", ...names],
       { stdout: "capture", stderr: "capture" },
     );
 
     if (result.status !== 0) {
-      failures.push({
-        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
-        summary: `${skill.name} (${skill.source}, exit ${result.status})`,
-      });
+      const diagnostic = sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`);
+      for (const skill of sourceSkills) {
+        failures.push({ diagnostic, summary: `${skill.name} (${source}, exit ${result.status})` });
+      }
       continue;
     }
 
-    const artifactError = installedSkillError(home, skill);
-    if (artifactError !== undefined) {
-      failures.push({
-        diagnostic: artifactError,
-        summary: `${skill.name} (${skill.source}, invalid installed artifact)`,
-      });
+    for (const skill of sourceSkills) {
+      const artifactError = installedSkillError(home, skill);
+      if (artifactError !== undefined) {
+        failures.push({
+          diagnostic: artifactError,
+          summary: `${skill.name} (${source}, invalid installed artifact)`,
+        });
+      }
     }
   }
 
