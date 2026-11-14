@@ -179,11 +179,11 @@ importers:
   .:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.7
-        version: 4.0.7(effect@4.0.7)(redis@6.2.1)
+        specifier: 4.1.4
+        version: 4.1.4(effect@4.1.4)(redis@6.2.1)
       effect:
-        specifier: 4.0.7
-        version: 4.0.7
+        specifier: 4.1.4
+        version: 4.1.4
       smol-toml:
         specifier: 1.9.1
         version: 1.9.1
@@ -221,18 +221,18 @@ packages:
   '@blazediff/core@1.10.0':
     resolution: {integrity: sha512-AOQff0zgR7cGsZL+4E7hVkmujoPUpm0J9xzWGWZj5wCjd3gmxESXAPfKyuzs93VdpQNFhHlBhfOjrcZ+XTERtQ==}
 
-  '@effect/platform-node-shared@4.0.7':
-    resolution: {integrity: sha512-uCeBJ00hliKQsb7gMfvyEXUL1XmUKQcRzKi1X8ISG0UxTDMAdPRigOyKDnKxUTxE5PoT4kxLHQvOxo6U405FGg==}
-    engines: {node: '>=18.0.0'}
+  '@effect/platform-node-shared@4.1.4':
+    resolution: {integrity: sha512-DWdfphHGOFJNj/mYadgpT3jIm8aRXDcPrQiGXFBH4p2H4XmA7iYMrPsI8NxVgZ7kNX0q1+FGJZJama0tINHRAg==}
+    engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.0.7
+      effect: ^4.1.4
 
-  '@effect/platform-node@4.0.7':
-    resolution: {integrity: sha512-YXUh0A4ZjuPAONt/yXb5zBM7zPR6eUPYUBtyj1374zq0P5SUpdcz8Lf54JSavXb8mdrc1glsXWHFVINpJyrlWA==}
-    engines: {node: '>=18.0.0'}
+  '@effect/platform-node@4.1.4':
+    resolution: {integrity: sha512-h7QExTPq/RfYtHP/8tMlgfBvqYsuJKhxfkU6w0+NaF/ihqQ8Y3GH9t28ltupQjoqMM7P6W5gy8rOji7F0qVrmg==}
+    engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.0.7
-      redis: '>=5.0.0 <7.0.0'
+      effect: ^4.1.4
+      redis: '>=5.1.0 <7.0.0'
 
   '@emnapi/core@1.11.2':
     resolution: {integrity: sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA==}
@@ -1384,8 +1384,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  effect@4.0.7:
-    resolution: {integrity: sha512-47CiUzNAmeLr40pDT9vKMxxtB8o3bdpZEKU4IUM3fVxsK2GYzPsV7fQoZP0I41A308BZd71nMxqJ0KRh3s9u2g==}
+  effect@4.1.4:
+    resolution: {integrity: sha512-Tgrv/9FN+TZYyOn8XSli+fVqAfwDrDAkiX5Uu9vztINb675VTQdhD0gWI5Kzvhlh9QqzjZvw72iugqw5pwoghQ==}
 
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
@@ -1672,8 +1672,8 @@ packages:
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
-  undici@8.12.3:
-    resolution: {integrity: sha512-+fdndUTwBP86cVjihTp21hZHo7d6oj1c/47XPA3lL8mM0XHs+C4EkcjmgRsFnFk2f/UONGDy9ItBItmXsLOQHw==}
+  undici@8.12.4:
+    resolution: {integrity: sha512-8Mx+uNKKER2bA4AdtedkqRbwUCIJFr2nJckXRe5yrDqzePqwLP7VNcctN8/XdmDSbF7mS+jJKIszlL+vbam1VA==}
     engines: {node: '>=22.19.0'}
 
   vite-plus@1.4.0:
@@ -1754,6 +1754,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.23.0:
+    resolution: {integrity: sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   yaml@2.9.1:
     resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
     engines: {node: '>= 14.6'}
@@ -1784,21 +1796,21 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@effect/platform-node-shared@4.0.7(effect@4.0.7)':
+  '@effect/platform-node-shared@4.1.4(effect@4.1.4)':
     dependencies:
       '@types/ws': 8.18.2
-      effect: 4.0.7
-      ws: 8.22.0
+      effect: 4.1.4
+      ws: 8.23.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.7(effect@4.0.7)(redis@6.2.1)':
+  '@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.7(effect@4.0.7)
-      effect: 4.0.7
+      '@effect/platform-node-shared': 4.1.4(effect@4.1.4)
+      effect: 4.1.4
       redis: 6.2.1
-      undici: 8.12.3
+      undici: 8.12.4
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -2467,7 +2479,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  effect@4.0.7: {}
+  effect@4.1.4: {}
 
   es-module-lexer@2.3.2: {}
 
@@ -2811,7 +2823,7 @@ snapshots:
 
   undici-types@7.24.6: {}
 
-  undici@8.12.3: {}
+  undici@8.12.4: {}
 
   vite-plus@1.4.0(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1):
     dependencies:
@@ -2902,6 +2914,8 @@ snapshots:
   why-is-node-running@3.2.1: {}
 
   ws@8.22.0: {}
+
+  ws@8.23.0: {}
 
   yaml@2.9.1: {}
 
