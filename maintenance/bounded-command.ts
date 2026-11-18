@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schedule, Schema, Stream } from "effect";
+import { Console, Context, Effect, Layer, Schedule, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   constants,
@@ -112,12 +112,14 @@ export class BoundedCommand extends Context.Service<
         let completed = false;
         let cleanupComplete = true;
         let inventoryFailed = false;
+        let inventoryFailures = 0;
         let rootInspected = false;
         const observe = Effect.gen(function* () {
           const rows = yield* snapshot.pipe(
             Effect.tapError(() =>
               Effect.sync(() => {
                 inventoryFailed = true;
+                inventoryFailures += 1;
               }),
             ),
           );
@@ -289,6 +291,15 @@ export class BoundedCommand extends Context.Service<
             else if (inventoryFailed || !owned.has(rootPid)) cleanupComplete = false;
           }
           completed = true;
+          if (!cleanupComplete) {
+            const alive = yield* observe.pipe(
+              Effect.map((rows) => rows.length),
+              Effect.catch(() => Effect.succeed(-1)),
+            );
+            yield* Console.error(
+              `Cleanup proof missing: ${inventoryFailures} failed process inventories, root ${owned.has(rootPid) ? "recorded" : "not recorded"}, ${alive < 0 ? "survivors unknown" : `${alive} survivors`}.`,
+            );
+          }
           return { ...outcome, diagnosticPath, cleanupComplete };
         }).pipe(
           Effect.scoped,
