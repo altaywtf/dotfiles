@@ -20,6 +20,7 @@ the selected version only. Unattended software updates do not run this.`;
 const XcodePin = Schema.Struct({
   version: Schema.Literal(1),
   release: Schema.NonEmptyString,
+  build: Schema.NonEmptyString,
 });
 
 type XcodePin = typeof XcodePin.Type;
@@ -134,10 +135,12 @@ const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
     return yield* fail(
       "no Xcode is selected; install the declared release with mise run xcode:install",
     );
-  if (!satisfiesPin(selected.version, pin.release)) {
-    return yield* fail(`selected Xcode is ${describeRelease(selected)}; pin is ${pin.release}`);
+  if (!satisfiesPin(selected.version, pin.release) || selected.build !== pin.build) {
+    return yield* fail(
+      `selected Xcode is ${describeRelease(selected)}; pin is ${pin.release} (${pin.build})`,
+    );
   }
-  yield* Console.log(`Xcode ${describeRelease(selected)} matches pin ${pin.release}`);
+  yield* Console.log(`Xcode ${describeRelease(selected)} matches the pin`);
 });
 
 const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (

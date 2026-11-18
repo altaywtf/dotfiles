@@ -23,13 +23,15 @@ function miseSettings() {
   return JSON.parse(parsed.stdout);
 }
 
-test("Xcode pin is a dotted release consumed by the installer", () => {
+test("Xcode pin is a dotted release and its build", () => {
   const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as {
     version: number;
     release: string;
+    build: string;
   };
   assert.equal(xcode.version, 1);
   assert.match(xcode.release, /^\d+\.\d+$/);
+  assert.match(xcode.build, /^\d+[A-Z]\d+[a-z]?$/);
 });
 
 test("mise package convergence repeats without runtime installs and stops on failure", (t) => {

@@ -41,12 +41,18 @@ test("the declared pin matches only the numbered stable release", () => {
   );
 });
 
-function xcodeFixture(t: TestContext, release: string, xcodes: string, extraBin = {}) {
+function xcodeFixture(
+  t: TestContext,
+  release: string,
+  xcodes: string,
+  extraBin = {},
+  build = "17F113",
+) {
   const home = mkdtempSync(join(tmpdir(), "xcode-test."));
   t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
   const bin = join(home, "bin");
   mkdirSync(bin);
-  writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release })}\n`);
+  writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release, build })}\n`);
   writeFileSync(join(home, "installed.txt"), installed);
   for (const [name, script] of Object.entries({ xcodes, ...extraBin }))
     writeFileSync(join(bin, name), script, { mode: 0o755 });
@@ -70,13 +76,17 @@ const installedXcodes = `#!/bin/sh\nif [ "$1" = installed ]; then cat "$HOME/ins
 const brew = '#!/bin/sh\nprintf "%s\\n" "$HOME"\n';
 
 test.for([
-  ["27.0", 1, "stderr", /selected Xcode is 26\.6 \(17F113\); pin is 27\.0/],
-  ["26.6", 0, "stdout", /Xcode 26\.6 \(17F113\) matches pin 26\.6/],
-] as const)("check against pin %s exits %i", ([release, status, stream, message], t) => {
-  const result = xcodeFixture(t, release, installedXcodes).run(["--check"]);
-  assert.equal(result.status, status, result.stderr);
-  assert.match(result[stream], message);
-});
+  ["27.0", "17F113", 1, "stderr", /selected Xcode is 26\.6 \(17F113\); pin is 27\.0 \(17F113\)/],
+  ["26.6", "17F999", 1, "stderr", /selected Xcode is 26\.6 \(17F113\); pin is 26\.6 \(17F999\)/],
+  ["26.6", "17F113", 0, "stdout", /Xcode 26\.6 \(17F113\) matches the pin/],
+] as const)(
+  "check against pin %s build %s exits %i",
+  ([release, build, status, stream, message], t) => {
+    const result = xcodeFixture(t, release, installedXcodes, {}, build).run(["--check"]);
+    assert.equal(result.status, status, result.stderr);
+    assert.match(result[stream], message);
+  },
+);
 
 test("install receives terminal input and preserves a failed install's exit status", (t) => {
   const xcodes = `#!/bin/sh
