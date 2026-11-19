@@ -19,3 +19,4 @@ Brewfile.composed.*
 Brewfile.local
 .vitest/
 .claude/worktrees/
+/.worktrees/
