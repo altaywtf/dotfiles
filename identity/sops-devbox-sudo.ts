@@ -159,7 +159,7 @@ const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonl
       });
       if (validated.status !== 0)
         return yield* fail(`sudo validation exited ${validated.status}`, validated.status);
-      const child = yield* runRaw(args[0]!, args.slice(1), { env, extendEnv: false });
+      const child = yield* runRaw(args[0], args.slice(1), { env, extendEnv: false });
       if (child.status !== 0)
         return yield* fail(`nested command exited ${child.status}`, child.status);
     }),

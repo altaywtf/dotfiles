@@ -41,7 +41,7 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
       entries.map((entry) => entry.target),
       [big],
     );
-    assert.match(entries[0]!.result, /^capped from \d+ to \d+ bytes$/);
+    assert.match(entries[0].result, /^capped from \d+ to \d+ bytes$/);
     const after = statSync(big);
     assert.equal(after.ino, before, "rotation must not replace the inode");
     assert.ok(after.size <= cap);

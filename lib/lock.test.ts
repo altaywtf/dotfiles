@@ -167,7 +167,7 @@ test("two contenders reclaiming the same dead owner yield exactly one holder", (
     "A's ownership survives B's reclaim attempt",
   );
   assert.deepEqual(readdirSync(lock), ["owner.json"], "no reclaim residue is left inside the lock");
-  releaseA!();
+  releaseA();
   assert.equal(existsSync(lock), false);
   const releaseB = acquireDirectoryLock(lock, { ...silent, processAlive: alive });
   releaseB();

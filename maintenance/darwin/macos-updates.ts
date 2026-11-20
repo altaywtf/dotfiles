@@ -324,9 +324,9 @@ export function compareBuilds(left: string, right: string): number {
     if (!match) throw new Error(`invalid Apple build ${value}`);
     return {
       train: Number(match[1]),
-      branch: match[2]!.toUpperCase(),
+      branch: match[2].toUpperCase(),
       revision: Number(match[3]),
-      suffix: match[4]!.toUpperCase(),
+      suffix: match[4].toUpperCase(),
     };
   };
   const a = parse(left);
