@@ -1,19 +1,11 @@
 # AGENTS.md
 
-Public macOS and Ubuntu bootstrap framework. `CLAUDE.md` links here; keep one
-authored agent guide.
+Public macOS and Ubuntu bootstrap framework.
 
 ## Where Code Goes
 
-- Keep implementation, configuration, and unit tests in their domain directory
-  ([bootstrap/](bootstrap/), [maintenance/](maintenance/), [homebrew/](homebrew/),
-  [agents/](agents/), [profiles/](profiles/), [identity/](identity/),
-  [audit/](audit/), [verify/](verify/)). Platform code goes under the domain's
-  `darwin/` or `linux/`; create neither until needed. [lib/](lib/) holds only
-  code several domains share.
-- Policy and inventories live in code or config. Markdown links to them and
-  covers manual steps and recovery.
-- Managed home files live under [chezmoi/](chezmoi/) in Chezmoi's source layout.
+- Implementation, configuration, and unit tests live in their domain directory. Platform code goes under the domain's `darwin/` or `linux/`; create neither until needed. [lib/](lib/) holds only code several domains share.
+- Policy and inventories live in code or config. Markdown links to them and covers manual steps and recovery.
 
 ## Work
 
@@ -22,10 +14,9 @@ authored agent guide.
 - Pin binary-release tools in the [mise templates](chezmoi/.chezmoitemplates/mise.toml) and their OS siblings, as plain TOML for Renovate. [Homebrew](homebrew/) owns compiled packages, GUI apps, system services, and tools called by fixed privileged paths.
 - Keep the repository standalone; it runs without a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
-- Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
-- Pin `effect` to an exact version; bump it only in a dependency change.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
-- Import test APIs from `vite-plus/test`. Keep Chezmoi templates in their native syntax.
+- Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Decode untrusted input with `Schema`.
+- Keep Chezmoi templates in their native syntax.
 
 ## Boundaries
 
