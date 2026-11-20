@@ -25,7 +25,7 @@ Codex and Claude logins.`;
 const execute = Effect.fn("executeInstallCommand")(function* (
   label: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const runner = yield* CommandRunner;
   const result = yield* runner

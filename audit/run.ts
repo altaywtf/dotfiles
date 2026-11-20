@@ -12,7 +12,7 @@ export type AuditScope = "repo" | "mscp" | "host" | "workstation" | "devbox";
 export type AuditFormat = "text" | "json";
 
 type Result = { error?: Error; status: number | null };
-type Runner = (command: string, args: string[]) => Result;
+type Runner = (command: string, args: Array<string>) => Result;
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const Arguments = Schema.Tuple([
@@ -20,7 +20,7 @@ const Arguments = Schema.Tuple([
   Schema.Literals(["text", "json"]),
 ]);
 
-export function auditCommand(scope: AuditScope, format: AuditFormat): [string, string[]] {
+export function auditCommand(scope: AuditScope, format: AuditFormat): [string, Array<string>] {
   const script = scope === "mscp" ? "repo" : scope;
   const args = scope === "repo" ? ["--skip-mscp"] : [];
   if (format === "json") {
@@ -43,7 +43,7 @@ export function runAudit(
   return result.status ?? 1;
 }
 
-function defaultRunner(command: string, args: string[]): Result {
+function defaultRunner(command: string, args: Array<string>): Result {
   return spawnSync(command, args, { cwd: repoRoot, stdio: "inherit" });
 }
 

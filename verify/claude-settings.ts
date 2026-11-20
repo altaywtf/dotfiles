@@ -64,7 +64,7 @@ function unmanagedEnv(env: Record<string, Schema.Json> | undefined) {
   );
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
-const fixtures: Fixture[] = [
+const fixtures: Array<Fixture> = [
   { contents: "", expected: {} },
   {
     contents: '{"theme":"dark","cleanupPeriodDays":30}',
@@ -162,8 +162,8 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
+    const stdout: Array<Buffer> = [];
+    const stderr: Array<Buffer> = [];
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", reject);

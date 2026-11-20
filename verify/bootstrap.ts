@@ -72,7 +72,7 @@ const program = Effect.gen(function* () {
   });
   const command = Effect.fn("bootstrapCommandCheck")(function* (
     binary: string,
-    args: readonly string[] = [],
+    args: ReadonlyArray<string> = [],
   ) {
     const result = yield* runner.run(binary, args, { output: "capture" });
     if (result.status !== 0) {
@@ -80,7 +80,7 @@ const program = Effect.gen(function* () {
     }
     return result.stdout.trim();
   });
-  const shellChecks = (checks: readonly string[]) =>
+  const shellChecks = (checks: ReadonlyArray<string>) =>
     Effect.forEach(checks, (check) => shell(check), { concurrency: "unbounded", discard: true });
   const commonTools = shellChecks([
     "age --version",
@@ -296,10 +296,9 @@ const program = Effect.gen(function* () {
       ]);
     }
   });
-  const groups: readonly [
-    string,
-    Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>,
-  ][] = [
+  const groups: ReadonlyArray<
+    [string, Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>]
+  > = [
     ["environment", environment],
     ["runtime", runtime],
     ["common-tools", commonTools],

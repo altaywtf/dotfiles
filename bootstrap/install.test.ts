@@ -74,7 +74,7 @@ test("apply keeps the recorded profile unless --switch-profile is given", (t) =>
   }
   const marker = join(root, ".config/dotfiles/profile");
   const log = join(root, "commands");
-  const install = (...extra: string[]) => {
+  const install = (...extra: Array<string>) => {
     rmSync(log, { force: true });
     return spawnSync(
       process.execPath,

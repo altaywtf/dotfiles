@@ -14,7 +14,7 @@ const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profi
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureOptions = {
@@ -44,7 +44,7 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly falseSuccesses: ReadonlySet<string>;
   readonly failures: ReadonlyMap<string, FixtureFailure>;
@@ -69,7 +69,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): FakeResult {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -132,7 +132,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSkills = [
   { name: "ok-before", source: "fixture/before" },
@@ -188,7 +188,7 @@ function createFixture(): Fixture {
   return { repoDir, home };
 }
 
-function requestedSkills(args: readonly string[]): string[] {
+function requestedSkills(args: ReadonlyArray<string>): Array<string> {
   const skillFlag = args.indexOf("-s");
   const skills = skillFlag >= 0 ? args.slice(skillFlag + 1) : [];
   if (skills.length === 0 || skills.some((skill) => skill.startsWith("-"))) {
@@ -197,17 +197,17 @@ function requestedSkills(args: readonly string[]): string[] {
   return skills;
 }
 
-function installCalls(runtime: FixtureRuntime): CommandCall[] {
+function installCalls(runtime: FixtureRuntime): Array<CommandCall> {
   return runtime.calls.filter(
     (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "add",
   );
 }
 
-function installedSkillNames(runtime: FixtureRuntime): string[] {
+function installedSkillNames(runtime: FixtureRuntime): Array<string> {
   return installCalls(runtime).flatMap((call) => requestedSkills(call.args));
 }
 
-function removedSkillNames(runtime: FixtureRuntime): string[] {
+function removedSkillNames(runtime: FixtureRuntime): Array<string> {
   return runtime.calls
     .filter(
       (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "remove",
@@ -221,7 +221,7 @@ function removedSkillNames(runtime: FixtureRuntime): string[] {
     });
 }
 
-function updateCalls(runtime: FixtureRuntime): CommandCall[] {
+function updateCalls(runtime: FixtureRuntime): Array<CommandCall> {
   return runtime.calls.filter(
     (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "update",
   );

@@ -33,16 +33,13 @@ export default defineConfig({
     rules: {
       ...cloudflare.rules,
       "vite-plus/prefer-vite-plus-imports": "error",
-      "typescript/array-type": "off",
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
     overrides: [
       ...(cloudflare.overrides ?? []),
       {
         files: ["**/*.ts"],
-        rules: {
-          "typescript/array-type": "off",
-        },
+        rules: {},
       },
     ],
   },

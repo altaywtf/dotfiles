@@ -17,7 +17,7 @@ const sourceDir = join(repoRoot, "chezmoi");
 export const sharedFixtureRules =
   "## General guidelines\n\nFixture shared rule.\n\n### Delivery\n\nShared fixture delivery rule.\n";
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 export function cleanupFixtures(): void {
   for (const path of temporaryDirectories.splice(0)) {
@@ -93,7 +93,7 @@ export function runChezmoi(
 export function runWrapperResult(
   home: string,
   profile = "workstation",
-  extraArgs: readonly string[] = [],
+  extraArgs: ReadonlyArray<string> = [],
 ) {
   return spawnSync(
     join(repoRoot, "bootstrap/apply-dotfiles.ts"),

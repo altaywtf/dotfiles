@@ -20,7 +20,7 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
   }
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
-  const systemctl = (...args: string[]) =>
+  const systemctl = (...args: Array<string>) =>
     runner.run("systemctl", ["--user", ...args], { output: "capture" });
   // disable, run, and status address units systemd already loaded, even after
   // the files are gone.
@@ -67,7 +67,7 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
     case "disable": {
       // disable is a unit-file operation and stop a loaded-unit one; a missing
       // timer file must not keep a running update alive, so both always run.
-      const failures: string[] = [];
+      const failures: Array<string> = [];
       for (const args of [
         ["disable", "--now", `${updateUnit}.timer`],
         ["stop", `${updateUnit}.service`],

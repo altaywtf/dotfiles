@@ -51,7 +51,7 @@ omits complete-only parity checks; request --domain security explicitly for
 secret scans.
 `;
 
-const parseOptions = Effect.fn("parseOptions")(function* (args: readonly string[]) {
+const parseOptions = Effect.fn("parseOptions")(function* (args: ReadonlyArray<string>) {
   const domains = new Set<string>();
   let json = false;
   let list = false;
@@ -148,7 +148,7 @@ const runCheck = Effect.fn("runCheck")(function* (
 const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
 
 export const runChecks = Effect.fn("runChecks")(function* (
-  checks: readonly Check[],
+  checks: ReadonlyArray<Check>,
   timeoutMs: number = 300_000,
   concurrency: number = checkConcurrency,
 ) {

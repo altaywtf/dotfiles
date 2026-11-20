@@ -35,7 +35,7 @@ function elapsedSeconds(value: string): number {
 }
 
 export const parseProcesses = Effect.fn("parseProcesses")(function* (output: string) {
-  const rows: ProcessRow[] = [];
+  const rows: Array<ProcessRow> = [];
   let skipped = 0;
   for (const line of output.split("\n").filter((value) => value.trim())) {
     const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line);
@@ -54,8 +54,8 @@ export const parseProcesses = Effect.fn("parseProcesses")(function* (output: str
   return { rows, skipped };
 });
 
-export function classifyWorkloads(rows: readonly ProcessRow[]): Finding[] {
-  const findings: Finding[] = [];
+export function classifyWorkloads(rows: ReadonlyArray<ProcessRow>): Array<Finding> {
+  const findings: Array<Finding> = [];
   for (const row of rows) {
     const executable = /^(?:\S*\/)?([^/\s]+)(?:\s|$)/.exec(row.command)?.[1];
     const arguments_ = row.command.split(/\s+/).slice(1);

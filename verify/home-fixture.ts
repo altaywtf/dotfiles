@@ -85,7 +85,7 @@ export function runApply(
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
-    const output: Buffer[] = [];
+    const output: Array<Buffer> = [];
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => output.push(chunk));
     child.on("error", reject);
@@ -120,7 +120,7 @@ async function verifyProfiles(): Promise<void> {
   }
 }
 
-function filesReferencing(directory: string, needle: string): string[] {
+function filesReferencing(directory: string, needle: string): Array<string> {
   return readdirSync(directory, { recursive: true, encoding: "utf8" })
     .map((entry) => join(directory, entry))
     .filter((path) => lstatSync(path).isFile() && readFileSync(path, "utf8").includes(needle));

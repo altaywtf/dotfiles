@@ -60,7 +60,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   job: Job,
   home: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   send: typeof fetch = fetch,
   readBootId: () => string | undefined = currentBootId,
 ) {

@@ -57,9 +57,9 @@ function run<A>(
   );
 }
 
-async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): Promise<A> {
-  const warnings: string[] = [];
-  const warn = vi.spyOn(console, "warn").mockImplementation((...values: unknown[]) => {
+async function captureWarnings<A>(action: (warnings: Array<string>) => Promise<A>): Promise<A> {
+  const warnings: Array<string> = [];
+  const warn = vi.spyOn(console, "warn").mockImplementation((...values: Array<unknown>) => {
     warnings.push(values.map(String).join(" "));
   });
   try {
@@ -146,7 +146,7 @@ test("refreshes the cache only after every source and the secret scan succeed", 
 });
 
 test("keeps the cache when refresh or secret validation is unavailable", async () => {
-  const runtimes: RuleRuntime[] = [
+  const runtimes: Array<RuleRuntime> = [
     {
       fetch: (url) => Effect.fail(new RuleRefreshUnavailable({ message: `offline: ${url}` })),
       scan: () => Effect.succeed(undefined),
@@ -226,7 +226,7 @@ test("includes timeout failures in the machine-local cache warning", async () =>
 });
 
 test("rejects invalid or secret-bearing fetched content without replacing the cache", async () => {
-  const runtimes: RuleRuntime[] = [
+  const runtimes: Array<RuleRuntime> = [
     {
       fetch: () => Effect.succeed("---\ntitle: rules\n---\n"),
       scan: () => Effect.succeed(undefined),

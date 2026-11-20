@@ -67,7 +67,7 @@ const normalizeRuleSource = Effect.fn("normalizeRuleSource")(function* (
 });
 
 export const composeRuleSources = Effect.fn("composeRuleSources")(function* (
-  sources: readonly { readonly contents: string; readonly source: string }[],
+  sources: ReadonlyArray<{ readonly contents: string; readonly source: string }>,
 ) {
   const fragments = yield* Effect.forEach(sources, ({ contents, source }) =>
     normalizeRuleSource(source, contents),

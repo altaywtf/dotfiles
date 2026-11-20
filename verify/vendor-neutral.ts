@@ -8,7 +8,7 @@ import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
-function containsAny(content: string, values: readonly string[]): boolean {
+function containsAny(content: string, values: ReadonlyArray<string>): boolean {
   return values.some((value) => content.includes(value));
 }
 

@@ -8,7 +8,7 @@ import { HARNESSES } from "../harness.ts";
 import { readLayeredMcps, readMcps } from "./catalog.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 const fixtureSharedMcps = [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }];
 
 afterEach(() => {

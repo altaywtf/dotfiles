@@ -21,7 +21,7 @@ const Finding = Schema.Struct({
   }),
 });
 
-export type TrufflehogFindings = { allowed: number; unexpected: string[] };
+export type TrufflehogFindings = { allowed: number; unexpected: Array<string> };
 
 // History cannot be rewritten to drop a reviewed fixture, so known findings are
 // pinned by commit and line. A verified secret is never allowed.

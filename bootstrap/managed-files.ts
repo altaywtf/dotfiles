@@ -6,13 +6,13 @@ import { CliFailure, fail } from "../lib/program.ts";
 export type ChezmoiContext = {
   readonly repoRoot: string;
   readonly home: string;
-  readonly baseArgs: readonly string[];
+  readonly baseArgs: ReadonlyArray<string>;
   readonly dryRun: boolean;
 };
 
 const runChezmoi = Effect.fn("runChezmoi")(function* (
   context: ChezmoiContext,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;

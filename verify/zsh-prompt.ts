@@ -55,7 +55,7 @@ const program = Effect.scoped(
     const check = Effect.fn("zshPromptCheck")(function* (
       code: string,
       env: Readonly<Record<string, string>>,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
     ) {
       const result = yield* runner.run("/usr/bin/env", [
         "-i",

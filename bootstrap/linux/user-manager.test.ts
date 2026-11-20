@@ -8,7 +8,7 @@ import { convergeUserManager } from "./user-manager.ts";
 
 for (const unavailable of ["exit", "spawn"] as const) {
   test(`apply tolerates an unavailable user manager (${unavailable})`, async () => {
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
@@ -32,7 +32,7 @@ test("apply converges manager PATH idempotently without losing unrelated entries
     (part) => join(home, part),
   );
   let path = `/custom/bin:${front[2]}:/usr/bin:${front[0]}:${front[0]}`;
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (_command, args = []) => {
       calls.push([...args]);
@@ -90,7 +90,7 @@ for (const operation of ["daemon-reload", "set-environment"]) {
 }
 
 test("dry-run and non-Linux apply never contact systemd", async () => {
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) => {
       calls.push(command);

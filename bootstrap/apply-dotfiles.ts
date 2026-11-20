@@ -40,7 +40,7 @@ type Arguments = typeof Arguments.Type;
 type ParsedArguments = { profile?: string; dryRun: boolean; verbose: boolean };
 
 const parseArguments = Effect.fn("parseApplyDotfilesArguments")(function* (
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const parsed: ParsedArguments = {
     dryRun: false,
@@ -118,7 +118,7 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function* () {
 
 const runCommand = Effect.fn("runApplyDotfilesCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;

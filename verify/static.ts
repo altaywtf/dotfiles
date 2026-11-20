@@ -15,7 +15,7 @@ const blackWallpaper = resolve(repoRoot, "bootstrap/darwin/assets/black-wallpape
 
 const runRequired = Effect.fn("runRequired")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   label: string,
 ) {
   const runner = yield* CommandRunner;

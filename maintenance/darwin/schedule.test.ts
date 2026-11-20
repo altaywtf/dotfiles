@@ -30,7 +30,7 @@ const RenderedJob = Schema.fromJsonString(
 );
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
@@ -58,7 +58,7 @@ test("on-demand updates reuse the loaded service without killing its current wor
 
 const systemService = `system/${updateLabel}.fixture`;
 
-function systemRunner(calls: string[][], kickstartStatus = 0, systemLoaded = true) {
+function systemRunner(calls: Array<Array<string>>, kickstartStatus = 0, systemLoaded = true) {
   return CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
@@ -99,7 +99,7 @@ async function runSystemUpdate(
 }
 
 test("a missing job cannot silently run an uncoordinated updater", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const result = await runSystemUpdate(systemRunner(calls, 0, false), {
     devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
     interactive: false,
@@ -132,7 +132,7 @@ test.each([
     argv: ["/usr/bin/sudo", "--", ...kickstart],
   },
 ])("system updater kickstart: $caller", async ({ options, argv, status = 0 }) => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const result = await runSystemUpdate(systemRunner(calls, status), options);
   assert.deepEqual(calls.at(-1), argv);
   if (status === 0) {
@@ -165,7 +165,7 @@ test("on-demand launch failures reach the caller", async () => {
 
 for (const loaded of [false, true]) {
   test(`disabling a ${loaded ? "loaded" : "missing"} job persists its disabled state`, async () => {
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
@@ -197,7 +197,7 @@ for (const loaded of [false, true]) {
 }
 
 test("disabling fails while the system updater stays enrolled", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const failure = await Effect.runPromise(
     manageSchedule("disable", "/fixture/home", 501).pipe(
       Effect.provideService(CommandRunner, systemRunner(calls)),
@@ -227,7 +227,7 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
       await rm(plist);
       await symlink(join(home, ".config/dotfiles/profile"), plist);
     }
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     let loaded = false;
     const runner = CommandRunner.of({
       run: (command, args = []) => {
@@ -446,7 +446,7 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
       exitCode: 0,
     }),
   );
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
@@ -562,7 +562,7 @@ for (const loaded of [true, false]) {
     });
     const service = "system/example.host.software-update.fixture";
     const plist = "/Library/LaunchDaemons/example.host.software-update.fixture.plist";
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);

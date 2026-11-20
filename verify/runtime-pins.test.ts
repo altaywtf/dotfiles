@@ -125,7 +125,7 @@ test("mise and Renovate agree on CLI age exemptions without exempting runtimes o
   }
 });
 
-const matches = (names: readonly string[] | undefined, name: string) =>
+const matches = (names: ReadonlyArray<string> | undefined, name: string) =>
   names === undefined ||
   ((names.some((pattern) => pattern === name) ||
     names.every((pattern) => pattern.startsWith("!"))) &&

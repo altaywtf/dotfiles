@@ -44,7 +44,7 @@ test("operator command validates and delegates every profile", async () => {
   const fixture = mkdtempSync(join(tmpdir(), "dotfiles-command-"));
   const home = join(fixture, "home");
   const command = join(repoRoot, "bootstrap/cli.ts");
-  const run = (args: string[], log: string, exit = 0): Promise<RunResult> =>
+  const run = (args: Array<string>, log: string, exit = 0): Promise<RunResult> =>
     new Promise((resolvePromise, rejectPromise) => {
       const child = spawn(process.execPath, [command, ...args], {
         env: {

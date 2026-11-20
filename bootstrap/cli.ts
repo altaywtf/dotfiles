@@ -27,7 +27,7 @@ Homebrew packages, identities, secrets, and host-wide settings remain separate.`
 
 const delegate = Effect.fn("delegateDotfilesCommand")(function* (
   owner: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   commandName: string,
   profile: string,
 ) {

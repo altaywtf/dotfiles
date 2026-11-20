@@ -17,11 +17,11 @@ export type ProbeResult<Value = Schema.Json> = {
 export type Probe = {
   id: string;
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
   required: boolean;
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
-  allowedStatuses?: readonly number[];
+  allowedStatuses?: ReadonlyArray<number>;
   parse: (result: RawCommandResult) => Schema.Json;
 };
 
@@ -30,7 +30,7 @@ const defaultTimeoutMs = 15_000;
 export function probe(
   id: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   parse: Probe["parse"],
   options: Partial<Pick<Probe, "required" | "timeoutMs" | "env" | "allowedStatuses">> = {},
 ): Probe {
@@ -92,7 +92,7 @@ export async function runProbe(
 
 export function runProcess(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null; signal?: AbortSignal },
 ): Promise<RawCommandResult> {
   return new Promise((finish) => {
@@ -105,8 +105,8 @@ export function runProcess(
       env: options.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
+    const stdout: Array<Buffer> = [];
+    const stderr: Array<Buffer> = [];
     let settled = false;
     let timedOut = false;
     let canceled = false;

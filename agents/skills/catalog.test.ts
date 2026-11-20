@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 import { readLayeredSkills, readSkillLock } from "./catalog.ts";
 
-const roots: string[] = [];
+const roots: Array<string> = [];
 afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
 
 function fixture() {

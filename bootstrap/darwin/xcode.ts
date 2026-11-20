@@ -58,7 +58,7 @@ function parseCatalogLine(line: string): XcodeRelease | undefined {
   return release;
 }
 
-export function parseCatalog(contents: string): XcodeRelease[] {
+export function parseCatalog(contents: string): Array<XcodeRelease> {
   return contents
     .split(/\r?\n/)
     .map(parseCatalogLine)
@@ -70,7 +70,7 @@ export function satisfiesPin(version: string, pin: string): boolean {
 }
 
 export function pickInstallTarget(
-  releases: readonly XcodeRelease[],
+  releases: ReadonlyArray<XcodeRelease>,
   pin: string,
 ): XcodeRelease | undefined {
   return releases.find((release) => satisfiesPin(release.version, pin));
@@ -111,7 +111,7 @@ const readPin = Effect.fn("readXcodePin")(function* () {
 });
 
 const runXcodes = Effect.fn("runXcodes")(function* (
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: { output?: "capture" | "inherit"; stdin?: "inherit" } = {},
 ) {
   const runner = yield* CommandRunner;
@@ -122,7 +122,7 @@ const runXcodes = Effect.fn("runXcodes")(function* (
   });
 });
 
-const catalog = Effect.fn("xcodeCatalog")(function* (args: readonly string[]) {
+const catalog = Effect.fn("xcodeCatalog")(function* (args: ReadonlyArray<string>) {
   const result = yield* runXcodes(args);
   if (result.status !== 0) {
     return yield* fail(
@@ -133,7 +133,7 @@ const catalog = Effect.fn("xcodeCatalog")(function* (args: readonly string[]) {
   return parseCatalog(result.stdout);
 });
 
-const selectedRelease = (releases: readonly XcodeRelease[]) =>
+const selectedRelease = (releases: ReadonlyArray<XcodeRelease>) =>
   releases.find((release) => release.selected);
 
 const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
@@ -154,7 +154,7 @@ const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
 
 const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;

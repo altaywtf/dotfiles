@@ -45,7 +45,7 @@ const AlertBody = Schema.fromJsonString(
 
 type SentAlert = { url: string; token: string | undefined; subject: string; text: string };
 
-const recordingSender = (sent: SentAlert[], respond: () => Response = () => accepted()) =>
+const recordingSender = (sent: Array<SentAlert>, respond: () => Response = () => accepted()) =>
   (async (input, init) => {
     assert.equal(init?.method, "POST");
     assert.equal(init?.redirect, "error");
@@ -114,7 +114,7 @@ for (const scenario of [
       await writeAlertConfig(home, scenario === "invalid" ? "not-json" : undefined);
     }
     let executions = 0;
-    const sent: SentAlert[] = [];
+    const sent: Array<SentAlert> = [];
     const expected =
       scenario === "failure" || scenario === "rejected"
         ? 23
@@ -239,7 +239,7 @@ for (const outcome of ["network", 401, 500, "malformed", "unacknowledged", "boun
     const home = await tempHome(t, "dotfiles-alert-outcome-");
     await writeAlertConfig(home);
     const command = fixedCommand({ status: 23 });
-    const sent: SentAlert[] = [];
+    const sent: Array<SentAlert> = [];
     const failing = recordingSender(sent, () => {
       if (outcome === "network") {
         throw new TypeError("fetch failed");
@@ -308,7 +308,7 @@ test("interrupting alert delivery aborts fetch once and keeps the cleanup gate c
 test("alerts follow transitions: one failure email, silence while failing, one recovery email", async (t) => {
   const home = await tempHome(t, "dotfiles-update-deadline-");
   await writeAlertConfig(home);
-  const sent: SentAlert[] = [];
+  const sent: Array<SentAlert> = [];
   const send = recordingSender(sent);
   const execute = (script: string) =>
     Effect.runPromise(
@@ -406,7 +406,7 @@ test("only a different boot reopens an incomplete receipt", async (t) => {
 
 test("a pre-spawn failure remains retryable without removing the receipt", async (t) => {
   const home = await tempHome(t, "dotfiles-update-spawn-");
-  const execute = (command: string, args: string[]) =>
+  const execute = (command: string, args: Array<string>) =>
     Effect.runPromise(
       runUpdate("software-update", home, command, args).pipe(
         Effect.provide(BoundedCommand.layer),

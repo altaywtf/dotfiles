@@ -81,7 +81,7 @@ function readMcp(value: unknown, manifestPath: string): Mcp {
   return decodeOrThrow(Mcp, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
-function parseMcps(value: unknown, manifestPath: string): Mcp[] {
+function parseMcps(value: unknown, manifestPath: string): Array<Mcp> {
   const entries = decodeOr(
     Schema.Array(Schema.Unknown),
     value,
@@ -100,7 +100,7 @@ function parseMcps(value: unknown, manifestPath: string): Mcp[] {
   return mcps;
 }
 
-export function readMcps(manifestPath: string): Mcp[] {
+export function readMcps(manifestPath: string): Array<Mcp> {
   const label = `Invalid MCP manifest at ${manifestPath}`;
   const { mcps } = decodeOr(
     McpManifest,
@@ -115,23 +115,23 @@ export type McpLayer = AgentLayer | "local";
 export function readLayeredMcps(
   repoDir: string,
   profile: string,
-  layers: readonly AgentLayer[],
+  layers: ReadonlyArray<AgentLayer>,
 ): {
-  layers: readonly McpLayer[];
-  mcps: Mcp[];
+  layers: ReadonlyArray<McpLayer>;
+  mcps: Array<Mcp>;
   localPath?: string;
-  localNames?: string[];
+  localNames?: Array<string>;
 } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage MCPs`);
   }
 
-  const manifests = new Map<McpLayer, Mcp[]>();
+  const manifests = new Map<McpLayer, Array<Mcp>>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readMcps(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
 
-  const selected: McpLayer[] = [...layers];
+  const selected: Array<McpLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
   if (local?.document.mcps !== undefined) {
     manifests.set("local", parseMcps(local.document.mcps, local.path));

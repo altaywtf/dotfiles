@@ -73,7 +73,7 @@ type DeviceValue = {
 export type SoftwareUpdateResult = {
   available: boolean;
   restart_required: boolean;
-  items: string[];
+  items: Array<string>;
 };
 
 type ApplicabilityResult = {
@@ -82,7 +82,7 @@ type ApplicabilityResult = {
   freshness: "cached_previous_scan" | "live" | "not_run";
   available?: boolean;
   restart_required?: boolean;
-  items: string[];
+  items: Array<string>;
   error?: string;
   failure_kind?: FailureKind;
   cache_error?: string;
@@ -104,7 +104,7 @@ export type MacOSUpdateInventory = {
   };
   cached_applicability: ApplicabilityResult;
   live_scan: ApplicabilityResult & {
-    reasons: string[];
+    reasons: Array<string>;
     last_success_at?: string;
     last_success_age_seconds?: number;
   };
@@ -379,7 +379,7 @@ function compareBaselines(left: ReleaseBaseline, right: ReleaseBaseline): number
   return compareBuilds(left.build, right.build);
 }
 
-function newest(values: readonly ReleaseBaseline[]): ReleaseBaseline | undefined {
+function newest(values: ReadonlyArray<ReleaseBaseline>): ReleaseBaseline | undefined {
   return values.reduce<ReleaseBaseline | undefined>(
     (selected, value) => (!selected || compareBaselines(value, selected) > 0 ? value : selected),
     undefined,
@@ -388,7 +388,7 @@ function newest(values: readonly ReleaseBaseline[]): ReleaseBaseline | undefined
 
 export function selectGdmfBaseline(
   payload: unknown,
-  deviceIdentifiers: readonly string[],
+  deviceIdentifiers: ReadonlyArray<string>,
 ): ReleaseBaseline {
   const feed = Schema.decodeUnknownSync(GdmfFeed)(payload);
   const identifiers = new Set(deviceIdentifiers.filter(Boolean));
@@ -563,7 +563,7 @@ async function appleSource(
   cachePath: string,
   nowIso: string,
   nowMs: number,
-  identifiers: readonly string[],
+  identifiers: ReadonlyArray<string>,
 ): Promise<UpstreamResult> {
   const cached = parseCache(await io.readCache(cachePath).catch(() => undefined));
   const checkedAge = cached.record ? ageSeconds(nowMs, cached.record.checked_at) : undefined;
@@ -775,7 +775,7 @@ function runCommand(
   runner: CommandRunner,
   options: MacOSUpdateOptions,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   timeoutMs: number | null,
 ) {
   return Effect.tryPromise({
@@ -931,7 +931,7 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
     ),
   );
   const selectedSafari = sofaSafari.status === "ok" ? sofaSafari.baseline : undefined;
-  const reasons: string[] = [];
+  const reasons: Array<string> = [];
   if (options.fresh) {
     reasons.push("explicit_fresh");
   }

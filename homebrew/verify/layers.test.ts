@@ -21,7 +21,7 @@ ARGV.each { |path| load path }
 puts entries.uniq.map { |entry| JSON.generate(entry) }.sort
 `;
 
-function evaluate(files: readonly string[]): string[] {
+function evaluate(files: ReadonlyArray<string>): Array<string> {
   const result = spawnSync("ruby", ["-e", evaluator, ...files], {
     encoding: "utf8",
     env: { ...process.env, HOMEBREW_BUNDLE_DOTFILES_PROFILE: undefined },

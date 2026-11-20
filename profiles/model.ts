@@ -62,7 +62,7 @@ class ProfileModelError extends Schema.TaggedError<ProfileModelError>()("Profile
   message: Schema.String,
 }) {}
 
-function hasUniqueValues(values: readonly string[]): boolean {
+function hasUniqueValues(values: ReadonlyArray<string>): boolean {
   return new Set(values).size === values.length;
 }
 

@@ -185,7 +185,7 @@ function runDevbox(
   }).status;
 }
 
-function main(args: string[]): number {
+function main(args: Array<string>): number {
   let format: AuditFormat = "text";
   let config = "";
   for (let index = 0; index < args.length; index += 1) {

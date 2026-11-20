@@ -17,12 +17,12 @@ type Capability = {
   name: string;
   validator: "command" | "bundle";
   path: string;
-  arguments?: readonly string[];
+  arguments?: ReadonlyArray<string>;
   bundleIdentifier?: string;
   teamIdentifier?: string;
 };
 const isArray = Schema.is(Schema.Array(Schema.Unknown));
-const xml = (capabilities: readonly Capability[]) => {
+const xml = (capabilities: ReadonlyArray<Capability>) => {
   const value = (input: unknown): string => {
     if (Predicate.isString(input)) {
       return `<string>${input.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</string>`;
@@ -72,10 +72,10 @@ const program = Effect.scoped(
     const command = (
       packageType: "brew" | "cask",
       name: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
     ): Capability => ({ packageType, name, validator: "command", path: managed, arguments: args });
     const write = Effect.fn("writeExternalHomebrewFixture")(function* (
-      capabilities: readonly Capability[],
+      capabilities: ReadonlyArray<Capability>,
     ) {
       yield* fs.writeFileString(config, xml(capabilities), { mode: 0o600 });
       yield* fs.chmod(config, 0o600);

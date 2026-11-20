@@ -26,7 +26,7 @@ class UpdateFailure extends Error {
   }
 }
 
-function run(repo: string, command: string, args: string[], capture = false): string {
+function run(repo: string, command: string, args: Array<string>, capture = false): string {
   const result = spawnSync(command, args, {
     cwd: repo,
     encoding: "utf8",
@@ -67,8 +67,8 @@ export function syncCheckout(
   label = "dotfiles checkout",
   sleep: (ms: number) => void = sleepSync,
 ): string {
-  const git = (...args: string[]) => run(repo, "git", args, true);
-  const probe = (...args: string[]) =>
+  const git = (...args: Array<string>) => run(repo, "git", args, true);
+  const probe = (...args: Array<string>) =>
     spawnSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   if (realpathSync(git("rev-parse", "--show-toplevel")) !== realpathSync(repo)) {
     throw new UpdateFailure(`use the root of the ${label}`);
@@ -151,7 +151,7 @@ export function acquireCheckoutLock(repo: string, options: LockOptions = {}): ()
 
 // Local rule fragments may link into another checkout, whose default branch
 // then has to advance for rendered rules to follow it.
-function ruleSourceCheckouts(home: string, repo: string): string[] {
+function ruleSourceCheckouts(home: string, repo: string): Array<string> {
   const checkouts = new Set<string>();
   for (const name of ["agents.start.md", "agents.end.md"]) {
     const fragment = join(home, ".config/dotfiles", name);
@@ -200,7 +200,7 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
       process.stderr.write(`Kept ${repo}: ${error.message}; convergence skipped\n`);
       return;
     }
-    const failed: string[] = [];
+    const failed: Array<string> = [];
     for (const checkout of ruleSourceCheckouts(home, repo)) {
       try {
         const advanced = privately(() =>

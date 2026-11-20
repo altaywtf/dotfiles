@@ -25,7 +25,7 @@ type Scalar = typeof Scalar.Type;
 const LocalSettings = Schema.fromJsonString(Schema.Record(Schema.String, Scalar));
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 type UserConfig = { projects: Readonly<Record<string, Schema.Json>> };
-type PlanEdits = (user: UserConfig) => readonly ConfigEdit[];
+type PlanEdits = (user: UserConfig) => ReadonlyArray<ConfigEdit>;
 
 const ConfigRead = Schema.Struct({
   layers: Schema.Array(
@@ -54,7 +54,7 @@ function userLayer(result: unknown, configPath: string) {
   };
 }
 
-function managedEdits(): ConfigEdit[] {
+function managedEdits(): Array<ConfigEdit> {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6.2-sol", mergeStrategy: "upsert" },
@@ -94,7 +94,7 @@ function managedEdits(): ConfigEdit[] {
 }
 
 // ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
-function localEdits(path: string): ConfigEdit[] {
+function localEdits(path: string): Array<ConfigEdit> {
   if (!existsSync(path)) {
     return [];
   }
@@ -115,7 +115,7 @@ const Gateway = Schema.fromJsonString(
   Schema.Struct({ baseUrl: Schema.String, keyCommand: Schema.String }),
 );
 
-function gatewayEdits(path: string): ConfigEdit[] {
+function gatewayEdits(path: string): Array<ConfigEdit> {
   if (!existsSync(path)) {
     return [];
   }
@@ -152,7 +152,9 @@ function codexHomePath(): string {
 
 // A planner reads the user layer first and writes against its version, so a
 // concurrent Codex edit fails the write instead of being overwritten.
-export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits): Promise<string> {
+export async function writeConfigEdits(
+  edits: ReadonlyArray<ConfigEdit> | PlanEdits,
+): Promise<string> {
   const codexHome = codexHomePath();
   const configPath = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
@@ -252,7 +254,7 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
   return configPath;
 }
 
-export type CodexDefaults = { configPath: string; restricted: readonly string[] };
+export type CodexDefaults = { configPath: string; restricted: ReadonlyArray<string> };
 
 // projectRoot opts into trusting every checkout directly under it.
 export async function configureDefaults(

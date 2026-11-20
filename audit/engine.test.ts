@@ -43,14 +43,14 @@ function fixture(t: TestContext): Fixture {
 
 type AuditCheck = AuditPolicy["sections"][number]["checks"][number];
 
-function policy(...checks: AuditCheck[]): AuditPolicy {
+function policy(...checks: Array<AuditCheck>): AuditPolicy {
   return { name: "fixture", summary: "fixture", sections: [{ title: "fixture", checks }] };
 }
 
 const zshrcScan = policy({ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] });
 const quiet = { stdout: () => {}, stderr: () => {} };
 
-function cleanCommand(command: string, args: readonly string[]) {
+function cleanCommand(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
     const values = new Map([
@@ -76,7 +76,7 @@ function cleanCommand(command: string, args: readonly string[]) {
 
 test("workstation policy is declarative and passes a clean fixture", (t) => {
   const { home, root } = fixture(t);
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(workstationPolicy(root), "json", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -178,7 +178,7 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
     join(root, "etc/ssl/cert.pem"),
     "=== /C=IN/OU=emSign PKI/O=eMudhra Technologies Limited/CN=emSign ECC Root CA - G3\n",
   );
-  const errors: string[] = [];
+  const errors: Array<string> = [];
   const result = runPolicy(workstationPolicy(root), "text", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -225,7 +225,7 @@ test("secret scan reports only sanitized locators and removes staging data", (t)
   const { home, root } = fixture(t);
   const scratch = join(root, "tmp");
   mkdirSync(scratch);
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(zshrcScan, "text", {
     home,
     env: { HOME: home, TMPDIR: scratch },
@@ -284,7 +284,7 @@ test("secret scans fail closed on invalid reports and incomplete execution", (t)
     [JSON.stringify([{ RuleID: "generic-api-key" }]), 183, new Error("private scanner diagnostic")],
     [JSON.stringify([{ RuleID: "generic-api-key" }]), 0, undefined],
   ] as const) {
-    const output: string[] = [];
+    const output: Array<string> = [];
     const result = runPolicy(zshrcScan, "json", {
       home,
       env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -312,7 +312,7 @@ test("audit follows file symlinks and reports broken links and directory cycles"
   symlinkSync(key, join(home, ".ssh/id_fixture"));
   symlinkSync(join(root, "missing"), join(home, ".ssh/broken"));
   symlinkSync(join(home, ".ssh"), join(home, ".ssh/cycle"));
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(policy({ kind: "ssh-private-key-modes", path: ".ssh" }), "text", {
     home,
     stdout: (value) => output.push(value),

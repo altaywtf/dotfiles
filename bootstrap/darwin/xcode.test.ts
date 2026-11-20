@@ -58,7 +58,7 @@ function xcodeFixture(
   for (const [name, script] of Object.entries({ xcodes, ...extraBin })) {
     writeFileSync(join(bin, name), script, { mode: 0o755 });
   }
-  const run = (args: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) =>
+  const run = (args: Array<string>, options: { input?: string; env?: NodeJS.ProcessEnv } = {}) =>
     spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts"), ...args], {
       encoding: "utf8",
       input: options.input,

@@ -21,29 +21,29 @@ type AuditCheck =
   | {
       kind: "file-mode";
       path: string;
-      modes: readonly number[];
+      modes: ReadonlyArray<number>;
       missing: Exclude<FindingSeverity, "ok">;
       mismatch: Exclude<FindingSeverity, "ok">;
     }
   | {
       kind: "pattern-absent";
-      sources: readonly PathSource[];
+      sources: ReadonlyArray<PathSource>;
       pattern: RegExp;
       label: string;
       severity: Exclude<FindingSeverity, "ok">;
       countAsSecretScan?: boolean;
     }
   | { kind: "npm-auth-boundary"; path: string }
-  | { kind: "secret-scan"; sources: readonly PathSource[] }
+  | { kind: "secret-scan"; sources: ReadonlyArray<PathSource> }
   | {
       kind: "private-mode";
-      sources: readonly PathSource[];
+      sources: ReadonlyArray<PathSource>;
       mode?: number;
       mismatch: Exclude<FindingSeverity, "ok">;
     }
   | {
       kind: "paths-absent";
-      paths: readonly string[];
+      paths: ReadonlyArray<string>;
       severity: Exclude<FindingSeverity, "ok">;
       label: string;
     }
@@ -70,7 +70,7 @@ type AuditCheck =
   | {
       kind: "command-status";
       command: string;
-      args: readonly string[];
+      args: ReadonlyArray<string>;
       missing: Exclude<FindingSeverity, "ok">;
       failure: Exclude<FindingSeverity, "ok">;
       label: string;
@@ -81,7 +81,7 @@ export type AuditPolicy = {
   name: string;
   summary: string;
   fields?: { user: string; devbox_user: string };
-  sections: readonly { title: string; checks: readonly AuditCheck[] }[];
+  sections: ReadonlyArray<{ title: string; checks: ReadonlyArray<AuditCheck> }>;
 };
 
 export type AuditDependencies = BaseDependencies & {
@@ -386,7 +386,7 @@ function commandWorked(result: CommandResult): boolean {
 }
 
 function systemResolves(run: AuditRun, name: string): boolean {
-  const commands: Array<[string, string[]]> = [
+  const commands: Array<[string, Array<string>]> = [
     ["dscacheutil", ["-q", "host", "-a", "name", name]],
     ["getent", ["hosts", name]],
     ["host", [name]],

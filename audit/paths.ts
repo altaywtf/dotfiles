@@ -6,14 +6,14 @@ const stat = Option.liftThrowable((path: string) => statSync(path));
 
 export type PathSource =
   | { kind: "path"; path: string }
-  | { kind: "home-dotfiles"; exclude?: readonly string[] }
+  | { kind: "home-dotfiles"; exclude?: ReadonlyArray<string> }
   | {
       kind: "files";
       path: string;
       maxDepth?: number;
       namePrefix?: string;
       pathPattern?: RegExp;
-      skipDirectories?: readonly string[];
+      skipDirectories?: ReadonlyArray<string>;
       ignoreDirectoryLinks?: boolean;
     };
 
@@ -58,7 +58,7 @@ export function walkFiles(
   maxDepth = Number.POSITIVE_INFINITY,
   skipped: SkippedPath,
   options: WalkOptions = {},
-): string[] {
+): Array<string> {
   if (!present(root, skipped)) {
     return [];
   }
@@ -99,9 +99,9 @@ export function walkFiles(
 
 export function resolveSources(
   home: string,
-  sources: readonly PathSource[],
+  sources: ReadonlyArray<PathSource>,
   skipped: SkippedPath,
-): string[] {
+): Array<string> {
   const paths = sources.flatMap((source) => {
     if (source.kind === "path") {
       const path = homePath(home, source.path);

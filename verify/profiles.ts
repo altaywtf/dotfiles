@@ -25,7 +25,7 @@ const program = Effect.scoped(
     const profiles = Object.keys(model.profiles);
     const run = (
       command: string,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
       options: { env?: Readonly<Record<string, string>>; cwd?: string } = {},
     ): Effect.Effect<CommandResult, unknown> =>
       runner.run(command, args, { env: options.env, cwd: options.cwd });

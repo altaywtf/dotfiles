@@ -9,7 +9,7 @@ import { test } from "vite-plus/test";
 import { devboxPolicy } from "./devbox.ts";
 import { runPolicy } from "./engine.ts";
 
-function command(command: string, args: readonly string[]) {
+function command(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
     const values = new Map([

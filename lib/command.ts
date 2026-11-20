@@ -27,7 +27,7 @@ export type CommandOptions = {
   readonly timeoutMs?: number;
 };
 
-function decode(chunks: readonly Uint8Array[]): string {
+function decode(chunks: ReadonlyArray<Uint8Array>): string {
   return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString();
 }
 
@@ -36,7 +36,7 @@ export class CommandRunner extends Context.Service<
   {
     readonly run: (
       command: string,
-      args?: readonly string[],
+      args?: ReadonlyArray<string>,
       options?: CommandOptions,
     ) => Effect.Effect<CommandResult, CommandError>;
   }
@@ -48,12 +48,12 @@ export class CommandRunner extends Context.Service<
 
       const run = Effect.fn("CommandRunner.run")(function* (
         command: string,
-        args: readonly string[] = [],
+        args: ReadonlyArray<string> = [],
         options: CommandOptions = {},
       ) {
         const output = options.output ?? "capture";
-        const stdout: Uint8Array[] = [];
-        const stderr: Uint8Array[] = [];
+        const stdout: Array<Uint8Array> = [];
+        const stderr: Array<Uint8Array> = [];
         const execution = Effect.gen(function* () {
           const handle = yield* spawner.spawn(
             ChildProcess.make(command, args, {
@@ -124,7 +124,7 @@ export class CommandRunner extends Context.Service<
 // Run a command, mapping a failed spawn (missing binary, bad cwd) to a CliFailure.
 export const runCommand = Effect.fn("runCommand")(function* (
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const runner = yield* CommandRunner;
@@ -142,7 +142,7 @@ export const runCommand = Effect.fn("runCommand")(function* (
 // Run a command and propagate a non-zero exit status as the process exit code.
 export const runChecked = Effect.fn("runChecked")(function* (
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const result = yield* runCommand(command, args, options);

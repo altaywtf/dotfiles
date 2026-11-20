@@ -40,7 +40,7 @@ async function fixture(t: TestContext) {
     await utimes(path, when, when);
     return path;
   };
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const run = (
     apply: boolean,
     options: {
@@ -48,7 +48,7 @@ async function fixture(t: TestContext) {
       spawnFailure?: boolean;
       probeFailure?: boolean;
       miseVersion?: string;
-      running?: readonly string[];
+      running?: ReadonlyArray<string>;
     } = {},
   ) =>
     Effect.runPromise(
@@ -184,7 +184,7 @@ test("one total budget cancels the active command and prevents subsequent cleanu
   const f = await fixture(t);
   await f.file(".gradle/daemon/old", 20);
   let cancelled = false;
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) => {
       calls.push(command);

@@ -32,7 +32,7 @@ export const requirePrefixOwner = Effect.fn("requireHomebrewPrefixOwner")(functi
   );
 });
 
-export function profileBrewfiles(model: ProfileModel, profile: string): readonly string[] {
+export function profileBrewfiles(model: ProfileModel, profile: string): ReadonlyArray<string> {
   return requireProfile(model, profile).brewfiles;
 }
 
@@ -74,7 +74,7 @@ const localBrewfile = Effect.fn("localBrewfile")(function* (repoRoot: string) {
 
 export const withLocalBrewfile = Effect.fn("withLocalBrewfile")(function* (
   repoRoot: string,
-  files: readonly string[],
+  files: ReadonlyArray<string>,
 ) {
   const local = yield* localBrewfile(repoRoot);
   return Option.isSome(local) ? [...files, local.value] : files;
@@ -82,7 +82,7 @@ export const withLocalBrewfile = Effect.fn("withLocalBrewfile")(function* (
 
 export const composeBrewfile = Effect.fn("composeBrewfile")(function* (
   repoRoot: string,
-  files: readonly string[],
+  files: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const composed = yield* fs.makeTempFile({ directory: repoRoot, prefix: "Brewfile.composed." });
@@ -150,7 +150,7 @@ export const bundleDrift = Effect.fn("homebrewBundleDrift")(function* (
 
 export const trustTaps = Effect.fn("trustHomebrewTaps")(function* (
   repoRoot: string,
-  files: readonly string[],
+  files: ReadonlyArray<string>,
 ) {
   const support = yield* runRaw("brew", ["trust", "--help"]);
   if (support.status !== 0) {

@@ -85,7 +85,7 @@ type Preference = { group: string; key: string; value: boolean };
 
 const applyPreferences = Effect.fnUntraced(function* (
   data: JsonObject,
-  preferences: readonly Preference[],
+  preferences: ReadonlyArray<Preference>,
   mode: Mode,
 ) {
   const updated = { ...data };
@@ -138,7 +138,7 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
   mode: Mode,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const profiles: string[] = [];
+  const profiles: Array<string> = [];
   if (yield* fs.exists(root)) {
     for (const name of yield* fs.readDirectory(root)) {
       if (name === "System Profile" || name === "Guest Profile") {

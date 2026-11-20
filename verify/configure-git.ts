@@ -28,7 +28,7 @@ const program = Effect.scoped(
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-configure-git." });
     const run = (
       command: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
       env: Readonly<Record<string, string>> = {},
     ) => runner.run(command, args, { env });
     const makeHome = Effect.fn("makeGitFixtureHome")(function* (name: string, encrypted = false) {

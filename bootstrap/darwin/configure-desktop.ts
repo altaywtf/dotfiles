@@ -127,7 +127,7 @@ const stateIsCorrect = Effect.fn("desktopStateIsCorrect")(function* () {
   );
 });
 
-const writeDefault = Effect.fn("writeDefault")(function* (args: readonly string[]) {
+const writeDefault = Effect.fn("writeDefault")(function* (args: ReadonlyArray<string>) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["write", ...args], { output: "inherit" });
   if (result.status !== 0) {

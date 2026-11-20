@@ -86,8 +86,8 @@ export function capLogs(
   directory: string,
   cap = logCapBytes,
   between: () => void = () => {},
-): Entry[] {
-  const entries: Entry[] = [];
+): Array<Entry> {
+  const entries: Array<Entry> = [];
   if (!existsSync(directory)) {
     return entries;
   }

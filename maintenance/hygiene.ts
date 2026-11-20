@@ -89,7 +89,7 @@ export async function hygiene(
       join(home, path),
     );
     const next: Record<string, { head: string; since: number }> = {};
-    const reports: Record<string, Entry[]> = {};
+    const reports: Record<string, Array<Entry>> = {};
     let failed = false;
     const activity = () => openFiles(home);
     for (const repo of discoverRepositories(join(home, "projects"))) {

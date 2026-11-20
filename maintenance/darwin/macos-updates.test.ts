@@ -50,7 +50,7 @@ const sofaSafari = {
   ],
 };
 
-type Call = { command: string; args: readonly string[]; timeoutMs: number | null };
+type Call = { command: string; args: ReadonlyArray<string>; timeoutMs: number | null };
 
 function commandResult(stdout: string, status = 0) {
   return { status, stdout, stderr: "" };
@@ -67,7 +67,7 @@ function runner(
     safariStatus?: number;
     safariStderr?: string;
     deviceOutput?: string;
-    calls?: Call[];
+    calls?: Array<Call>;
   } = {},
 ): CommandRunner {
   return async (command, args, runOptions) => {
@@ -108,8 +108,8 @@ function io(
     safari?: HttpResult;
     cache?: string;
     applicabilityCache?: string | null;
-    fetches?: string[];
-    writes?: string[];
+    fetches?: Array<string>;
+    writes?: Array<string>;
   } = {},
 ): MacOSUpdateIO {
   return {
@@ -221,7 +221,7 @@ test("softwareupdate parsing distinguishes cached emptiness from a malformed lis
 });
 
 test("routine inventory preserves source and freshness without a live scan", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const inventory = await collect(runner({ calls }), io());
 
   assert.equal(inventory.applicability.status, "current");
@@ -240,7 +240,7 @@ test("routine inventory preserves source and freshness without a live scan", asy
 });
 
 test("routine inventory bounds stale applicability with a daily live scan", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const applicabilityCache = JSON.stringify({
     schema_version: 1,
     completed_at: "2026-08-24T12:00:00.000Z",
@@ -317,7 +317,7 @@ test("missing device identifiers report the supported identifier contract", asyn
 });
 
 test("a fresh daily Apple cache avoids another Apple request", async () => {
-  const fetches: string[] = [];
+  const fetches: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -333,7 +333,7 @@ test("a fresh daily Apple cache avoids another Apple request", async () => {
 });
 
 test("an invalid cached fetch timestamp forces an Apple refresh", async () => {
-  const fetches: string[] = [];
+  const fetches: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -347,7 +347,7 @@ test("an invalid cached fetch timestamp forces an Apple refresh", async () => {
 });
 
 test("a failed Apple refresh does not reuse invalid cached metadata", async () => {
-  const writes: string[] = [];
+  const writes: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -397,7 +397,7 @@ test("a stale Apple cache stays visible when SOFA can establish current state", 
 });
 
 test("malformed cached applicability triggers the live path without a timeout", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const inventory = await collect(
     runner({ cached: "Software Update Tool\nFinding available software\n", calls }),
     io(),

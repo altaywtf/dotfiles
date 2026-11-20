@@ -14,7 +14,7 @@ import { afterEach, test } from "vite-plus/test";
 
 import { discoverCheckouts, projectTrustEdits, restrictCodexState } from "./projects.ts";
 
-const directories: string[] = [];
+const directories: Array<string> = [];
 
 afterEach(() => {
   for (const directory of directories.splice(0)) {

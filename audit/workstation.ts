@@ -172,7 +172,7 @@ function runWorkstation(format: AuditFormat): number {
   return runPolicy(workstationPolicy(), format).status;
 }
 
-function main(args: string[]): number {
+function main(args: Array<string>): number {
   if (args.length > 1 || (args[0] !== undefined && args[0] !== "--json")) {
     process.stderr.write("Usage: audit/workstation.ts [--json]\n");
     return 2;

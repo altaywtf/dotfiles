@@ -90,7 +90,7 @@ type OverlayGuard = {
 export function guardOverlay(
   previous: OverlayOwnership | undefined,
   repoDir: string,
-  overlayNames: readonly string[] | undefined,
+  overlayNames: ReadonlyArray<string> | undefined,
 ): OverlayGuard {
   const checkout = realpathSync(repoDir);
   const others = Object.entries(previous ?? {}).filter(

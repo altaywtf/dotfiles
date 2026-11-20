@@ -49,7 +49,7 @@ type ServiceContext = {
   readonly namespace: string;
 };
 const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
-  argv: readonly string[],
+  argv: ReadonlyArray<string>,
 ) {
   const values = {
     user: "",
@@ -108,12 +108,12 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   return options;
 });
 
-const run = (command: string, args: readonly string[] = [], inherit = false) =>
+const run = (command: string, args: ReadonlyArray<string> = [], inherit = false) =>
   runCommand(command, args, { output: inherit ? "inherit" : "capture" });
 
 const checked = Effect.fn("runCheckedServiceCommand")(function* (
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
   inherit: boolean = false,
 ) {
   const result = yield* run(command, args, inherit);
@@ -172,7 +172,7 @@ const findExecutable = Effect.fn("findServiceExecutable")(function* (target: Tar
 const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function* (
   target: Target,
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
 ) {
   const uid = process.getuid?.() ?? -1;
   if (uid === target.uid) {

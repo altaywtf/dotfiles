@@ -59,7 +59,7 @@ const parseConfig = Effect.fn("parseSopsSudoConfig")(function* (contents: string
 
 const runRaw = Effect.fn("runSopsSudoCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: {
     readonly env?: Readonly<Record<string, string>>;
     readonly extendEnv?: boolean;
@@ -81,7 +81,7 @@ const executable = Effect.fn("sopsSudoExecutable")(function* (path: string) {
 });
 
 const findFixedExecutable = Effect.fn("findFixedSopsSudoExecutable")(function* (
-  paths: readonly string[],
+  paths: ReadonlyArray<string>,
 ) {
   for (const path of paths) {
     if (yield* executable(path)) {
@@ -115,7 +115,7 @@ const validateOwnerFileMode = Effect.fn("validateSopsSudoFileMode")(function* (
   }
 });
 
-const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonly string[]) {
+const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: ReadonlyArray<string>) {
   const args = [...raw];
   const nested = args[0] === "--nested";
   if (nested) {

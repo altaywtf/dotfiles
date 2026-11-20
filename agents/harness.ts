@@ -37,9 +37,9 @@ function harnessSet(message: string) {
       Schema.decodeTo(
         Schema.Array(Harness),
         SchemaTransformation.transform({
-          decode: (selected: readonly Harness[]): readonly Harness[] =>
+          decode: (selected: ReadonlyArray<Harness>): ReadonlyArray<Harness> =>
             HARNESSES.filter((harness) => selected.includes(harness)),
-          encode: (harnesses: readonly Harness[]) => harnesses,
+          encode: (harnesses: ReadonlyArray<Harness>) => harnesses,
         }),
       ),
     )
@@ -67,7 +67,7 @@ export type SyncFailure = {
 
 export function reportSyncFailures(
   runtime: Runtime,
-  failures: readonly SyncFailure[],
+  failures: ReadonlyArray<SyncFailure>,
   subject: string,
   nouns: readonly [string, string],
   kind: string,
@@ -92,7 +92,7 @@ export type SyncArgs =
   | { kind: "error"; message: string };
 
 export function parseSyncArgs(
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   usage: string,
   allowUpdate: boolean,
 ): SyncArgs {
@@ -129,13 +129,13 @@ export function parseSyncArgs(
 // Compose the selected manifest layers, tolerating an identical entry selected
 // by more than one layer and rejecting a conflicting redefinition.
 export function composeLayers<T, Layer extends string = AgentLayer>(
-  selected: readonly Layer[],
-  manifests: ReadonlyMap<Layer, readonly T[]>,
+  selected: ReadonlyArray<Layer>,
+  manifests: ReadonlyMap<Layer, ReadonlyArray<T>>,
   keyOf: (entry: T) => string,
   conflictMessage: (key: string) => string,
-): T[] {
+): Array<T> {
   const seen = new Map<string, string>();
-  const entries: T[] = [];
+  const entries: Array<T> = [];
   for (const entry of selected.flatMap((layer) => manifests.get(layer) ?? [])) {
     const key = keyOf(entry);
     const shape = JSON.stringify(entry);

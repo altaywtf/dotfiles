@@ -15,7 +15,7 @@ const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profi
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureFailure = {
@@ -42,7 +42,7 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly profile: string;
@@ -59,7 +59,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): FakeResult {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -82,7 +82,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSharedPlugins = [
   { marketplace: "fixture/shared-market", name: "shared-plugin" },
@@ -146,7 +146,7 @@ function manifestPath(repoDir: string, layer: string): string {
   return join(repoDir, "agents", "plugins", `${layer}.json`);
 }
 
-function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
+function harnessCalls(runtime: FixtureRuntime, binary: string): Array<string> {
   return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
@@ -154,7 +154,11 @@ function pluginLockPath(home: string): string {
   return join(home, ".local/state/dotfiles/agents", "plugins.lock.json");
 }
 
-function lockPlugin(plugin: { marketplace: string; name: string; harnesses?: readonly string[] }) {
+function lockPlugin(plugin: {
+  marketplace: string;
+  name: string;
+  harnesses?: ReadonlyArray<string>;
+}) {
   return {
     marketplace: plugin.marketplace,
     marketplaceId: plugin.marketplace.split("/")[1],
@@ -163,7 +167,7 @@ function lockPlugin(plugin: { marketplace: string; name: string; harnesses?: rea
   };
 }
 
-function writePluginLock(home: string, plugins: Parameters<typeof lockPlugin>[0][]): void {
+function writePluginLock(home: string, plugins: Array<Parameters<typeof lockPlugin>[0]>): void {
   mkdirSync(dirname(pluginLockPath(home)), { recursive: true });
   writeFileSync(
     pluginLockPath(home),

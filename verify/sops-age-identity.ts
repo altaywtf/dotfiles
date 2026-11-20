@@ -59,8 +59,10 @@ cat "$input"
     );
     const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
     const base = { HOME: home, XDG_CONFIG_HOME: join(home, ".config"), PATH: path };
-    const execute = (args: readonly string[] = [], extra: Readonly<Record<string, string>> = {}) =>
-      runner.run(process.execPath, [script, ...args], { env: { ...base, ...extra } });
+    const execute = (
+      args: ReadonlyArray<string> = [],
+      extra: Readonly<Record<string, string>> = {},
+    ) => runner.run(process.execPath, [script, ...args], { env: { ...base, ...extra } });
     const provision = yield* execute();
     assert.equal(provision.status, 0, provision.stderr);
     const identity = join(home, ".config/sops/age/keys.txt");

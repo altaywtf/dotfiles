@@ -41,7 +41,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]) {
+  run(command: string, args: ReadonlyArray<string>) {
     if (command.endsWith("/resolve-profile.ts")) {
       return { status: 0, stdout: "workstation\n", stderr: "" };
     }
@@ -50,7 +50,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) {
     rmSync(path, { force: true, recursive: true });

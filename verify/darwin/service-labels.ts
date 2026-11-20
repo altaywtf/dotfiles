@@ -15,7 +15,7 @@ const installer = join(repoRoot, "bootstrap/darwin/install-devbox-service-daemon
 const program = Effect.scoped(
   Effect.gen(function* () {
     const runner = yield* CommandRunner;
-    const runInstaller = (args: readonly string[]) =>
+    const runInstaller = (args: ReadonlyArray<string>) =>
       runner.run(process.execPath, [installer, ...args]);
     const expected = "local.dotfiles.software-update.example";
     const generic = yield* runInstaller(["--user", "example", "--print-labels"]);

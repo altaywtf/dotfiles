@@ -17,11 +17,11 @@ const usage = "Usage: maintenance/darwin/schedule.ts <enable|disable|run|status>
 const staleReceiptMs = 13 * 3_600_000;
 
 export type LoadedJob = {
-  readonly arguments?: readonly string[];
+  readonly arguments?: ReadonlyArray<string>;
   readonly environment?: Readonly<Record<string, string>>;
 };
 
-type MutableLoadedJob = { arguments?: string[]; environment?: Record<string, string> };
+type MutableLoadedJob = { arguments?: Array<string>; environment?: Record<string, string> };
 
 // Extract ProgramArguments and EnvironmentVariables from `launchctl print` text.
 // The format is undocumented, so parsing is defensive: an unrecognized layout
@@ -36,7 +36,7 @@ export function parseLaunchdPrint(output: string): LoadedJob {
       continue;
     }
     const [, indent = "", section] = open;
-    const items: string[] = [];
+    const items: Array<string> = [];
     let closed = false;
     for (index += 1; index < lines.length; index += 1) {
       if (lines[index] === `${indent}}`) {
@@ -79,7 +79,7 @@ const UpdateReceipt = Schema.Struct({
 // the same value rather than exact equality. Only ProgramArguments and
 // EnvironmentVariables are compared; schedule and working-directory drift is
 // outside this check, and the status message says so.
-type PlistComparison = { comparable: boolean; drift: string[] };
+type PlistComparison = { comparable: boolean; drift: Array<string> };
 
 export function comparePlist(loaded: LoadedJob, plist: unknown): PlistComparison {
   const decoded = Schema.decodeUnknownOption(LaunchdPlist)(plist);
@@ -88,7 +88,7 @@ export function comparePlist(loaded: LoadedJob, plist: unknown): PlistComparison
     return { comparable: false, drift: [] };
   }
   const { ProgramArguments: args, EnvironmentVariables: environment } = decoded.value;
-  const drift: string[] = [];
+  const drift: Array<string> = [];
   if (
     args.length !== loadedArguments.length ||
     args.some((argument, index) => argument !== loadedArguments[index])

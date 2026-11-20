@@ -64,14 +64,14 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
 ) {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
-  const lines: string[] = [];
+  const lines: Array<string> = [];
   let failed = false;
   const log = Effect.fn("cacheCleanup.log")(function* (message: string) {
     lines.push(`${DateTime.formatIso(yield* DateTime.now)} cache-cleanup ${message}`);
   });
   const command = Effect.fn("cacheCleanup.command")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
     return yield* runner
       .run(name, args, {
@@ -83,7 +83,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   });
   const checked = Effect.fn("cacheCleanup.checked")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
     const result = yield* command(name, args);
     if (result.status !== 0) {
@@ -94,7 +94,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   });
   const mutate = Effect.fn("cacheCleanup.mutate")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
     if (!apply) {
       return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
@@ -115,7 +115,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);
-    const targets: readonly (readonly [string, number, string | undefined])[] = [
+    const targets: ReadonlyArray<readonly [string, number, string | undefined]> = [
       ...caches.map(([relative, days]) => [join(home, relative), days, undefined] as const),
       ...codexCaches.map(
         ([relative, days, keep]) => [join(codexHome(home), relative), days, keep] as const,
@@ -143,7 +143,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
       }
     }
-    const builds: string[] = [];
+    const builds: Array<string> = [];
     for (const relative of buildRoots) {
       const root = join(home, relative);
       const info = yield* fs.stat(root).pipe(Effect.option);
@@ -182,7 +182,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         }
       }
     }
-    const removed: string[] = [];
+    const removed: Array<string> = [];
     for (const directory of builds.sort()) {
       if (removed.some((parent) => directory.startsWith(`${parent}/`))) {
         continue;
@@ -245,7 +245,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           continue;
         }
         const names = yield* fs.readDirectory(root).pipe(Effect.orElseSucceed(() => []));
-        const installs: { path: string; modified: number }[] = [];
+        const installs: Array<{ path: string; modified: number }> = [];
         for (const name of names) {
           const info = yield* fs.stat(join(root, name)).pipe(Effect.option);
           if (Option.isSome(info)) {

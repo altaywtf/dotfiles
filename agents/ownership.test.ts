@@ -4,24 +4,24 @@ import { test } from "vite-plus/test";
 import type { Harness } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
 
-type Entry = { name: string; harnesses: readonly Harness[] };
+type Entry = { name: string; harnesses: ReadonlyArray<Harness> };
 type Case = {
-  previous: readonly Entry[];
-  selected: readonly Entry[];
-  available: readonly Harness[];
-  deferred: readonly Entry[];
+  previous: ReadonlyArray<Entry>;
+  selected: ReadonlyArray<Entry>;
+  available: ReadonlyArray<Harness>;
+  deferred: ReadonlyArray<Entry>;
 };
 
 const keyOf = (entry: Entry) => entry.name;
 const NAMES = ["a", "b", "c"];
-const SUBSETS: readonly (readonly Harness[])[] = (
-  [[], ["claude"], ["codex"], ["claude", "codex"]] satisfies Harness[][]
+const SUBSETS: ReadonlyArray<ReadonlyArray<Harness>> = (
+  [[], ["claude"], ["codex"], ["claude", "codex"]] satisfies Array<Array<Harness>>
 ).map((harnesses) => Object.freeze(harnesses));
 
 // Every list with at most one non-empty-harness entry per name, in the given name order.
-function entryLists(names: readonly string[]): (readonly Entry[])[] {
+function entryLists(names: ReadonlyArray<string>): Array<ReadonlyArray<Entry>> {
   return names
-    .reduce<Entry[][]>(
+    .reduce<Array<Array<Entry>>>(
       (lists, name) =>
         lists.flatMap((list) =>
           SUBSETS.map((harnesses) =>
@@ -39,20 +39,22 @@ function frozen(entry: Entry): Entry {
   return Object.freeze(entry);
 }
 
-function pairs(entries: readonly Entry[]): string[] {
+function pairs(entries: ReadonlyArray<Entry>): Array<string> {
   return entries.flatMap((entry) => entry.harnesses.map((harness) => `${entry.name}:${harness}`));
 }
 
-function entriesFrom(owned: readonly { name: string; harness: Harness }[]): readonly Entry[] {
-  const byName = new Map<string, Harness[]>();
+function entriesFrom(
+  owned: ReadonlyArray<{ name: string; harness: Harness }>,
+): ReadonlyArray<Entry> {
+  const byName = new Map<string, Array<Harness>>();
   for (const { name, harness } of owned) {
     byName.set(name, [...(byName.get(name) ?? []), harness]);
   }
   return Object.freeze([...byName].map(([name, harnesses]) => frozen({ name, harnesses })));
 }
 
-function subsets<T>(items: readonly T[]): T[][] {
-  return items.reduce<T[][]>(
+function subsets<T>(items: ReadonlyArray<T>): Array<Array<T>> {
+  return items.reduce<Array<Array<T>>>(
     (all, item) => all.flatMap((subset) => [subset, [...subset, item]]),
     [[]],
   );
@@ -93,8 +95,8 @@ function forEveryCase(property: (input: Case) => void, withDeferral = false): vo
   assert.ok(checked > 10_000);
 }
 
-const sorted = (values: readonly string[]) => [...values].sort();
-const plan = (input: Case, previous: readonly Entry[] = input.previous) =>
+const sorted = (values: ReadonlyArray<string>) => [...values].sort();
+const plan = (input: Case, previous: ReadonlyArray<Entry> = input.previous) =>
   planOwnership({ previous, selected: input.selected, available: input.available, keyOf });
 
 test("removals are exactly the owned (name, harness) pairs no longer selected, never a selected pair", () => {

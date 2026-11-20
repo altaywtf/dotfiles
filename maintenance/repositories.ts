@@ -4,7 +4,7 @@ import { join, resolve, sep } from "node:path";
 
 const gracePeriod = 3 * 86_400_000;
 type Result = { status: number; stdout: string };
-export type Runner = (cwd: string, command: string, args: string[]) => Result;
+export type Runner = (cwd: string, command: string, args: Array<string>) => Result;
 export type Worktree = {
   path: string;
   branch: string;
@@ -32,7 +32,7 @@ const run: Runner = (cwd, command, args) => {
   return { status: result.error ? 1 : (result.status ?? 1), stdout: result.stdout ?? "" };
 };
 
-function checked(runner: Runner, cwd: string, command: string, args: string[]): string {
+function checked(runner: Runner, cwd: string, command: string, args: Array<string>): string {
   const result = runner(cwd, command, args);
   if (result.status !== 0) {
     throw new Error(`${command} ${args[0]} failed; retained local work`);
@@ -40,7 +40,7 @@ function checked(runner: Runner, cwd: string, command: string, args: string[]): 
   return result.stdout.trim();
 }
 
-function parseWorktrees(text: string): Worktree[] {
+function parseWorktrees(text: string): Array<Worktree> {
   return text
     .split("\0\0")
     .filter(Boolean)
@@ -61,7 +61,7 @@ function parseWorktrees(text: string): Worktree[] {
     });
 }
 
-export function discoverRepositories(root: string, depth = 2): string[] {
+export function discoverRepositories(root: string, depth = 2): Array<string> {
   if (!existsSync(root) || lstatSync(root).isSymbolicLink()) {
     return [];
   }
@@ -80,11 +80,11 @@ function inside(path: string, root: string): boolean {
   return path === root || path.startsWith(root + sep);
 }
 
-function busy(path: string, openPaths: readonly string[]): boolean {
+function busy(path: string, openPaths: ReadonlyArray<string>): boolean {
   return openPaths.some((open) => inside(open, path));
 }
 
-export function openFiles(home: string, runner: Runner = run): string[] {
+export function openFiles(home: string, runner: Runner = run): Array<string> {
   // -w suppresses warning-induced nonzero exits (for example unreadable mounts);
   // real failures still exit nonzero and fail closed below.
   const output = checked(runner, home, "lsof", [
@@ -125,11 +125,11 @@ const longLived = (branch: string) =>
 
 export function candidates(
   repo: string,
-  roots: readonly string[],
-  openPaths: readonly string[],
+  roots: ReadonlyArray<string>,
+  openPaths: ReadonlyArray<string>,
   runner: Runner = run,
 ) {
-  const git = (...args: string[]) => checked(runner, repo, "git", args);
+  const git = (...args: Array<string>) => checked(runner, repo, "git", args);
   if (
     git("rev-parse", "--show-toplevel") !== realpathSync(repo) ||
     !lstatSync(join(repo, ".git")).isDirectory()
@@ -191,8 +191,8 @@ export function candidates(
       return match ? [match[1]] : [];
     }),
   );
-  const eligible: Candidate[] = [];
-  const kept: Entry[] = [];
+  const eligible: Array<Candidate> = [];
+  const kept: Array<Entry> = [];
   const merged = (head: string) =>
     runner(repo, "git", ["merge-base", "--is-ancestor", head, target]).status === 0;
   const protectedBranch = (branch: string) => {
@@ -301,11 +301,11 @@ export function candidates(
 
 export function cleanRepository(
   repo: string,
-  roots: readonly string[],
+  roots: ReadonlyArray<string>,
   previous: Readonly<Record<string, { head: string; since: number }>>,
   now: number,
   apply: boolean,
-  activity: () => string[],
+  activity: () => Array<string>,
   runner: Runner = run,
 ) {
   const initial = candidates(repo, roots, activity(), runner);

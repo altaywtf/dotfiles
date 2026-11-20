@@ -17,7 +17,7 @@ type Runner = Parameters<typeof CommandRunner.of>[0];
 // Runs `command` under the real layers; `wrap` may replace the process inventory runner.
 const bounded = (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: BoundedCommandOptions,
   wrap: (real: Runner) => Runner = (real) => real,
 ) =>

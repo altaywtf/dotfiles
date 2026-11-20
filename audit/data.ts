@@ -13,7 +13,7 @@ function usage(): never {
   process.exit(2);
 }
 
-function main(args: string[]): void {
+function main(args: Array<string>): void {
   const [command, ...values] = args;
   if (command === "sqlite-stats" && values.length === 1) {
     process.stdout.write(`${sqlitePageStats(values[0]).join(" ")}\n`);

@@ -45,7 +45,7 @@ This command never runs mSCP remediation. It only runs --check.
 `;
 
 export function parseRepoArgs(
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   env: NodeJS.ProcessEnv = process.env,
 ): RepoAuditOptions | "help" {
   const { values } = parseArgs({
@@ -154,7 +154,7 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
 // files. Ignored dependency trees such as node_modules carry third-party
 // test fixtures that look like credentials. A path that does not decode as
 // UTF-8 fails the listing instead of dropping out of the scan.
-function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | undefined {
+function worktreeFiles(repoRoot: string, command: CommandRunner): Array<string> | undefined {
   const listed = command(
     "git",
     ["-C", repoRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
@@ -305,7 +305,7 @@ export function runRepoAudit(
   });
 }
 
-function main(args: readonly string[]): number {
+function main(args: ReadonlyArray<string>): number {
   try {
     const options = parseRepoArgs(args);
     if (options === "help") {

@@ -12,7 +12,7 @@ export type Repository = {
   zeroOid: string;
 };
 
-export function run(path: string, args: string[], allowFailure = false): string {
+export function run(path: string, args: Array<string>, allowFailure = false): string {
   const result = spawnSync(args[0], args.slice(1), {
     cwd: path,
     encoding: "utf8",

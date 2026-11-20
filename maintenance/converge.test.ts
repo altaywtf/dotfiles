@@ -18,7 +18,7 @@ import { test, vi } from "vite-plus/test";
 import type { TestContext } from "vite-plus/test";
 import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
-function git(cwd: string, ...args: string[]) {
+function git(cwd: string, ...args: Array<string>) {
   const result = spawnSync(
     "git",
     ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args],
@@ -57,8 +57,8 @@ function fixture(t: TestContext) {
   return { root, repo, upstream, advance };
 }
 
-function withWarnings(action: () => void): unknown[][] {
-  const warnings: unknown[][] = [];
+function withWarnings(action: () => void): Array<Array<unknown>> {
+  const warnings: Array<Array<unknown>> = [];
   const stderr = vi
     .spyOn(process.stderr, "write")
     .mockImplementation((chunk: string | Uint8Array) => {
@@ -150,7 +150,7 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   const { repo, upstream } = fixture(t);
   const before = git(repo, "rev-parse", "HEAD");
   rmSync(upstream, { recursive: true });
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   withWarnings(() =>
     assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms))),
   );
@@ -186,7 +186,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
   mkdirSync(lock);
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const waited = acquireCheckoutLock(repo, {
     now: () => time,
     uptimeMs: () => time,
@@ -273,7 +273,7 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
   });
 }
 
-function runInstall(t: TestContext, args: string[], failure = false) {
+function runInstall(t: TestContext, args: Array<string>, failure = false) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-install."));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const source = resolve(import.meta.dirname, "..");

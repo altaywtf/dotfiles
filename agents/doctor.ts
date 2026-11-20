@@ -40,7 +40,7 @@ type Finding = {
 // oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences from CLI output.
 const stripAnsi = (text: string) => text.replaceAll(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
 
-function capture(runtime: Runtime, command: string, args: readonly string[]) {
+function capture(runtime: Runtime, command: string, args: ReadonlyArray<string>) {
   const result = runtime.run(command, args, { stdout: "capture", stderr: "capture" });
   return { ...result, text: stripAnsi(`${result.stdout}\n${result.stderr}`) };
 }
@@ -193,8 +193,8 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
   };
 }
 
-function collect(runtime: Runtime, mcps: readonly Mcp[]): Finding[] {
-  const findings: Finding[] = [];
+function collect(runtime: Runtime, mcps: ReadonlyArray<Mcp>): Array<Finding> {
+  const findings: Array<Finding> = [];
   const selected = (harness: Harness) => mcps.filter((mcp) => mcp.harnesses.includes(harness));
   for (const harness of HARNESSES) {
     const { binary, label } = HARNESS_INFO[harness];
@@ -225,7 +225,7 @@ const MARK: Record<Status, string> = {
   failed: "FAIL",
 };
 
-function report(runtime: Runtime, findings: readonly Finding[]): number {
+function report(runtime: Runtime, findings: ReadonlyArray<Finding>): number {
   for (const finding of findings) {
     const label = HARNESS_INFO[finding.harness].label;
     writeLine(
@@ -262,7 +262,7 @@ function run(runtime: Runtime, profileOverride: string | undefined): number {
   return report(runtime, collect(runtime, mcps));
 }
 
-export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
+export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, false);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);

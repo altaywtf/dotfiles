@@ -98,7 +98,7 @@ const PluginLockDocument = Schema.Struct({
 
 type PlannedCommand = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
   marketplace?: string;
   plugin?: string;
   // Refresh commands must not run after their marketplace add or plugin install failed.
@@ -110,13 +110,13 @@ type PluginFailure = SyncFailure;
 type HarnessSpec = {
   binary: string;
   label: string;
-  marketplaceArgs?: (plugin: Plugin) => string[];
+  marketplaceArgs?: (plugin: Plugin) => Array<string>;
   // Codex refreshes Git marketplace snapshots by configured name, not plugin ref.
-  upgradeMarketplaceArgs?: (plugin: Plugin) => string[];
-  installArgs?: (plugin: Plugin) => string[];
+  upgradeMarketplaceArgs?: (plugin: Plugin) => Array<string>;
+  installArgs?: (plugin: Plugin) => Array<string>;
   // `--update` refreshes an already-installed plugin. Claude needs `-y` because
   // apply captures stdout and is therefore not a TTY.
-  updateArgs?: (plugin: Plugin) => string[];
+  updateArgs?: (plugin: Plugin) => Array<string>;
 };
 
 const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
@@ -173,7 +173,7 @@ function readPlugin(value: unknown, context: string): Plugin {
   };
 }
 
-function parsePlugins(value: unknown, context: string): Plugin[] {
+function parsePlugins(value: unknown, context: string): Array<Plugin> {
   const entries = decodeOr(
     Schema.Array(Schema.Unknown),
     value,
@@ -191,7 +191,7 @@ function parsePlugins(value: unknown, context: string): Plugin[] {
   return plugins;
 }
 
-export function readPlugins(manifestPath: string): Plugin[] {
+export function readPlugins(manifestPath: string): Array<Plugin> {
   const context = `Invalid plugins manifest at ${manifestPath}`;
   const { plugins } = decodeOr(
     PluginManifest,
@@ -206,23 +206,23 @@ export type PluginLayer = AgentLayer | "local";
 export function readLayeredPlugins(
   repoDir: string,
   profile: string,
-  layers: readonly AgentLayer[],
+  layers: ReadonlyArray<AgentLayer>,
 ): {
-  layers: readonly PluginLayer[];
-  plugins: Plugin[];
+  layers: ReadonlyArray<PluginLayer>;
+  plugins: Array<Plugin>;
   localPath?: string;
-  localNames?: string[];
+  localNames?: Array<string>;
 } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent plugins`);
   }
 
-  const manifests = new Map<PluginLayer, Plugin[]>();
+  const manifests = new Map<PluginLayer, Array<Plugin>>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)));
   }
 
-  const selected: PluginLayer[] = [...layers];
+  const selected: Array<PluginLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
   if (local?.document.plugins !== undefined) {
     manifests.set(
@@ -262,7 +262,7 @@ export function readLayeredPlugins(
 
 type PluginLock = {
   version: 1;
-  plugins: Plugin[];
+  plugins: Array<Plugin>;
   overlays?: OverlayOwnership;
 };
 
@@ -276,7 +276,7 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
   return decodeOrThrow(Plugin, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
-function readPluginLock(lockPath: string): Plugin[] | undefined {
+function readPluginLock(lockPath: string): Array<Plugin> | undefined {
   const parsed = readLockFile(lockPath, "plugins");
   if (parsed === undefined) {
     return undefined;
@@ -297,7 +297,7 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
 
 function writePluginLock(
   lockPath: string,
-  plugins: readonly Plugin[],
+  plugins: ReadonlyArray<Plugin>,
   overlays?: OverlayOwnership,
 ): void {
   const lock: PluginLock = { version: 1, plugins: [...plugins], overlays };
@@ -305,7 +305,7 @@ function writePluginLock(
 }
 
 // Another checkout's overlay keeps its harnesses even when this checkout selects the same ref.
-function withKept(next: readonly Plugin[], kept: readonly Plugin[]): Plugin[] {
+function withKept(next: ReadonlyArray<Plugin>, kept: ReadonlyArray<Plugin>): Array<Plugin> {
   const merged = new Map(next.map((plugin) => [pluginRef(plugin), plugin]));
   for (const plugin of kept) {
     const current = merged.get(pluginRef(plugin));
@@ -319,7 +319,7 @@ function withKept(next: readonly Plugin[], kept: readonly Plugin[]): Plugin[] {
   return [...merged.values()];
 }
 
-function uninstallArgs(harness: Harness, plugin: Plugin): string[] {
+function uninstallArgs(harness: Harness, plugin: Plugin): Array<string> {
   switch (harness) {
     case "claude":
       return ["plugin", "uninstall", "-y", pluginRef(plugin)];
@@ -339,14 +339,14 @@ function alreadyUninstalled(harness: Harness, output: string): boolean {
 
 function removeStalePlugins(
   runtime: Runtime,
-  stale: readonly Plugin[],
-  available: readonly Harness[],
-  failures: PluginFailure[],
-): Plugin[] {
-  const leftover: Plugin[] = [];
+  stale: ReadonlyArray<Plugin>,
+  available: ReadonlyArray<Harness>,
+  failures: Array<PluginFailure>,
+): Array<Plugin> {
+  const leftover: Array<Plugin> = [];
 
   for (const plugin of stale) {
-    const leftoverHarnesses: Harness[] = [];
+    const leftoverHarnesses: Array<Harness> = [];
     for (const harness of plugin.harnesses) {
       const spec = HARNESS_SPECS[harness];
       if (!runtime.commandExists(spec.binary)) {
@@ -393,12 +393,12 @@ function removeStalePlugins(
 
 function planHarness(
   harness: Harness,
-  plugins: readonly Plugin[],
+  plugins: ReadonlyArray<Plugin>,
   options: { update?: boolean } = {},
-): PlannedCommand[] {
+): Array<PlannedCommand> {
   const spec = HARNESS_SPECS[harness];
   const selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
-  const planned: PlannedCommand[] = [];
+  const planned: Array<PlannedCommand> = [];
   const marketplaces = new Set<string>();
 
   const marketplaceArgs = spec.marketplaceArgs;
@@ -457,9 +457,9 @@ function planHarness(
 function applyHarness(
   runtime: Runtime,
   harness: Harness,
-  plugins: readonly Plugin[],
-  available: readonly Harness[],
-  failures: PluginFailure[],
+  plugins: ReadonlyArray<Plugin>,
+  available: ReadonlyArray<Harness>,
+  failures: Array<PluginFailure>,
   update: boolean,
 ): void {
   const spec = HARNESS_SPECS[harness];
@@ -546,7 +546,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     keyOf: pluginRef,
   });
 
-  const failures: PluginFailure[] = [];
+  const failures: Array<PluginFailure> = [];
   for (const harness of HARNESSES) {
     applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
@@ -584,11 +584,11 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   return 0;
 }
 
-function reportPluginFailures(runtime: Runtime, failures: readonly PluginFailure[]): 1 {
+function reportPluginFailures(runtime: Runtime, failures: ReadonlyArray<PluginFailure>): 1 {
   return reportSyncFailures(runtime, failures, "Plugin sync", ["failure", "failures"], "plugin");
 }
 
-export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
+export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, true);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);

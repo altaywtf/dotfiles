@@ -15,7 +15,7 @@ type AuditResult<Name extends string, Fields extends object> = {
 };
 
 export class AuditReport {
-  readonly findings: Finding[] = [];
+  readonly findings: Array<Finding> = [];
   readonly format: AuditFormat;
   readonly stdout: (value: string) => void;
   readonly stderr: (value: string) => void;

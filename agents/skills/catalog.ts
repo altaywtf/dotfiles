@@ -16,7 +16,7 @@ const SkillManifest = Schema.Struct({ skills: Schema.Unknown });
 
 const SkillLock = Schema.Struct({ version: Schema.Literal(1), skills: Schema.Array(Skill) });
 
-function parseSkills(value: unknown, label: string): readonly Skill[] {
+function parseSkills(value: unknown, label: string): ReadonlyArray<Skill> {
   const skills = decodeOr(
     Schema.Array(Skill),
     value,
@@ -34,7 +34,7 @@ function parseSkills(value: unknown, label: string): readonly Skill[] {
 // overlay may use any source the skills CLI accepts.
 const MANIFEST_SOURCE = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/\S+)$/;
 
-function readSkills(manifestPath: string): readonly Skill[] {
+function readSkills(manifestPath: string): ReadonlyArray<Skill> {
   const label = `Invalid skills manifest at ${manifestPath}`;
   const manifest = decodeOr(
     SkillManifest,
@@ -54,19 +54,24 @@ export type SkillLayer = AgentLayer | "local";
 export function readLayeredSkills(
   repoDir: string,
   profile: string,
-  layers: readonly AgentLayer[],
-): { layers: readonly SkillLayer[]; skills: Skill[]; localPath?: string; localNames?: string[] } {
+  layers: ReadonlyArray<AgentLayer>,
+): {
+  layers: ReadonlyArray<SkillLayer>;
+  skills: Array<Skill>;
+  localPath?: string;
+  localNames?: Array<string>;
+} {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
 
-  const manifests = new Map<SkillLayer, readonly Skill[]>();
+  const manifests = new Map<SkillLayer, ReadonlyArray<Skill>>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     const manifestPath = join(repoDir, "agents", "skills", `${layer}.json`);
     manifests.set(layer, readSkills(manifestPath));
   }
 
-  const selected: SkillLayer[] = [...layers];
+  const selected: Array<SkillLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
   if (local?.document.skills !== undefined) {
     manifests.set(
@@ -98,7 +103,7 @@ export function readLayeredSkills(
     : { layers: selected, skills };
 }
 
-export function readSkillLock(lockPath: string): readonly Skill[] | undefined {
+export function readSkillLock(lockPath: string): ReadonlyArray<Skill> | undefined {
   const parsed = readLockFile(lockPath, "skills");
   if (parsed === undefined) {
     return undefined;

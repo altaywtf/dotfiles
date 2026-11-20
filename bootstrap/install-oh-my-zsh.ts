@@ -22,7 +22,7 @@ const program = Effect.gen(function* () {
   const target = process.env.OH_MY_ZSH_DIR || join(home, ".oh-my-zsh");
   const remote = process.env.OH_MY_ZSH_REMOTE || "https://github.com/ohmyzsh/ohmyzsh.git";
   const revision = process.env.OH_MY_ZSH_REVISION || OH_MY_ZSH_REVISION;
-  const git = (...args: string[]) =>
+  const git = (...args: Array<string>) =>
     runner.run("git", ["-C", target, ...args], { output: "capture" });
 
   if (!(yield* fs.exists(join(target, ".git")))) {

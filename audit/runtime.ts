@@ -18,13 +18,13 @@ export type CommandOptions = {
 };
 export type CommandRunner = (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options?: CommandOptions,
 ) => CommandResult;
 
 export function runCommand(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: CommandOptions = {},
 ): CommandResult {
   const output = options.output === "discard" ? "ignore" : "pipe";
@@ -75,7 +75,7 @@ export type AuditDependencies = {
 
 export function runPolicyCommand(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: CommandOptions = {},
 ): CommandResult {
   return runCommand(command, args, { ...options, input: "pipe" });

@@ -40,7 +40,7 @@ test("a dead holder is reclaimed and the lock is reacquired", (t) => {
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  const messages: string[] = [];
+  const messages: Array<string> = [];
   const release = acquireDirectoryLock(lock, {
     processAlive: () => false,
     log: (message) => messages.push(message),
@@ -92,7 +92,7 @@ test("contention waits with backoff and acquires after release, without real sle
   mkdirSync(lock);
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const release = acquireDirectoryLock(lock, {
     waitMs: 900_000,
     now: () => time,
@@ -116,8 +116,8 @@ test("an unreleased lock fails loudly after the wait budget", (t) => {
   const lock = fixture(t);
   mkdirSync(lock);
   let time = 0;
-  const slept: number[] = [];
-  const messages: string[] = [];
+  const slept: Array<number> = [];
+  const messages: Array<string> = [];
   assert.throws(
     () =>
       acquireDirectoryLock(lock, {
@@ -187,7 +187,7 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
   // The owner file vanishes between B's verdict and its rename: another
   // contender already moved it. B sees ENOENT and waits.
   let vanished = false;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const release = acquireDirectoryLock(lock, {
     ...silent,
     waitMs: 60_000,

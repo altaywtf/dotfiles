@@ -34,7 +34,7 @@ const PrivateKeyHeader = Schema.String.pipe(
 type Arguments = { readonly profile?: string; readonly nonInteractive: boolean };
 
 const parseArguments = Effect.fn("parseConfigureGitArguments")(function* (
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ): Effect.fn.Return<Arguments, CliFailure> {
   let profile: string | undefined;
   let nonInteractive = false;
@@ -61,7 +61,7 @@ const parseArguments = Effect.fn("parseConfigureGitArguments")(function* (
 
 const run = Effect.fn("runCheckedConfigureGitCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   message?: string,
 ) {
   const result = yield* runCommand(command, args);

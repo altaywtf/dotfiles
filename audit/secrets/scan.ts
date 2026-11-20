@@ -38,7 +38,7 @@ export function scanSecrets(
     home: string;
     env: NodeJS.ProcessEnv;
     command: CommandRunner;
-    sources: readonly PathSource[];
+    sources: ReadonlyArray<PathSource>;
     report: AuditReport;
   },
   counts: SecretScanCounts,

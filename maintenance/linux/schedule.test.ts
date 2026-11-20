@@ -7,8 +7,8 @@ import { manageSchedule } from "./schedule.ts";
 function fixture(
   options: { missing?: string; linger?: boolean; failure?: string; spawnFailure?: boolean } = {},
 ) {
-  const calls: string[][] = [];
-  const inspected: string[] = [];
+  const calls: Array<Array<string>> = [];
+  const inspected: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);

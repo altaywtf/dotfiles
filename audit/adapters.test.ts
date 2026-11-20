@@ -36,7 +36,7 @@ const lynisRunner: CommandRunner = (_command, args) => {
 
 test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
-  const output: string[] = [];
+  const output: Array<string> = [];
   try {
     const result = runHostAudit(
       { format: "json", allowSudoPrompt: false, minHardeningIndex: 70 },
@@ -71,7 +71,7 @@ test("host adapter summarizes Lynis without exposing its report", () => {
 });
 
 test("privileged host adapter checks Lynis before invoking sudo", () => {
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const result = runHostAudit(
     { format: "json", allowSudoPrompt: true },
     {
@@ -106,7 +106,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   const mscp = join(root, "macos_security");
   const artifact = "800-53r5_moderate_macos_26.0";
   const compliance = join(mscp, "build", artifact, `${artifact}_compliance.sh`);
-  const calls: Array<[string, readonly string[], CommandOptions | undefined]> = [];
+  const calls: Array<[string, ReadonlyArray<string>, CommandOptions | undefined]> = [];
   const command: CommandRunner = (name, args, options) => {
     calls.push([name, args, options]);
     return { status: 0, stdout: name === "sw_vers" ? "26.6\n" : "", stderr: "" };
@@ -170,7 +170,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   }
 });
 
-const git = (cwd: string, ...args: string[]) => {
+const git = (cwd: string, ...args: Array<string>) => {
   const result = runCommand("git", ["-C", cwd, ...args]);
   assert.equal(result.status, 0, result.stderr);
 };
@@ -204,7 +204,7 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
     mkdirSync(join(linked, "node_modules/dependency/tests"), { recursive: true });
     writeFileSync(join(linked, "node_modules/dependency/tests/fixture.ts"), "dependency fixture\n");
 
-    const scans: Array<readonly string[]> = [];
+    const scans: Array<ReadonlyArray<string>> = [];
     const command: CommandRunner = (name, args, options) => {
       if (name === "git") {
         return runCommand(name, args, options);
@@ -235,7 +235,7 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
 
 test("linked worktree scan fails closed on paths that do not decode", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
-  const scans: Array<readonly string[]> = [];
+  const scans: Array<ReadonlyArray<string>> = [];
   const command: CommandRunner = (name, args, options) => {
     if (name === "git" && args.includes("worktree")) {
       return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };

@@ -93,7 +93,7 @@ const contentCacheLocator = JSON.stringify({
 });
 
 function hostRunner(
-  override: (command: string, args: readonly string[]) => RawCommandResult | undefined = () =>
+  override: (command: string, args: ReadonlyArray<string>) => RawCommandResult | undefined = () =>
     undefined,
 ): CommandRunner {
   return async (command, args) =>
@@ -117,7 +117,7 @@ const ReconciledBacklog = Schema.Struct({
 });
 
 test("single-owner Darwin devboxes retain the service probe without shared Homebrew", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   await collectMaintenanceSnapshot(
     {
       ...context(),
@@ -184,7 +184,7 @@ for (const [update, calls, summary] of [
   [1, [["update"]], "incomplete"],
 ] as const) {
   test(`Homebrew metadata refresh precedes the greedy inventory (update exit ${update})`, async () => {
-    const brewCalls: string[][] = [];
+    const brewCalls: Array<Array<string>> = [];
     const snapshot = await collectMaintenanceSnapshot(
       {
         ...context(),
@@ -377,7 +377,7 @@ setTimeout(() => process.exit(9), 5000);
     await rm(root, { recursive: true, force: true });
   });
   const deadline = performance.now() + 4000;
-  let started: string[];
+  let started: Array<string>;
   do {
     started = await readdir(pids);
     assert.ok(performance.now() < deadline, "probes did not start");

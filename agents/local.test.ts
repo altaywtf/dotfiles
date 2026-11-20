@@ -6,7 +6,7 @@ import { afterEach, test } from "vite-plus/test";
 
 import { readLocalOverlay } from "./local.ts";
 
-const roots: string[] = [];
+const roots: Array<string> = [];
 afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
 
 function fixture(): string {

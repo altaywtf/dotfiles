@@ -15,7 +15,7 @@ const program = Effect.scoped(
     const home = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-zshenv." });
     const directory = join(home, ".config/dotfiles");
     yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
-    const chezmoi = Effect.fn("chezmoi")(function* (...args: string[]) {
+    const chezmoi = Effect.fn("chezmoi")(function* (...args: Array<string>) {
       return yield* runner.run(
         "chezmoi",
         [

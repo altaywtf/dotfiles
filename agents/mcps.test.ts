@@ -16,7 +16,7 @@ const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profi
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureFailure = {
@@ -34,7 +34,7 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   outputs?: ReadonlyMap<string, string>;
   // Consumed one result per call for commands whose outcome changes between calls.
-  sequences?: ReadonlyMap<string, FixtureResult[]>;
+  sequences?: ReadonlyMap<string, Array<FixtureResult>>;
   profile?: string;
 };
 
@@ -52,11 +52,11 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
-  readonly sequences: Map<string, FixtureResult[]>;
+  readonly sequences: Map<string, Array<FixtureResult>>;
   readonly profile: string;
   readonly repoDir: string;
 
@@ -73,7 +73,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): FakeResult {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -102,7 +102,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSharedMcps = [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }];
 
@@ -156,7 +156,7 @@ function writeManifest(repoDir: string, layer: string, mcps: unknown): void {
   );
 }
 
-function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
+function harnessCalls(runtime: FixtureRuntime, binary: string): Array<string> {
   return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 

@@ -11,7 +11,7 @@ import { runChecks } from "./run.ts";
 test("verification reports completed checks before a stalled child and cleans it up", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runner-"));
   const pidFile = join(root, "pid");
-  const output: string[] = [];
+  const output: Array<string> = [];
   let failedBeforeTermination = false;
   const errorWrite = vi
     .spyOn(process.stderr, "write")
@@ -91,7 +91,7 @@ test("verification reports completed checks before a stalled child and cleans it
 test("verification bounds active checks and drains queued checks after failure", async () => {
   let active = 0;
   let peak = 0;
-  const completed: string[] = [];
+  const completed: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) =>
       Effect.gen(function* () {

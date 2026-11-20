@@ -6,7 +6,7 @@ import { afterEach, test, vi } from "vite-plus/test";
 
 import { writeConfigEdits } from "./config.ts";
 
-const directories: string[] = [];
+const directories: Array<string> = [];
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -90,7 +90,7 @@ test("planned edits read the user layer and write against its version", async ()
       process.stdout.write('{"id":1,"result":{}}\\n');
     }
   `);
-  const seen: unknown[] = [];
+  const seen: Array<unknown> = [];
   const edit = { keyPath: "example", value: true, mergeStrategy: "upsert" } as const;
   assert.equal(
     await writeConfigEdits((user) => {

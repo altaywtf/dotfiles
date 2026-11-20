@@ -41,7 +41,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     const missingLocal = join(temporary, "missing/Brewfile.local");
     const execute = (
       script: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
       log: string,
       extra: Readonly<Record<string, string>> = {},
       home = process.env.HOME || temporary,
@@ -62,7 +62,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     yield* fs.writeFileString(privateFile, "fixture", { mode: 0o600 });
     const bundle = Effect.fn("runBrewBundleFixture")(function* (
       profile: string,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
     ) {
       const bundleLog = join(temporary, `${profile}-${args.join("-") || "bundle"}.log`);
       yield* fs.writeFileString(bundleLog, "");
@@ -137,7 +137,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     yield* fs.writeFileString(local, 'brew "local-tool"\ncask "local-app"', { mode: 0o600 });
     const withLocal = Effect.fn("runLocalBrewfileFixture")(function* (
       profile: string,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
       extra: Readonly<Record<string, string>> = {},
     ) {
       const localLog = join(temporary, `local-${profile}-${args.join("-") || "bundle"}.log`);

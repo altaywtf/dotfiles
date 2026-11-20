@@ -54,7 +54,7 @@ const BrewOutdated = Schema.Struct({
 });
 
 type BrewBacklog = typeof BrewOutdated.Type & {
-  record_lag?: BrewItem[];
+  record_lag?: Array<BrewItem>;
   cask_verification?: Array<{
     name: string;
     status: "record_lag" | "pending" | "unknown";
@@ -178,8 +178,8 @@ const CaskInventory = Schema.Struct({
 
 function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBacklog {
   const apps = Schema.is(CaskInventory)(inventory) ? inventory.casks : [];
-  const record_lag: BrewItem[] = [];
-  const casks: BrewItem[] = [];
+  const record_lag: Array<BrewItem> = [];
+  const casks: Array<BrewItem> = [];
   const cask_verification = backlog.casks.map((item) => {
     const app = apps.find((entry) => entry.token === item.name || entry.full_token === item.name);
     const short = app?.bundle_short_version;
@@ -294,8 +294,8 @@ function summaryLine(result: RawCommandResult) {
   };
 }
 
-function agentProbes(context: MaintenanceContext): Probe[] {
-  const versions: Array<[string, string, string[]]> = [
+function agentProbes(context: MaintenanceContext): Array<Probe> {
+  const versions: Array<[string, string, Array<string>]> = [
     ["node", "node", ["--version"]],
     ["npm", "npm", ["--version"]],
     ["codex", "codex", ["--version"]],
@@ -342,9 +342,9 @@ function skillFacts(context: MaintenanceContext) {
   return { managed: true, selected: selected.length, locked, installed };
 }
 
-function buildProbes(context: MaintenanceContext): Probe[] {
+function buildProbes(context: MaintenanceContext): Array<Probe> {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
-  const probes: Probe[] = [
+  const probes: Array<Probe> = [
     probe(
       "mise_convergence",
       "mise",

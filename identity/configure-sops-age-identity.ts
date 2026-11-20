@@ -22,7 +22,7 @@ const Version = Schema.String.pipe(
 type Mode = "provision" | "check" | "print-recipient";
 
 const parseMode = Effect.fn("parseSopsIdentityMode")(function* (
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ): Effect.fn.Return<Mode, CliFailure> {
   if (args.length === 0) {
     return "provision";
@@ -38,7 +38,7 @@ const parseMode = Effect.fn("parseSopsIdentityMode")(function* (
 
 const runRaw = Effect.fn("runSopsIdentityCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: {
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string>>;

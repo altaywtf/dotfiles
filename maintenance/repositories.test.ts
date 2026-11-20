@@ -43,13 +43,13 @@ const clean = (
   f: Fixture,
   previous: Parameters<typeof cleanRepository>[2],
   now: number,
-  { apply = true, activity = (): string[] => [], run = runner } = {},
+  { apply = true, activity = (): Array<string> => [], run = runner } = {},
 ) => cleanRepository(f.repo, f.roots, previous, now, apply, activity, run);
 
-const inspect = (f: Fixture, roots = f.roots, open: string[] = []) =>
+const inspect = (f: Fixture, roots = f.roots, open: Array<string> = []) =>
   candidates(f.repo, roots, open, runner);
 
-const git = (cwd: string, ...args: string[]) => {
+const git = (cwd: string, ...args: Array<string>) => {
   const result = runner(cwd, "git", args);
   assert.equal(result.status, 0, `git ${args.join(" ")}`);
   return result.stdout.trim();
@@ -441,7 +441,7 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
 });
 
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
-  let seen: string[] = [];
+  let seen: Array<string> = [];
   const paths = openFiles("/fixture", (_cwd, command, args) => {
     assert.equal(command, "lsof");
     seen = args;

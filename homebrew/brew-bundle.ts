@@ -42,7 +42,7 @@ type Arguments = {
 };
 
 const parseArguments = Effect.fn("parseBrewBundleArguments")(function* (
-  raw: readonly string[],
+  raw: ReadonlyArray<string>,
 ): Effect.fn.Return<Arguments, CliFailure> {
   let profile = "";
   let sharedOnly = false;
@@ -94,7 +94,7 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function* (
 
 const execute = Effect.fn("executeBrewBundleCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   env: Readonly<Record<string, string>>,
 ) {
   const runner = yield* CommandRunner;

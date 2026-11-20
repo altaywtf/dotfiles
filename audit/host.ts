@@ -68,7 +68,7 @@ function positiveInteger(value: string, option: string): number {
   return Number(value);
 }
 
-export function parseHostArgs(args: readonly string[]): HostAuditOptions | "help" {
+export function parseHostArgs(args: ReadonlyArray<string>): HostAuditOptions | "help" {
   const { values } = parseArgs({
     args: [...args],
     strict: true,
@@ -247,7 +247,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
   });
 }
 
-function main(args: readonly string[]): number {
+function main(args: ReadonlyArray<string>): number {
   try {
     const options = parseHostArgs(args);
     if (options === "help") {

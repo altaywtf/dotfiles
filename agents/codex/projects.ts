@@ -24,7 +24,7 @@ function isDirectory(path: string): boolean {
   }
 }
 
-function childDirectories(path: string): string[] {
+function childDirectories(path: string): Array<string> {
   try {
     return readdirSync(path, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
@@ -39,7 +39,7 @@ const checkout = (path: string) => isDirectory(join(path, ".git"));
 // Checkouts sit at ROOT/NAME or ROOT/OWNER/NAME. Linked worktrees carry a
 // .git file and resolve to their main checkout's trust, so only primary
 // checkouts qualify.
-export function discoverCheckouts(root: string): string[] {
+export function discoverCheckouts(root: string): Array<string> {
   return childDirectories(root)
     .flatMap((path) => [path, ...childDirectories(path)])
     .filter(checkout)
@@ -61,11 +61,11 @@ function withinRoot(root: string, path: string): boolean {
 // outside the root are never touched.
 export function projectTrustEdits(
   root: string,
-  checkouts: readonly string[],
+  checkouts: ReadonlyArray<string>,
   existing: Readonly<Record<string, Schema.Json>>,
   exists: (path: string) => boolean = existsSync,
-): ConfigEdit[] {
-  const edits: ConfigEdit[] = [];
+): Array<ConfigEdit> {
+  const edits: Array<ConfigEdit> = [];
   for (const path of checkouts) {
     const key = projectKey(path);
     if (key && withinRoot(root, path) && !Object.hasOwn(existing, path)) {
@@ -81,7 +81,7 @@ export function projectTrustEdits(
   return edits;
 }
 
-function walkFiles(path: string, depth: number): string[] {
+function walkFiles(path: string, depth: number): Array<string> {
   try {
     return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
       const child = join(path, entry.name);
@@ -95,8 +95,8 @@ function walkFiles(path: string, depth: number): string[] {
   }
 }
 
-export function restrictCodexState(codexHome: string): string[] {
-  const changed: string[] = [];
+export function restrictCodexState(codexHome: string): Array<string> {
+  const changed: Array<string> = [];
   const restrict = (path: string, mode: number) => {
     const current = lstatSync(path).mode & 0o777;
     if (current === mode) {

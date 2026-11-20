@@ -49,7 +49,7 @@ const gate =
   'read -r _ || exit 125; command -v "$0" >/dev/null 2>&1 || exit 127; exec "$0" "$@" </dev/null';
 const release = new TextEncoder().encode("\n");
 
-function parseProcesses(output: string): ProcessRow[] {
+function parseProcesses(output: string): Array<ProcessRow> {
   return output
     .trim()
     .split("\n")
@@ -75,7 +75,7 @@ export class BoundedCommand extends Context.Service<
   {
     readonly run: (
       command: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
       options: BoundedCommandOptions,
     ) => Effect.Effect<BoundedCommandResult, BoundedCommandError>;
   }
@@ -101,7 +101,7 @@ export class BoundedCommand extends Context.Service<
         );
       const run = Effect.fn("BoundedCommand.run")(function* (
         command: string,
-        args: readonly string[],
+        args: ReadonlyArray<string>,
         options: BoundedCommandOptions,
       ) {
         const timeoutMs = options.timeoutMs ?? 60 * 60_000;
@@ -220,7 +220,7 @@ export class BoundedCommand extends Context.Service<
           if (outcome.timedOut) {
             diagnosticPath = yield* Effect.gen(function* () {
               const rows = yield* observe;
-              const stacks: { pid: number; callGraph: string }[] = [];
+              const stacks: Array<{ pid: number; callGraph: string }> = [];
               if (process.platform === "darwin") {
                 for (const row of rows.toReversed().slice(0, 3)) {
                   const current = yield* snapshot;

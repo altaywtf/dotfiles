@@ -38,7 +38,7 @@ test("workload classification needs specific evidence and never emits argv", asy
 });
 
 test("partial parse retains safe findings and reports incomplete inspection", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = [], options) => {
       calls.push([command, ...args]);

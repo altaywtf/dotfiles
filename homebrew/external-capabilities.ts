@@ -58,7 +58,7 @@ const parsePlist = Effect.fn("parseExternalHomebrewPlist")(function* (path: stri
 
 const declared = Effect.fn("externalHomebrewEntryDeclared")(function* (
   repoRoot: string,
-  files: readonly string[],
+  files: ReadonlyArray<string>,
   profile: string,
   packageType: "brew" | "cask",
   name: string,
@@ -94,7 +94,7 @@ const validateCommand = Effect.fn("validateExternalHomebrewCommand")(function* (
   packageType: string,
   name: string,
   path: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   if (!isAbsolute(path)) {
     return yield* fail(
@@ -241,7 +241,10 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
     const config = yield* parsePlist(path);
     const files = yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
     const seen = new Set<string>();
-    const skips: Record<"HOMEBREW_BUNDLE_BREW_SKIP" | "HOMEBREW_BUNDLE_CASK_SKIP", string[]> = {
+    const skips: Record<
+      "HOMEBREW_BUNDLE_BREW_SKIP" | "HOMEBREW_BUNDLE_CASK_SKIP",
+      Array<string>
+    > = {
       HOMEBREW_BUNDLE_BREW_SKIP: [],
       HOMEBREW_BUNDLE_CASK_SKIP: [],
     };

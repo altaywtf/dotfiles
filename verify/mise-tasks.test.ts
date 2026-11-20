@@ -54,7 +54,7 @@ const miseEnv = {
     .join(delimiter),
   MISE_TASK_RUN_AUTO_INSTALL: "false",
 };
-function run(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
+function run(command: string, args: Array<string>, env: NodeJS.ProcessEnv = {}) {
   const configDir = mkdtempSync(join(tmpdir(), "dotfiles-mise-config-"));
   try {
     return spawnSync(command, args, {

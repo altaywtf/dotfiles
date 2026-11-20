@@ -84,11 +84,11 @@ export function plistXml(options: {
   workingDirectory: string;
   stdout: string;
   stderr: string;
-  arguments: readonly string[];
+  arguments: ReadonlyArray<string>;
   keepAlive?: boolean;
   processType?: string;
   environment?: Readonly<Record<string, string>>;
-  calendar?: readonly { hour: number; minute: number }[];
+  calendar?: ReadonlyArray<{ hour: number; minute: number }>;
 }): string {
   const args = options.arguments
     .map((argument) => `      <string>${escape(argument)}</string>`)

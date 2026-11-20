@@ -78,7 +78,7 @@ function readFindings(path: string): typeof Findings.Type {
 
 const realPath = Option.liftThrowable((path: string) => realpathSync(path));
 
-function rootVariants(root: string): string[] {
+function rootVariants(root: string): Array<string> {
   const roots = new Set([resolve(root), ...Option.toArray(realPath(root))]);
   for (const candidate of roots) {
     if (candidate.startsWith("/private/")) {
@@ -103,7 +103,7 @@ function safeRelative(root: string, locator: string): string {
   return "unknown";
 }
 
-export function findingLocators(scanRoot: string, reportPath: string): string[] {
+export function findingLocators(scanRoot: string, reportPath: string): Array<string> {
   return readFindings(reportPath).map((finding) => {
     const rule = Schema.is(Schema.NonEmptyString)(finding.RuleID) ? finding.RuleID : "unknown";
     const locator = Schema.is(Schema.NonEmptyString)(finding.SymlinkFile)

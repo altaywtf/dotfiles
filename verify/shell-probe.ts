@@ -26,7 +26,7 @@ export const resolveZsh = Effect.fn("resolveProbeZsh")(function* () {
 
 const cleanLoginPath = Effect.fn("cleanLoginPath")(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const paths: string[] = [];
+  const paths: Array<string> = [];
   const prefix = process.env.HOMEBREW_PREFIX?.replace(/\/$/, "");
   for (const directory of [prefix, "/opt/homebrew", "/usr/local"]) {
     if (!directory || paths.includes(join(directory, "bin"))) {
