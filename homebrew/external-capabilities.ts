@@ -29,10 +29,11 @@ const ExternalHomebrew = Schema.Struct({
 
 const parsePlist = Effect.fn("parseExternalHomebrewPlist")(function* (path: string) {
   const converted = yield* runRaw("/usr/bin/plutil", ["-convert", "json", "-o", "-", path]);
-  if (converted.status !== 0)
+  if (converted.status !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${path} is not a valid property list`,
     );
+  }
   const json = yield* Effect.try({
     try: () => JSON.parse(converted.stdout) as unknown,
     catch: () =>
@@ -71,7 +72,9 @@ const declared = Effect.fn("externalHomebrewEntryDeclared")(function* (
         env: { HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" },
       },
     );
-    if (listed.status === 0 && listed.stdout.split("\n").includes(name)) return true;
+    if (listed.status === 0 && listed.stdout.split("\n").includes(name)) {
+      return true;
+    }
     if (
       listed.status === 0 &&
       name.includes("/") &&
@@ -79,8 +82,9 @@ const declared = Effect.fn("externalHomebrewEntryDeclared")(function* (
     ) {
       const fs = yield* FileSystem.FileSystem;
       const contents = yield* fs.readFileString(brewfilePath(repoRoot, file));
-      if (contents.split("\n").some((line) => line.trim() === `${packageType} "${name}"`))
+      if (contents.split("\n").some((line) => line.trim() === `${packageType} "${name}"`)) {
         return true;
+      }
     }
   }
   return false;
@@ -92,10 +96,11 @@ const validateCommand = Effect.fn("validateExternalHomebrewCommand")(function* (
   path: string,
   args: readonly string[],
 ) {
-  if (!isAbsolute(path))
+  if (!isAbsolute(path)) {
     return yield* fail(
       `invalid external Homebrew capability: ${packageType} ${name} command path must be absolute`,
     );
+  }
   const fs = yield* FileSystem.FileSystem;
   const info = yield* fs.stat(path).pipe(Effect.option);
   if (Option.isNone(info) || info.value.type !== "File" || (info.value.mode & 0o111) === 0) {
@@ -104,19 +109,22 @@ const validateCommand = Effect.fn("validateExternalHomebrewCommand")(function* (
     );
   }
   const uid = Option.getOrUndefined(info.value.uid);
-  if (uid !== process.getuid?.() && uid !== 0)
+  if (uid !== process.getuid?.() && uid !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${path} must be owned by the current user or root`,
     );
-  if ((info.value.mode & 0o022) !== 0)
+  }
+  if ((info.value.mode & 0o022) !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${path} must not be group or world writable`,
     );
+  }
   const checked = yield* runRaw(path, args);
-  if (checked.status !== 0)
+  if (checked.status !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${packageType} ${name} command check failed: ${path}`,
     );
+  }
 });
 
 const validateBundle = Effect.fn("validateExternalHomebrewBundle")(function* (
@@ -125,14 +133,16 @@ const validateBundle = Effect.fn("validateExternalHomebrewBundle")(function* (
   bundleIdentifier: string,
   teamIdentifier: string,
 ) {
-  if (teamIdentifier === "not set")
+  if (teamIdentifier === "not set") {
     return yield* fail(
       `invalid external Homebrew capability: ${name} requires a concrete signing team`,
     );
-  if (!isAbsolute(path) || !path.endsWith(".app"))
+  }
+  if (!isAbsolute(path) || !path.endsWith(".app")) {
     return yield* fail(
       `invalid external Homebrew capability: ${name} bundle path must be an absolute .app path`,
     );
+  }
   const fs = yield* FileSystem.FileSystem;
   const link = yield* fs.readLink(path).pipe(Effect.option);
   const info = yield* fs.stat(path).pipe(Effect.option);
@@ -146,20 +156,22 @@ const validateBundle = Effect.fn("validateExternalHomebrewBundle")(function* (
     "Print :CFBundleIdentifier",
     join(path, "Contents/Info.plist"),
   ]);
-  if (identifier.status !== 0)
+  if (identifier.status !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${name} bundle identifier is unreadable`,
     );
+  }
   if (identifier.stdout.trim() !== bundleIdentifier) {
     return yield* fail(
       `invalid external Homebrew capability: ${name} bundle identifier is ${identifier.stdout.trim()}; expected ${bundleIdentifier}`,
     );
   }
   const verified = yield* runRaw("/usr/bin/codesign", ["--verify", "--deep", "--strict", path]);
-  if (verified.status !== 0)
+  if (verified.status !== 0) {
     return yield* fail(
       `invalid external Homebrew capability: ${name} bundle signature verification failed`,
     );
+  }
   const detail = yield* runRaw("/usr/bin/codesign", ["-dv", "--verbose=4", path]);
   const actualTeam =
     `${detail.stdout}\n${detail.stderr}`
@@ -183,29 +195,34 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
       "HOMEBREW_BUNDLE_TAP_SKIP",
       "HOMEBREW_BUNDLE_MAS_SKIP",
     ] as const) {
-      if (process.env[key])
+      if (process.env[key]) {
         return yield* fail(
           `invalid external Homebrew capability: ambient Homebrew Bundle skip variables are unsupported; use ${path}`,
         );
+      }
     }
     const fs = yield* FileSystem.FileSystem;
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
-    if (!exists && Option.isNone(link)) return {};
+    if (!exists && Option.isNone(link)) {
+      return {};
+    }
     const info = yield* fs.stat(path).pipe(Effect.option);
     if (Option.isSome(link) || Option.isNone(info) || info.value.type !== "File") {
       return yield* fail(
         `invalid external Homebrew capability: ${path} must be a readable regular file`,
       );
     }
-    if (Option.getOrUndefined(info.value.uid) !== process.getuid?.())
+    if (Option.getOrUndefined(info.value.uid) !== process.getuid?.()) {
       return yield* fail(
         `invalid external Homebrew capability: ${path} must be owned by the current user`,
       );
-    if ((info.value.mode & 0o022) !== 0)
+    }
+    if ((info.value.mode & 0o022) !== 0) {
       return yield* fail(
         `invalid external Homebrew capability: ${path} must not be group or world writable`,
       );
+    }
     yield* fs.access(path, { readable: true }).pipe(
       Effect.mapError(
         () =>
@@ -216,10 +233,11 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
       ),
     );
     const first = (yield* fs.readFileString(path)).split(/\r?\n/, 1)[0];
-    if (!first?.startsWith("<?xml "))
+    if (!first?.startsWith("<?xml ")) {
       return yield* fail(
         `invalid external Homebrew capability: ${path} must be an XML property list`,
       );
+    }
     const config = yield* parsePlist(path);
     const files = yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
     const seen = new Set<string>();
@@ -241,14 +259,16 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
         );
       }
       const key = `${capability.packageType}|${capability.name}`;
-      if (seen.has(key))
+      if (seen.has(key)) {
         return yield* fail(`invalid external Homebrew capability: duplicate ${key}`);
+      }
       seen.add(key);
       if (capability.validator === "command") {
-        if (capability.arguments.length > 3)
+        if (capability.arguments.length > 3) {
           return yield* fail(
             `invalid external Homebrew capability: ${capability.name} command validation accepts at most three arguments`,
           );
+        }
         yield* validateCommand(
           capability.packageType,
           capability.name,
@@ -263,12 +283,13 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
           capability.teamIdentifier,
         );
       }
-      if (!externalOnly)
+      if (!externalOnly) {
         skips[
           capability.packageType === "brew"
             ? "HOMEBREW_BUNDLE_BREW_SKIP"
             : "HOMEBREW_BUNDLE_CASK_SKIP"
         ].push(capability.name);
+      }
       yield* Console.log(`validated external ${capability.packageType} ${capability.name}`);
     }
     return Object.fromEntries(

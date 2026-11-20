@@ -42,7 +42,9 @@ const parseArguments = Effect.fn("parseConfigureGitArguments")(function* (
     switch (args[index]) {
       case "--profile": {
         const value = args[index + 1];
-        if (!value || profile !== undefined) return yield* fail("--profile requires one value", 2);
+        if (!value || profile !== undefined) {
+          return yield* fail("--profile requires one value", 2);
+        }
         profile = value;
         index += 1;
         break;
@@ -63,8 +65,9 @@ const run = Effect.fn("runCheckedConfigureGitCommand")(function* (
   message?: string,
 ) {
   const result = yield* runCommand(command, args);
-  if (result.status !== 0)
+  if (result.status !== 0) {
     return yield* fail(message || `${command} exited ${result.status}`, result.status);
+  }
   return result.stdout.trimEnd();
 });
 
@@ -73,7 +76,9 @@ const prompt = Effect.fn("promptConfigureGit")(function* (
   fallback: string,
   nonInteractive: boolean,
 ) {
-  if (nonInteractive) return fallback;
+  if (nonInteractive) {
+    return fallback;
+  }
   const suffix = fallback ? ` [${fallback}]: ` : ": ";
   yield* Effect.sync(() => process.stderr.write(`${label}${suffix}`));
   const terminal = yield* Terminal.Terminal;
@@ -124,17 +129,20 @@ const validatePrivateKey = Effect.fn("validateLocalSshPrivateKey")(function* (
     return yield* fail(`cannot configure ${purpose}; key file does not exist: ${path}`);
   }
   const readable = yield* fs.access(path, { readable: true }).pipe(Effect.option);
-  if (Option.isNone(readable))
+  if (Option.isNone(readable)) {
     return yield* fail(`cannot configure ${purpose}; key file is not readable: ${path}`);
+  }
   const firstLine = (yield* fs.readFileString(path)).split(/\r?\n/, 1)[0];
   const header = yield* Schema.decodeUnknownEffect(PrivateKeyHeader)(firstLine).pipe(Effect.option);
-  if (Option.isNone(header))
+  if (Option.isNone(header)) {
     return yield* fail(`cannot configure ${purpose}; key file is not an SSH private key: ${path}`);
+  }
   const parsed = yield* runCommand("ssh-keygen", ["-lf", path]);
-  if (parsed.status !== 0)
+  if (parsed.status !== 0) {
     return yield* fail(
       `cannot configure ${purpose}; key file is not a valid SSH private key: ${path}`,
     );
+  }
   if (Option.getOrUndefined(info.value.uid) !== process.getuid?.()) {
     return yield* fail(
       `cannot configure ${purpose}; key file is not owned by the current user: ${path}`,
@@ -153,11 +161,15 @@ function validateExclusiveManagedBlock(contents: string): boolean {
   let unmanaged = false;
   for (const line of contents.split(/\r?\n/)) {
     if (line === "# dotfiles: github-ssh begin") {
-      if (managed || blocks > 0) return false;
+      if (managed || blocks > 0) {
+        return false;
+      }
       managed = true;
       blocks += 1;
     } else if (line === "# dotfiles: github-ssh end") {
-      if (!managed) return false;
+      if (!managed) {
+        return false;
+      }
       managed = false;
     } else if (!managed && line.trim()) {
       unmanaged = true;
@@ -170,10 +182,14 @@ function validateManagedMarkers(contents: string): boolean {
   let managed = false;
   for (const line of contents.split(/\r?\n/)) {
     if (line === "# dotfiles: github-ssh begin") {
-      if (managed) return false;
+      if (managed) {
+        return false;
+      }
       managed = true;
     } else if (line === "# dotfiles: github-ssh end") {
-      if (!managed) return false;
+      if (!managed) {
+        return false;
+      }
       managed = false;
     }
   }
@@ -191,7 +207,9 @@ function hasUnmanagedGithubHost(contents: string): boolean {
       managed = false;
       continue;
     }
-    if (managed) continue;
+    if (managed) {
+      continue;
+    }
     const line = rawLine.trimStart();
     const match = /^host[\s=]+([^#]*)/i.exec(line);
     if (
@@ -199,8 +217,9 @@ function hasUnmanagedGithubHost(contents: string): boolean {
         ?.trim()
         .split(/\s+/)
         .some((pattern) => pattern.toLowerCase() === "github.com")
-    )
+    ) {
       return true;
+    }
   }
   return false;
 }
@@ -230,7 +249,9 @@ const validateGithubSshConfig = Effect.fn("validateGithubSshConfig")(function* (
     }
   }
   const localInfo = yield* fs.stat(local).pipe(Effect.option);
-  if (Option.isNone(localInfo) || localInfo.value.type !== "File") return;
+  if (Option.isNone(localInfo) || localInfo.value.type !== "File") {
+    return;
+  }
   const contents = yield* fs.readFileString(local);
   if (!validateManagedMarkers(contents)) {
     return yield* fail(
@@ -288,12 +309,20 @@ const buildConfiguration = Effect.fn("buildGitConfiguration")(function* (
   let signingKey = process.env.GIT_SIGNING_KEY || "";
   let signCommits = process.env.GIT_SIGN_COMMITS || "";
   let sshIdentity = process.env.GIT_SSH_IDENTITY_FILE || "";
-  if (config.capabilities.devbox && !signCommits) signCommits = "true";
+  if (config.capabilities.devbox && !signCommits) {
+    signCommits = "true";
+  }
   const defaultName = yield* getGlobal("user.name");
   const defaultEmail = yield* getGlobal("user.email");
-  if (!name) name = yield* prompt("Git user.name", defaultName, args.nonInteractive);
-  if (!email) email = yield* prompt("Git user.email", defaultEmail, args.nonInteractive);
-  if (!name || !email) return yield* fail("git user.name and user.email are required");
+  if (!name) {
+    name = yield* prompt("Git user.name", defaultName, args.nonInteractive);
+  }
+  if (!email) {
+    email = yield* prompt("Git user.email", defaultEmail, args.nonInteractive);
+  }
+  if (!name || !email) {
+    return yield* fail("git user.name and user.email are required");
+  }
   if (!signingKey && signCommits !== "false") {
     signingKey = yield* prompt(
       "Git SSH private key path (blank to disable signing)",
@@ -301,9 +330,12 @@ const buildConfiguration = Effect.fn("buildGitConfiguration")(function* (
       args.nonInteractive,
     );
   }
-  if (!signCommits) signCommits = signingKey ? "true" : "false";
-  if (signCommits !== "true" && signCommits !== "false")
+  if (!signCommits) {
+    signCommits = signingKey ? "true" : "false";
+  }
+  if (signCommits !== "true" && signCommits !== "false") {
     return yield* fail("GIT_SIGN_COMMITS must be true or false", 2);
+  }
   if (signCommits === "true" && !signingKey) {
     return yield* fail(
       "commit signing is enabled but GIT_SIGNING_KEY is empty\nset GIT_SIGNING_KEY to an unencrypted local SSH private key, or set GIT_SIGN_COMMITS=false",
@@ -332,7 +364,9 @@ const buildConfiguration = Effect.fn("buildGitConfiguration")(function* (
       );
     }
   }
-  if (!sshIdentity && config.capabilities.devbox) sshIdentity = signingKey;
+  if (!sshIdentity && config.capabilities.devbox) {
+    sshIdentity = signingKey;
+  }
   if (sshIdentity) {
     yield* validatePrivateKey("git@github.com SSH auth", sshIdentity);
     yield* validateGithubSshConfig(home);
@@ -367,17 +401,21 @@ const program = Effect.gen(function* () {
         ["user.email", values.email],
         ["commit.gpgsign", values.signCommits],
         ["tag.gpgsign", values.signCommits],
-      ] as const)
+      ] as const) {
         yield* run("git", ["config", "--file", temporary, key, value]);
+      }
       if (values.signCommits === "true") {
         yield* run("git", ["config", "--file", temporary, "user.signingkey", values.signingKey]);
         yield* run("git", ["config", "--file", temporary, "gpg.ssh.allowedSignersFile", signers]);
         yield* run("git", ["config", "--file", temporary, "gpg.ssh.program", signerProgram]);
       }
-      if (profileConfig.capabilities.devbox && process.platform === "darwin")
+      if (profileConfig.capabilities.devbox && process.platform === "darwin") {
         yield* run("git", ["config", "--file", temporary, "safe.directory", "/opt/homebrew"]);
+      }
 
-      if (values.sshIdentity) yield* writeGithubSshConfig(home, values.sshIdentity);
+      if (values.sshIdentity) {
+        yield* writeGithubSshConfig(home, values.sshIdentity);
+      }
       if (values.signCommits === "true") {
         yield* fs.makeDirectory(dirname(signers), { recursive: true });
         const temporarySigners = yield* fs.makeTempFileScoped({
@@ -393,7 +431,9 @@ const program = Effect.gen(function* () {
         yield* Console.log(`wrote ${signers}`);
       }
       const link = yield* fs.readLink(gitconfig).pipe(Effect.option);
-      if (Option.isSome(link)) yield* fs.remove(gitconfig, { force: true });
+      if (Option.isSome(link)) {
+        yield* fs.remove(gitconfig, { force: true });
+      }
       yield* fs.chmod(temporary, 0o600);
       yield* fs.rename(temporary, gitconfig);
     }),

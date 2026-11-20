@@ -143,12 +143,13 @@ const program = Effect.scoped(
       linuxMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-linux-/m,
     );
-    for (const rendered of [darwinMise.stdout, linuxMise.stdout])
+    for (const rendered of [darwinMise.stdout, linuxMise.stdout]) {
       assert.equal(
         rendered.match(/^\[tools\]$/gm)?.length,
         1,
         "one [tools] table per rendered config",
       );
+    }
     // Each template part must stay plain TOML so Renovate's mise manager can
     // parse it; a Go-template directive here silently stops every pin update.
     for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {

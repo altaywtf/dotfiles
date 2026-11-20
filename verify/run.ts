@@ -165,7 +165,9 @@ export const runChecks = Effect.fn("runChecks")(function* (
             }
             yield* Effect.sync(() => {
               process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
-              if (!result.output.endsWith("\n")) process.stderr.write("\n");
+              if (!result.output.endsWith("\n")) {
+                process.stderr.write("\n");
+              }
               process.stderr.write(
                 `FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`,
               );
@@ -249,4 +251,6 @@ const program = Effect.gen(function* () {
   yield* Console.log(`verification ok (${((finished - started) / 1000).toFixed(2)}s)`);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (import.meta.main) runMain(program);
+if (import.meta.main) {
+  runMain(program);
+}

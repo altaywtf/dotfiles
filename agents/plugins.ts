@@ -45,9 +45,15 @@ const SCP_MARKETPLACE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/;
 // Both harnesses accept owner/repo, an HTTPS or SSH Git URL, or a local path.
 // URLs must not embed credentials: the source lands in harness config and locks.
 function isMarketplaceSource(source: string): boolean {
-  if (GITHUB_MARKETPLACE.test(source) || SCP_MARKETPLACE.test(source)) return true;
-  if (isAbsolute(source)) return true;
-  if (!URL.canParse(source)) return false;
+  if (GITHUB_MARKETPLACE.test(source) || SCP_MARKETPLACE.test(source)) {
+    return true;
+  }
+  if (isAbsolute(source)) {
+    return true;
+  }
+  if (!URL.canParse(source)) {
+    return false;
+  }
   const url = new URL(source);
   return (
     (url.protocol === "https:" && url.username === "" && url.password === "") ||
@@ -519,7 +525,9 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
-  if (layered.localPath) writeLine(runtime.stdout, `Local overlay: ${layered.localPath}`);
+  if (layered.localPath) {
+    writeLine(runtime.stdout, `Local overlay: ${layered.localPath}`);
+  }
   const available = HARNESSES.filter((harness) =>
     runtime.commandExists(HARNESS_INFO[harness].binary),
   );

@@ -33,7 +33,9 @@ function pruneLogs(directory: string, now = Date.now()): void {
         name,
       )?.[1];
     const path = join(directory, name);
-    if (date && date < cutoff && lstatSync(path).isFile()) unlinkSync(path);
+    if (date && date < cutoff && lstatSync(path).isFile()) {
+      unlinkSync(path);
+    }
   }
 }
 
@@ -52,7 +54,9 @@ export function rotateUpdateLog(home: string, job: "software-update", now = Date
   const path = join(directory, `${job}.log`);
   if (existsSync(path)) {
     const info = lstatSync(path);
-    if (!info.isFile()) throw new Error("update log must be a regular file");
+    if (!info.isFile()) {
+      throw new Error("update log must be a regular file");
+    }
     if (info.size > 0) {
       const timestamp = info.mtime.toISOString().replaceAll(":", "-");
       copyFileSync(path, join(directory, `${job}-${timestamp}.log`));
@@ -84,13 +88,19 @@ export function capLogs(
   between: () => void = () => {},
 ): Entry[] {
   const entries: Entry[] = [];
-  if (!existsSync(directory)) return entries;
+  if (!existsSync(directory)) {
+    return entries;
+  }
   for (const name of readdirSync(directory)) {
-    if (!name.endsWith(".log")) continue;
+    if (!name.endsWith(".log")) {
+      continue;
+    }
     const path = join(directory, name);
     try {
       const info = lstatSync(path);
-      if (!info.isFile() || info.size <= cap) continue;
+      if (!info.isFile() || info.size <= cap) {
+        continue;
+      }
       const fd = openSync(path, "r+");
       try {
         const tail = Buffer.alloc(cap);

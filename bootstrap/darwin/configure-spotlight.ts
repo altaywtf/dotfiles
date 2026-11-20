@@ -23,7 +23,9 @@ const checkPolicy = Effect.fn("checkSpotlightPolicy")(function* () {
     process.stdout.write(result.stdout);
     process.stdout.write(result.stderr);
   });
-  if (result.status !== 0) return yield* fail(`mdutil -sa exited ${result.status}`);
+  if (result.status !== 0) {
+    return yield* fail(`mdutil -sa exited ${result.status}`);
+  }
   if (result.stdout.includes("Indexing enabled") || result.stderr.includes("Indexing enabled")) {
     return yield* fail("Spotlight indexing is enabled on at least one volume");
   }
@@ -33,8 +35,9 @@ const checkPolicy = Effect.fn("checkSpotlightPolicy")(function* () {
 const program = Effect.gen(function* () {
   let checkOnly = false;
   for (const argument of process.argv.slice(2)) {
-    if (argument === "--check") checkOnly = true;
-    else if (argument === "-h" || argument === "--help") {
+    if (argument === "--check") {
+      checkOnly = true;
+    } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
     } else {
@@ -42,7 +45,9 @@ const program = Effect.gen(function* () {
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
-  if (process.platform !== "darwin") return yield* fail("configure-spotlight is macOS-only");
+  if (process.platform !== "darwin") {
+    return yield* fail("configure-spotlight is macOS-only");
+  }
   if (checkOnly) {
     if (process.env.DOTFILES_SKIP_SPOTLIGHT_CHECK === "1") {
       yield* Console.log(
@@ -56,10 +61,13 @@ const program = Effect.gen(function* () {
   const runner = yield* CommandRunner;
   const command = process.getuid?.() === 0 ? "mdutil" : "sudo";
   const args = process.getuid?.() === 0 ? ["-a", "-i", "off"] : ["mdutil", "-a", "-i", "off"];
-  if (command === "sudo")
+  if (command === "sudo") {
     yield* Console.error("configure-spotlight needs sudo to update Spotlight indexing policy");
+  }
   const result = yield* runner.run(command, args, { output: "inherit" });
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`);
+  if (result.status !== 0) {
+    return yield* fail(`${command} exited ${result.status}`);
+  }
   yield* checkPolicy();
   yield* Console.log("Spotlight indexing disabled");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

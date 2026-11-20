@@ -110,8 +110,9 @@ test("a command that dies before release still returns", { timeout: 10_000 }, as
             ? Effect.gen(function* () {
                 armed = false;
                 const gates = yield* real.run("pgrep", ["-x", "-P", String(process.pid), "sh"]);
-                for (const pid of gates.stdout.split("\n").filter(Boolean))
+                for (const pid of gates.stdout.split("\n").filter(Boolean)) {
                   process.kill(Number(pid), "SIGKILL");
+                }
                 yield* Effect.sleep(200);
                 return yield* real.run(command, args, options);
               })
@@ -127,7 +128,9 @@ for (const diagnosticFailure of [false, true]) {
     const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
     const pidFile = join(directory, "child.pid");
     const diagnosticDirectory = join(directory, "diagnostics");
-    if (diagnosticFailure) await writeFile(diagnosticDirectory, "blocked");
+    if (diagnosticFailure) {
+      await writeFile(diagnosticDirectory, "blocked");
+    }
     const unrelated = spawn(process.execPath, ["-e", untilWorkerExits], {
       stdio: "ignore",
     });
@@ -154,8 +157,9 @@ for (const diagnosticFailure of [false, true]) {
     assert.equal(alive(child), false);
     assert.equal(unrelated.exitCode, null);
     assert.ok(unrelated.pid && alive(unrelated.pid));
-    if (diagnosticFailure) assert.equal(result.diagnosticPath, undefined);
-    else {
+    if (diagnosticFailure) {
+      assert.equal(result.diagnosticPath, undefined);
+    } else {
       assert.ok(result.diagnosticPath);
       const content = await readFile(result.diagnosticPath, "utf8");
       assert.ok(
@@ -234,7 +238,9 @@ test("a transient inventory failure does not void cleanup proof", async (t) => {
       (real) => ({
         run: (command, args, options) =>
           Effect.suspend(() => {
-            if (command !== "/bin/ps" || !first) return real.run(command, args, options);
+            if (command !== "/bin/ps" || !first) {
+              return real.run(command, args, options);
+            }
             first = false;
             return invalidRow();
           }),

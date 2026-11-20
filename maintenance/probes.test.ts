@@ -46,9 +46,15 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
           const pid = Number(await readFile(done, "utf8"));
           process.kill(pid, 0);
         } catch (error) {
-          if (!(error instanceof Error) || !("code" in error)) throw error;
-          if (error.code === "ESRCH") break;
-          if (error.code !== "ENOENT") throw error;
+          if (!(error instanceof Error) || !("code" in error)) {
+            throw error;
+          }
+          if (error.code === "ESRCH") {
+            break;
+          }
+          if (error.code !== "ENOENT") {
+            throw error;
+          }
         }
         assert.ok(performance.now() < deadline, "descendant did not finish");
         await delay(20);
@@ -159,7 +165,9 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
     try {
       pid = Number(await readFile(ready, "utf8"));
     } catch (error) {
-      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
+        throw error;
+      }
       assert.ok(performance.now() < deadline, "probe did not start");
       await delay(20);
     }

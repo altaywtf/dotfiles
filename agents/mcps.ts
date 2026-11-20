@@ -327,7 +327,9 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
-  if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  if (localPath) {
+    writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  }
 
   const mcpLockPath = managedLockLocation(runtime.env, "mcps");
   const previouslyManaged = readMcpLock(mcpLockPath);

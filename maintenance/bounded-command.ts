@@ -125,7 +125,9 @@ export class BoundedCommand extends Context.Service<
           );
           const live = new Map(rows.map((row) => [row.pid, row]));
           const root = live.get(rootPid);
-          if (!rootInspected && root && root.uid === process.getuid?.()) owned.set(rootPid, root);
+          if (!rootInspected && root && root.uid === process.getuid?.()) {
+            owned.set(rootPid, root);
+          }
           rootInspected = true;
           // Remember identities before descendants can become reparented or start a new session.
           let added = true;
@@ -160,8 +162,9 @@ export class BoundedCommand extends Context.Service<
               !current.some(
                 (candidate) => sameProcess(candidate, row) && !candidate.state.startsWith("Z"),
               )
-            )
+            ) {
               continue;
+            }
             yield* Effect.try(() => process.kill(row.pid, kind)).pipe(
               Effect.catch(() => Effect.void),
             );
@@ -221,7 +224,9 @@ export class BoundedCommand extends Context.Service<
               if (process.platform === "darwin") {
                 for (const row of rows.toReversed().slice(0, 3)) {
                   const current = yield* snapshot;
-                  if (!current.some((candidate) => sameProcess(candidate, row))) continue;
+                  if (!current.some((candidate) => sameProcess(candidate, row))) {
+                    continue;
+                  }
                   const sample = yield* runner
                     .run("/usr/bin/sample", [String(row.pid), "1", "1", "-file", "/dev/stdout"], {
                       timeoutMs: 2000,
@@ -230,13 +235,14 @@ export class BoundedCommand extends Context.Service<
                   if (sample._tag === "Some") {
                     const start = sample.value.stdout.indexOf("Call graph:");
                     const end = sample.value.stdout.indexOf("Binary Images:", start);
-                    if (start >= 0)
+                    if (start >= 0) {
                       stacks.push({
                         pid: row.pid,
                         callGraph: sample.value.stdout
                           .slice(start, end < 0 ? undefined : end)
                           .slice(0, 64 * 1024),
                       });
+                    }
                   }
                 }
               }
@@ -247,8 +253,9 @@ export class BoundedCommand extends Context.Service<
                   !directory.isDirectory() ||
                   directory.uid !== process.getuid?.() ||
                   (directory.mode & 0o077) !== 0
-                )
+                ) {
                   throw new Error("Unsafe diagnostic directory");
+                }
                 const path = join(options.diagnosticDirectory, "software-update-timeout.json");
                 const temporary = `${path}.${process.pid}.tmp`;
                 const fd = openSync(
@@ -285,8 +292,11 @@ export class BoundedCommand extends Context.Service<
             yield* cleanup;
           } else {
             const remaining = yield* observe.pipe(Effect.catch(() => Effect.succeed([])));
-            if (remaining.length > 0) yield* cleanup;
-            else if (inventoryFailed || !owned.has(rootPid)) cleanupComplete = false;
+            if (remaining.length > 0) {
+              yield* cleanup;
+            } else if (inventoryFailed || !owned.has(rootPid)) {
+              cleanupComplete = false;
+            }
           }
           completed = true;
           if (!cleanupComplete) {

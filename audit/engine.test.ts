@@ -62,11 +62,15 @@ function cleanCommand(command: string, args: readonly string[]) {
     const value = values.get(key ?? "");
     return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
-  if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
-  if (command.endsWith("/socketfilterfw"))
+  if (command === "gh") {
+    return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
+  }
+  if (command.endsWith("/socketfilterfw")) {
     return { status: 0, stdout: "Firewall is enabled. (State = 1)\n", stderr: "" };
-  if (command === "gitleaks" && args[0] === "dir")
+  }
+  if (command === "gitleaks" && args[0] === "dir") {
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
+  }
   return { status: 0, stdout: "", stderr: "" };
 }
 

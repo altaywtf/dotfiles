@@ -30,7 +30,9 @@ function readAcSettings(output: string): ReadonlyMap<string, string> {
     }
     if (inAc) {
       const match = line.trim().match(/^(\S+)\s+(\S+)/);
-      if (match) values.set(match[1], match[2]);
+      if (match) {
+        values.set(match[1], match[2]);
+      }
     }
   }
   return values;
@@ -39,18 +41,23 @@ function readAcSettings(output: string): ReadonlyMap<string, string> {
 const checkPolicy = Effect.fn("checkPowerPolicy")(function* () {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("pmset", ["-g", "custom"]);
-  if (result.status !== 0) return yield* fail(`pmset -g custom exited ${result.status}`);
+  if (result.status !== 0) {
+    return yield* fail(`pmset -g custom exited ${result.status}`);
+  }
   const settings = readAcSettings(result.stdout);
   let failed = false;
   for (const key of keys) {
     const value = settings.get(key);
-    if (value === "0") yield* Console.log(`ok AC ${key}=0`);
-    else {
+    if (value === "0") {
+      yield* Console.log(`ok AC ${key}=0`);
+    } else {
       yield* Console.error(`FAILED: AC ${key}=${value || "missing"}, expected 0`);
       failed = true;
     }
   }
-  if (failed) return yield* fail("plugged-in power policy drift detected");
+  if (failed) {
+    return yield* fail("plugged-in power policy drift detected");
+  }
 });
 
 const program = Effect.gen(function* () {
@@ -62,12 +69,15 @@ const program = Effect.gen(function* () {
     const argument = args[index];
     if (argument === "--profile") {
       const value = args[index + 1];
-      if (!value || profileSet) return yield* fail("invalid --profile", 2);
+      if (!value || profileSet) {
+        return yield* fail("invalid --profile", 2);
+      }
       profileInput = value;
       profileSet = true;
       index += 1;
-    } else if (argument === "--check") checkOnly = true;
-    else if (argument === "-h" || argument === "--help") {
+    } else if (argument === "--check") {
+      checkOnly = true;
+    } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
     } else if (!argument.startsWith("-") && !profileSet) {
@@ -81,7 +91,9 @@ const program = Effect.gen(function* () {
   const profile = yield* normalizeProfile(profileInput).pipe(
     Effect.mapError(() => new Error("unsupported profile")),
   );
-  if (process.platform !== "darwin") return yield* fail("configure-power is macOS-only");
+  if (process.platform !== "darwin") {
+    return yield* fail("configure-power is macOS-only");
+  }
   if (checkOnly) {
     yield* checkPolicy();
     return;
@@ -92,10 +104,13 @@ const program = Effect.gen(function* () {
     process.getuid?.() === 0
       ? ["-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"]
       : ["pmset", "-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"];
-  if (command === "sudo")
+  if (command === "sudo") {
     yield* Console.error("configure-power needs sudo to update system power settings");
+  }
   const result = yield* runner.run(command, commandArgs, { output: "inherit" });
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`);
+  if (result.status !== 0) {
+    return yield* fail(`${command} exited ${result.status}`);
+  }
   yield* checkPolicy();
   yield* Console.log(`plugged-in power policy configured (${profile})`);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

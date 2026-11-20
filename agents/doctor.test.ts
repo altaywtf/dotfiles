@@ -42,8 +42,9 @@ class FixtureRuntime implements Runtime {
   }
 
   run(command: string, args: readonly string[]) {
-    if (command.endsWith("/resolve-profile.ts"))
+    if (command.endsWith("/resolve-profile.ts")) {
       return { status: 0, stdout: "workstation\n", stderr: "" };
+    }
     const reply = this.replies.get(`${command} ${args.join(" ")}`) ?? {};
     return { status: reply.status ?? 0, stdout: reply.stdout ?? "", stderr: reply.stderr ?? "" };
   }
@@ -51,7 +52,9 @@ class FixtureRuntime implements Runtime {
 
 const temporaryDirectories: string[] = [];
 afterEach(() => {
-  for (const path of temporaryDirectories.splice(0)) rmSync(path, { force: true, recursive: true });
+  for (const path of temporaryDirectories.splice(0)) {
+    rmSync(path, { force: true, recursive: true });
+  }
 });
 
 type Fixture = { repoDir: string; home: string };

@@ -100,31 +100,39 @@ const ownerFile = Effect.fn("checkUpdateOwnerFile")(function* (path: string, uid
 
 export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (options: UpdateOptions) {
   const { target, repository, node } = options;
-  if (!options.check && process.getuid?.() !== 0) return yield* fail("install update jobs as root");
-  if (target.uid <= 0 || !isAbsolute(repository) || !isAbsolute(node))
+  if (!options.check && process.getuid?.() !== 0) {
+    return yield* fail("install update jobs as root");
+  }
+  if (target.uid <= 0 || !isAbsolute(repository) || !isAbsolute(node)) {
     return yield* fail("updates require a non-root user and absolute repository and Node paths");
+  }
   const fs = yield* FileSystem.FileSystem;
   const home = yield* fs.realPath(target.home);
   const repo = yield* fs.realPath(repository);
-  if (!repo.startsWith(`${home}/`))
+  if (!repo.startsWith(`${home}/`)) {
     return yield* fail("the update checkout must belong to the target user's home");
+  }
   const repoInfo = yield* fs.stat(repo);
-  if (Option.getOrUndefined(repoInfo.uid) !== target.uid || (repoInfo.mode & 0o022) !== 0)
+  if (Option.getOrUndefined(repoInfo.uid) !== target.uid || (repoInfo.mode & 0o022) !== 0) {
     return yield* fail(
       "the update checkout must be owned by the target user and not writable by others",
     );
+  }
   const profile = yield* readPersistedProfile(join(home, ".config/dotfiles/profile"), target.uid);
   const model = yield* readProfileModelEffect(profileModelFile());
   const { capabilities } = requireProfile(model, profile);
-  if (!capabilities.devbox) return yield* fail("system updates require a devbox profile");
+  if (!capabilities.devbox) {
+    return yield* fail("system updates require a devbox profile");
+  }
   {
     const label = launchdLabel("homebrew-update", target.user, options.namespace);
     const oldPlist = `/Library/LaunchDaemons/${label}.plist`;
     const loaded = yield* runCommand("/bin/launchctl", ["print", `system/${label}`]);
-    if ((yield* fs.exists(oldPlist)) || loaded.status === 0)
+    if ((yield* fs.exists(oldPlist)) || loaded.status === 0) {
       return yield* fail(
         `wait for ${label} to finish, then disable, bootout, and remove its plist before enrolling single-owner updates`,
       );
+    }
   }
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
@@ -143,8 +151,9 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   );
   const guiService = `gui/${target.uid}/local.dotfiles.software-update`;
   const gui = yield* runCommand("/bin/launchctl", ["print", guiService]);
-  if (gui.status === 0)
+  if (gui.status === 0) {
     return yield* fail(`disable the GUI updater before enrolling system updates: ${guiService}`);
+  }
 
   const jobs = updateJobs(options, prefix);
   // Preflight every job before changing any plist or launchd state.
@@ -154,30 +163,36 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
       const path = `/Library/LaunchDaemons/${job.label}.plist`;
       const exists = yield* fs.exists(path);
       const link = yield* fs.readLink(path).pipe(Effect.option);
-      if (Option.isSome(link))
+      if (Option.isSome(link)) {
         return yield* fail(`system update plist must not be a symlink: ${path}`);
+      }
       let matches = false;
       if (exists) {
         yield* ownerFile(path, 0);
         const info = yield* fs.stat(path);
-        if ((info.mode & 0o777) !== 0o644 || Option.getOrUndefined(info.gid) !== 0)
+        if ((info.mode & 0o777) !== 0o644 || Option.getOrUndefined(info.gid) !== 0) {
           return yield* fail(`expected root:wheel mode 0644: ${path}`);
+        }
         matches = (yield* fs.readFileString(path)) === job.xml;
       }
       const current = yield* runCommand("/bin/launchctl", ["print", `system/${job.label}`]);
-      if (options.check && (!matches || current.status !== 0))
+      if (options.check && (!matches || current.status !== 0)) {
         return yield* fail(
           `${job.label} is missing, unloaded, or differs from the selected update contract`,
         );
-      if (current.status === 0 && !matches)
+      }
+      if (current.status === 0 && !matches) {
         return yield* fail(
           `wait for ${job.label} to finish, then disable and bootout before changing its plist`,
         );
+      }
       return { ...job, path, loaded: current.status === 0 };
     }),
   );
   if (options.check) {
-    for (const job of jobs) yield* Console.log(`ok ${job.label}; log: ${job.log}`);
+    for (const job of jobs) {
+      yield* Console.log(`ok ${job.label}; log: ${job.log}`);
+    }
     return;
   }
 
@@ -193,9 +208,12 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
     logs,
   ]);
   for (const job of jobs) {
-    if (yield* fs.exists(job.log)) yield* ownerFile(job.log, target.uid);
-    if (Option.isSome(yield* fs.readLink(job.log).pipe(Effect.option)))
+    if (yield* fs.exists(job.log)) {
+      yield* ownerFile(job.log, target.uid);
+    }
+    if (Option.isSome(yield* fs.readLink(job.log).pipe(Effect.option))) {
       return yield* fail(`update log must not be a symlink: ${job.log}`);
+    }
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/usr/bin/touch", job.log]);
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/bin/chmod", "0600", job.log]);
   }
@@ -224,7 +242,9 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
           ]);
         }
         yield* runChecked("/bin/launchctl", ["enable", `system/${job.label}`]);
-        if (!job.loaded) yield* runChecked("/bin/launchctl", ["bootstrap", "system", job.path]);
+        if (!job.loaded) {
+          yield* runChecked("/bin/launchctl", ["bootstrap", "system", job.path]);
+        }
         yield* Console.log(`${job.loaded ? "retained" : "enrolled"} ${job.label}; log: ${job.log}`);
       }
     }),

@@ -89,7 +89,9 @@ const program = Effect.gen(function* () {
       unexpected = true;
     }
   }
-  if (unexpected) return yield* fail("owner-name boundary failed");
+  if (unexpected) {
+    return yield* fail("owner-name boundary failed");
+  }
   yield* Console.log("ok owner names are limited to external coordinates");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

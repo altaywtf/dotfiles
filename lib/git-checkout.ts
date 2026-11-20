@@ -19,7 +19,9 @@ export function dirtyCheckoutReason(status: string): string | undefined {
     .split("\n")
     .map((line) => line.trimEnd())
     .filter(Boolean);
-  if (lines.length === 0) return undefined;
+  if (lines.length === 0) {
+    return undefined;
+  }
   return `uncommitted changes: ${lines.map((line) => line.slice(3)).join(", ")}`;
 }
 
@@ -34,12 +36,16 @@ export type CheckoutPosition = {
 // branch, ahead, or behind), or undefined when it is exactly there.
 export function unpublishedCheckoutReason(position: CheckoutPosition): string | undefined {
   const branch = defaultBranchFromRemoteHead(position.remoteHead);
-  if (!branch) return "origin has no default branch (refs/remotes/origin/HEAD is unset)";
-  if (position.headRef.trim() !== `refs/heads/${branch}`)
+  if (!branch) {
+    return "origin has no default branch (refs/remotes/origin/HEAD is unset)";
+  }
+  if (position.headRef.trim() !== `refs/heads/${branch}`) {
     return `HEAD is not on the default branch ${branch}`;
+  }
   const head = position.head.trim();
   const tip = position.remoteTip.trim();
-  if (!head || head !== tip)
+  if (!head || head !== tip) {
     return `HEAD ${head.slice(0, 12)} is not origin/${branch} ${tip.slice(0, 12)}`;
+  }
   return undefined;
 }

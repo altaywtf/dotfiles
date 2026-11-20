@@ -33,7 +33,9 @@ export const awaitFullWake = Effect.fn("awaitFullWake")(function* (
   let announced = false;
   while (true) {
     // An unreadable probe must not stop updates.
-    if ((yield* probe) !== false) return true;
+    if ((yield* probe) !== false) {
+      return true;
+    }
     if (Date.now() >= deadline) {
       yield* Console.log("The Mac never fully woke; skipping this update slot.");
       return false;

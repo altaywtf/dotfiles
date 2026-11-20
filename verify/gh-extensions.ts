@@ -34,8 +34,9 @@ const program = Effect.scoped(
       env: { PATH: `${bin}:/usr/bin:/bin`, FAKE_GH_LOG: log },
       extendEnv: true,
     });
-    if (installed.status !== 0)
+    if (installed.status !== 0) {
       return yield* fail(installed.stderr || "GitHub extension installer failed");
+    }
     const expected = [
       "arg=--version",
       "arg=extension",
@@ -53,8 +54,9 @@ const program = Effect.scoped(
       env: { PATH: empty },
       extendEnv: true,
     });
-    if (missing.status !== 1)
+    if (missing.status !== 1) {
       return yield* fail(`missing gh returned ${missing.status} instead of 1`);
+    }
     if (!missing.stderr.includes("gh is required; run ./dotfiles apply so mise installs gh")) {
       return yield* fail("missing gh failure was not actionable");
     }

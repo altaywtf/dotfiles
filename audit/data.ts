@@ -15,17 +15,21 @@ function usage(): never {
 
 function main(args: string[]): void {
   const [command, ...values] = args;
-  if (command === "sqlite-stats" && values.length === 1)
+  if (command === "sqlite-stats" && values.length === 1) {
     process.stdout.write(`${sqlitePageStats(values[0]).join(" ")}\n`);
-  else if (command === "gitleaks-locators" && values.length === 2) {
+  } else if (command === "gitleaks-locators" && values.length === 2) {
     const locators = findingLocators(values[0], values[1]);
-    if (locators.length > 0) process.stdout.write(`${locators.join("\n")}\n`);
+    if (locators.length > 0) {
+      process.stdout.write(`${locators.join("\n")}\n`);
+    }
   } else if (command === "gitleaks-summary" && values.length === 4) {
     const result = summarizeFindings(values[1], values[2], values[3], values[0]);
     process.stdout.write(
       `${result.findingCount} ${result.failures} ${result.warnings} ${JSON.stringify(result.rules)} ${JSON.stringify(result.severities)}\n`,
     );
-  } else usage();
+  } else {
+    usage();
+  }
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {

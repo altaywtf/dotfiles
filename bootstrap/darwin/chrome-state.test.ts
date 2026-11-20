@@ -149,7 +149,9 @@ function updateChromeProfiles(root: string, mode: "enable" | "disable") {
 test("Chrome profiles enable vertical tabs in every user profile", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
   try {
-    for (const name of ["Default", "Profile 1", "System Profile"]) mkdirSync(join(root, name));
+    for (const name of ["Default", "Profile 1", "System Profile"]) {
+      mkdirSync(join(root, name));
+    }
     const first = join(root, "Default/Preferences");
     const second = join(root, "Profile 1/Preferences");
     const system = join(root, "System Profile/Preferences");

@@ -93,7 +93,9 @@ class FixtureRuntime implements Runtime {
         }
       }
       for (const skill of skills) {
-        if (this.falseSuccesses.has(skill)) continue;
+        if (this.falseSuccesses.has(skill)) {
+          continue;
+        }
         const skillDir = join(this.home, ".agents", "skills", skill);
         mkdirSync(skillDir, { recursive: true });
         writeFileSync(

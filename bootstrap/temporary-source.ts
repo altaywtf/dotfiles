@@ -39,7 +39,9 @@ const updaterUnits = (home: string) => [
 export const checkTemporarySource = Effect.fn("checkTemporarySource")(function* (home: string) {
   const fs = yield* FileSystem.FileSystem;
   for (const unit of updaterUnits(home)) {
-    if (!(yield* fs.exists(unit.path))) continue;
+    if (!(yield* fs.exists(unit.path))) {
+      continue;
+    }
     const checkout = unit.checkout(yield* fs.readFileString(unit.path));
     if (checkout !== undefined && (yield* fs.exists(checkout))) {
       return yield* fail(

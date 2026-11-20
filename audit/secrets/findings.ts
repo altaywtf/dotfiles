@@ -51,7 +51,9 @@ function readPolicy(path: string): Policy {
   );
   const rules: Record<string, Severity> = {};
   for (const [rule, severity] of Object.entries(ruleEntries)) {
-    if (!isSeverity(severity)) throw new Error(`invalid severity for ${rule}`);
+    if (!isSeverity(severity)) {
+      throw new Error(`invalid severity for ${rule}`);
+    }
     rules[rule] = severity;
   }
   return {
@@ -79,17 +81,24 @@ const realPath = Option.liftThrowable((path: string) => realpathSync(path));
 function rootVariants(root: string): string[] {
   const roots = new Set([resolve(root), ...Option.toArray(realPath(root))]);
   for (const candidate of roots) {
-    if (candidate.startsWith("/private/")) roots.add(candidate.slice(8));
-    else if (candidate.startsWith("/var/")) roots.add(`/private${candidate}`);
+    if (candidate.startsWith("/private/")) {
+      roots.add(candidate.slice(8));
+    } else if (candidate.startsWith("/var/")) {
+      roots.add(`/private${candidate}`);
+    }
   }
   return [...roots];
 }
 
 function safeRelative(root: string, locator: string): string {
-  if (!locator || !isAbsolute(locator)) return "unknown";
+  if (!locator || !isAbsolute(locator)) {
+    return "unknown";
+  }
   for (const candidate of rootVariants(root)) {
     const path = relative(candidate, locator);
-    if (path && path !== ".." && !path.startsWith("../") && !path.startsWith("/")) return path;
+    if (path && path !== ".." && !path.startsWith("../") && !path.startsWith("/")) {
+      return path;
+    }
   }
   return "unknown";
 }
@@ -113,7 +122,9 @@ function readRuleCounts(existingJson: string) {
   );
   const counts: RuleCounts = {};
   for (const [key, value] of Object.entries(parsed)) {
-    if (!isCount(value)) throw new Error(`invalid count for ${key}`);
+    if (!isCount(value)) {
+      throw new Error(`invalid count for ${key}`);
+    }
     counts[key] = value;
   }
   return counts;
@@ -136,8 +147,11 @@ export function summarizeFindings(
     const severity = policy.rules[rule] ?? policy.defaultSeverity;
     rules[rule] = (rules[rule] ?? 0) + 1;
     severities[severity] = (severities[severity] ?? 0) + 1;
-    if (severityRank[severity] >= severityRank[policy.failureThreshold]) failures += 1;
-    else warnings += 1;
+    if (severityRank[severity] >= severityRank[policy.failureThreshold]) {
+      failures += 1;
+    } else {
+      warnings += 1;
+    }
   }
   return {
     findingCount: findings.length,

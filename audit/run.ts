@@ -63,8 +63,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
       output: "inherit",
       stdin: "inherit",
     });
-    if (result.status !== 0)
+    if (result.status !== 0) {
       return yield* fail(`${scope} audit exited ${result.status}`, result.status);
+    }
   }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
   runMain(program);
 }

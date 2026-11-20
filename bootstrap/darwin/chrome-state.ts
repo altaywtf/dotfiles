@@ -92,7 +92,9 @@ const applyPreferences = Effect.fnUntraced(function* (
   let changed = false;
   for (const { group, key, value } of preferences) {
     const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);
-    if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) continue;
+    if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) {
+      continue;
+    }
     updated[group] =
       mode === "enable"
         ? { ...section, [key]: value }
@@ -116,7 +118,9 @@ export const updateChromeLocalStatePreferencesEffect = Effect.fn(
     localStatePreferences,
     mode,
   );
-  if (Option.isNone(updated)) return false;
+  if (Option.isNone(updated)) {
+    return false;
+  }
   yield* writeAtomically(path, `${JSON.stringify(updated.value)}\n`);
   return true;
 });
@@ -137,14 +141,21 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
   const profiles: string[] = [];
   if (yield* fs.exists(root)) {
     for (const name of yield* fs.readDirectory(root)) {
-      if (name === "System Profile" || name === "Guest Profile") continue;
-      if ((yield* fs.stat(join(root, name))).type !== "Directory") continue;
+      if (name === "System Profile" || name === "Guest Profile") {
+        continue;
+      }
+      if ((yield* fs.stat(join(root, name))).type !== "Directory") {
+        continue;
+      }
       const path = join(root, name, "Preferences");
-      if (yield* fs.exists(path)) profiles.push(path);
+      if (yield* fs.exists(path)) {
+        profiles.push(path);
+      }
     }
   }
-  if (profiles.length === 0 && mode === "enable")
+  if (profiles.length === 0 && mode === "enable") {
     profiles.push(join(root, "Default", "Preferences"));
+  }
   let updated = 0;
   for (const path of profiles.sort()) {
     const source = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "{}";
@@ -153,7 +164,9 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
       profilePreferences,
       mode,
     );
-    if (Option.isNone(profile)) continue;
+    if (Option.isNone(profile)) {
+      continue;
+    }
     yield* writeAtomically(path, JSON.stringify(profile.value));
     updated += 1;
   }

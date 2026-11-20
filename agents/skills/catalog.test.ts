@@ -12,8 +12,9 @@ function fixture() {
   const root = mkdtempSync(join(tmpdir(), "skill-catalog-"));
   roots.push(root);
   mkdirSync(join(root, "agents/skills"), { recursive: true });
-  for (const layer of ["developer", "workstation", "devbox", "personal"])
+  for (const layer of ["developer", "workstation", "devbox", "personal"]) {
     writeFileSync(join(root, `agents/skills/${layer}.json`), '{"skills":[]}');
+  }
   return root;
 }
 
@@ -115,7 +116,8 @@ test("every tracked skill manifest composes", () => {
   const manifests = resolve(import.meta.dirname);
   const root = fixture();
   const layers = ["developer", "workstation", "devbox", "personal"] as const;
-  for (const layer of layers)
+  for (const layer of layers) {
     copyFileSync(join(manifests, `${layer}.json`), join(root, `agents/skills/${layer}.json`));
+  }
   readLayeredSkills(root, "all", layers);
 });

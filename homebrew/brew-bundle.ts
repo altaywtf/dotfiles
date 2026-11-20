@@ -53,20 +53,30 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function* (
     const argument = raw[index];
     if (argument === "--profile") {
       const value = raw[index + 1];
-      if (!value || profile) return yield* fail("invalid --profile", 2);
+      if (!value || profile) {
+        return yield* fail("invalid --profile", 2);
+      }
       profile = value;
       index += 1;
     } else if (argument === "--shared-only") {
-      if (sharedOnly) return yield* fail("duplicate --shared-only", 2);
+      if (sharedOnly) {
+        return yield* fail("duplicate --shared-only", 2);
+      }
       sharedOnly = true;
     } else if (argument === "--print-files") {
-      if (printFiles) return yield* fail("duplicate --print-files", 2);
+      if (printFiles) {
+        return yield* fail("duplicate --print-files", 2);
+      }
       printFiles = true;
     } else if (argument === "--maintenance") {
-      if (maintenance) return yield* fail("duplicate --maintenance", 2);
+      if (maintenance) {
+        return yield* fail("duplicate --maintenance", 2);
+      }
       maintenance = true;
     } else if (argument === "--cleanup") {
-      if (cleanup) return yield* fail("duplicate --cleanup", 2);
+      if (cleanup) {
+        return yield* fail("duplicate --cleanup", 2);
+      }
       cleanup = true;
     } else if (argument?.startsWith("-")) {
       return yield* fail(`unsupported argument ${argument}`, 2);
@@ -76,8 +86,9 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function* (
       return yield* fail("multiple profiles are unsupported", 2);
     }
   }
-  if (!profile || (cleanup && (sharedOnly || maintenance)))
+  if (!profile || (cleanup && (sharedOnly || maintenance))) {
     return yield* fail("invalid brew bundle arguments", 2);
+  }
   return { profile, sharedOnly, printFiles, cleanup, maintenance };
 });
 
@@ -90,7 +101,9 @@ const execute = Effect.fn("executeBrewBundleCommand")(function* (
   const result = yield* runner
     .run(command, args, { env, extendEnv: true, stdin: "inherit", output: "inherit" })
     .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
+  if (result.status !== 0) {
+    return yield* fail(`${command} exited ${result.status}`, result.status);
+  }
 });
 
 const program = Effect.gen(function* () {
@@ -108,11 +121,14 @@ const program = Effect.gen(function* () {
     ? profileBrewfiles(model, profile).slice(0, 1)
     : yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
   if (args.printFiles) {
-    for (const file of files) yield* Console.log(brewfilePath(repoRoot, file));
+    for (const file of files) {
+      yield* Console.log(brewfilePath(repoRoot, file));
+    }
     return;
   }
-  if (!(yield* commandAvailable("brew")))
+  if (!(yield* commandAvailable("brew"))) {
     return yield* fail("brew is required before running this script");
+  }
   const external = yield* configureExternalCapabilities(repoRoot, model, profile);
   if (args.maintenance) {
     const checks = yield* Effect.forEach(files, (file) =>
@@ -141,7 +157,9 @@ const program = Effect.gen(function* () {
     const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
     yield* execute("brew", bundleArgs, env);
   }
-  if (!args.cleanup) return;
+  if (!args.cleanup) {
+    return;
+  }
   const composed = yield* composeBrewfile(
     repoRoot,
     yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile)),

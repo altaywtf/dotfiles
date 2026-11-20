@@ -35,15 +35,17 @@ for (const directory of [
   "chezmoi/.chezmoitemplates/linux",
   "chezmoi/.chezmoitemplates/darwin",
   ".config/mise",
-])
+]) {
   mkdirSync(join(emptyMiseRoot, directory), { recursive: true });
+}
 for (const file of [
   "chezmoi/.chezmoitemplates/mise.toml",
   "chezmoi/.chezmoitemplates/linux/mise.toml",
   "chezmoi/.chezmoitemplates/darwin/mise.toml",
   ".config/mise/config.toml",
-])
+]) {
   writeFileSync(join(emptyMiseRoot, file), "[tools]\n");
+}
 afterAll(() => rm(emptyMiseRoot, { recursive: true, force: true }));
 
 function context(): MaintenanceContext {
@@ -191,7 +193,9 @@ for (const [update, calls, summary] of [
         profileConfig: { ...profileConfig, agentLayers: [] },
       },
       hostRunner((command, args) => {
-        if (command !== "brew") return undefined;
+        if (command !== "brew") {
+          return undefined;
+        }
         brewCalls.push([...args]);
         return args[0] === "update" ? result("", update) : result('{"formulae":[],"casks":[]}');
       }),
@@ -215,8 +219,11 @@ test("maintenance probes run concurrently and summarize package drift", async ()
     if (maxActive === 1) {
       await new Promise<void>((resolve, reject) => {
         queueMicrotask(() => {
-          if (maxActive > 1) resolve();
-          else reject(new Error("maintenance probes ran sequentially"));
+          if (maxActive > 1) {
+            resolve();
+          } else {
+            reject(new Error("maintenance probes ran sequentially"));
+          }
         });
       });
     }
@@ -252,14 +259,24 @@ test("missing required commands make the snapshot incomplete without throwing", 
 
 test("macOS inventory preserves typed partial results in the maintenance probe", async () => {
   const runner = hostRunner((command, args) => {
-    if (command === "sw_vers" && args[0] === "-productVersion") return result("26.6.2\n");
-    if (command === "sw_vers" && args[0] === "-buildVersion") return result("25G83\n");
-    if (command === "defaults") return result("26.6.2\n");
-    if (command === "ioreg")
+    if (command === "sw_vers" && args[0] === "-productVersion") {
+      return result("26.6.2\n");
+    }
+    if (command === "sw_vers" && args[0] === "-buildVersion") {
+      return result("25G83\n");
+    }
+    if (command === "defaults") {
+      return result("26.6.2\n");
+    }
+    if (command === "ioreg") {
       return result('+-o Fixture1AP <class IOPlatformExpertDevice>\n{\n"model" = <"Mac99,1">\n}\n');
-    if (command === "softwareupdate")
+    }
+    if (command === "softwareupdate") {
       return result("Software Update Tool\nNo new software available.\n");
-    if (command === "AssetCacheLocatorUtil") return result(contentCacheLocator);
+    }
+    if (command === "AssetCacheLocatorUtil") {
+      return result(contentCacheLocator);
+    }
     return undefined;
   });
   const updateIO: MacOSUpdateIO = {
@@ -364,12 +381,16 @@ setTimeout(() => process.exit(9), 5000);
   do {
     started = await readdir(pids);
     assert.ok(performance.now() < deadline, "probes did not start");
-    if (started.length < commands.length + 1) await delay(20);
+    if (started.length < commands.length + 1) {
+      await delay(20);
+    }
   } while (started.length < commands.length + 1);
   controller.abort();
   const exit = await completion;
   assert.equal(Exit.isFailure(exit), true);
-  for (const pid of started) assert.throws(() => process.kill(Number(pid), 0), { code: "ESRCH" });
+  for (const pid of started) {
+    assert.throws(() => process.kill(Number(pid), 0), { code: "ESRCH" });
+  }
 });
 
 test("interrupting the collector aborts inventory feeds and drains them before returning", async (t) => {
@@ -388,14 +409,20 @@ test("interrupting the collector aborts inventory feeds and drains them before r
       return undefined;
     },
     async fetch(_url, _agent, _timeout, signal) {
-      if (++fetches === 3) started.resolve();
-      if (signal) suppliedSignals++;
+      if (++fetches === 3) {
+        started.resolve();
+      }
+      if (signal) {
+        suppliedSignals++;
+      }
       assert.ok(signal);
       const canceled = Promise.withResolvers<void>();
       signal.addEventListener(
         "abort",
         () => {
-          if (++aborts === 3) aborted.resolve();
+          if (++aborts === 3) {
+            aborted.resolve();
+          }
           canceled.resolve();
         },
         { once: true },
@@ -557,9 +584,10 @@ for (const inventoryAvailable of [true, false]) {
         profileConfig: { ...profileConfig, agentLayers: [] },
       },
       async (command, args) => {
-        if (command === "brew" && args[0] === "outdated")
+        if (command === "brew" && args[0] === "outdated") {
           return result(JSON.stringify({ formulae: [], casks }));
-        if (command === "brew" && args[0] === "info")
+        }
+        if (command === "brew" && args[0] === "info") {
           return inventoryAvailable
             ? result(
                 JSON.stringify({
@@ -577,6 +605,7 @@ for (const inventoryAvailable of [true, false]) {
                 }),
               )
             : result("", 1);
+        }
         return result("{}");
       },
     );
@@ -692,13 +721,15 @@ for (const scenario of [
   test(`mise convergence reports ${scenario.name} against source pins`, async (t) => {
     const fixture = await pinContext();
     t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
-    if (scenario.config)
+    if (scenario.config) {
       await writeFile(join(fixture.home, ".config/mise/config.toml"), scenario.config);
-    if (scenario.template)
+    }
+    if (scenario.template) {
       await writeFile(
         join(fixture.repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
         scenario.template,
       );
+    }
     const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args, options) => {
       if (command === "mise" && args[0] === "ls") {
         assert.equal(options.cwd, fixture.home);

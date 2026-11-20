@@ -24,14 +24,20 @@ type Capability = {
 const isArray = Schema.is(Schema.Array(Schema.Unknown));
 const xml = (capabilities: readonly Capability[]) => {
   const value = (input: unknown): string => {
-    if (Predicate.isString(input))
+    if (Predicate.isString(input)) {
       return `<string>${input.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</string>`;
-    if (Predicate.isNumber(input)) return `<integer>${input}</integer>`;
-    if (isArray(input)) return `<array>${input.map(value).join("")}</array>`;
-    if (Predicate.isObject(input))
+    }
+    if (Predicate.isNumber(input)) {
+      return `<integer>${input}</integer>`;
+    }
+    if (isArray(input)) {
+      return `<array>${input.map(value).join("")}</array>`;
+    }
+    if (Predicate.isObject(input)) {
       return `<dict>${Object.entries(input)
         .map(([key, item]) => `<key>${key}</key>${value(item)}`)
         .join("")}</dict>`;
+    }
     throw new Error("unsupported plist fixture value");
   };
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">${value({ version: 1, capabilities })}</plist>\n`;
@@ -91,8 +97,11 @@ const program = Effect.scoped(
         "HOMEBREW_BUNDLE_CASK_SKIP",
         "HOMEBREW_BUNDLE_TAP_SKIP",
         "HOMEBREW_BUNDLE_MAS_SKIP",
-      ])
-        if (!(key in extra)) delete process.env[key];
+      ]) {
+        if (!(key in extra)) {
+          delete process.env[key];
+        }
+      }
       return yield* configureExternalCapabilities(repoRoot, profiles, profile);
     });
     yield* write([
@@ -191,24 +200,27 @@ const program = Effect.scoped(
     yield* fs.writeFileString(join(app, "Contents/Info.plist"), "fixture");
     const fakeRunner = CommandRunner.of({
       run: (executable, args, options) => {
-        if (executable === "/usr/libexec/PlistBuddy")
+        if (executable === "/usr/libexec/PlistBuddy") {
           return Effect.succeed({
             status: 0,
             stdout: `${process.env.TEST_BUNDLE_ID || "com.example.ManagedBrowser"}\n`,
             stderr: "",
           });
-        if (executable === "/usr/bin/codesign" && args?.[0] === "--verify")
+        }
+        if (executable === "/usr/bin/codesign" && args?.[0] === "--verify") {
           return Effect.succeed({
             status: process.env.TEST_CODESIGN_FAIL ? 1 : 0,
             stdout: "",
             stderr: "",
           });
-        if (executable === "/usr/bin/codesign")
+        }
+        if (executable === "/usr/bin/codesign") {
           return Effect.succeed({
             status: 0,
             stdout: "",
             stderr: `TeamIdentifier=${process.env.TEST_TEAM || "MANAGEDTEAM"}\n`,
           });
+        }
         return actual.run(executable, args, options);
       },
     });

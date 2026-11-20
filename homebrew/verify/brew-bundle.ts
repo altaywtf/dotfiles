@@ -75,8 +75,9 @@ exit "\${FAKE_BREW_EXIT:-0}"
     assert.equal((yield* bundle("workstation")).includes("arg=uinaf/tap\n"), false);
     assert.equal((devbox.match(/^arg=bundle$/gm) || []).length, 2);
     assert.equal((devbox.match(/^profile=devbox$/gm) || []).length, 2);
-    for (const file of ["homebrew/Brewfile", "homebrew/Brewfile.devbox"])
+    for (const file of ["homebrew/Brewfile", "homebrew/Brewfile.devbox"]) {
       assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
+    }
     const personal = yield* bundle("personal-devbox");
     assert.equal((yield* fs.stat(privateFile)).mode & 0o777, 0o600);
     assert.ok(personal.includes("arg=uinaf/tap\n"));
@@ -86,8 +87,9 @@ exit "\${FAKE_BREW_EXIT:-0}"
       "homebrew/Brewfile",
       "homebrew/Brewfile.devbox",
       "homebrew/Brewfile.personal",
-    ])
+    ]) {
       assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
+    }
     const shared = yield* bundle("devbox", ["--shared-only"]);
     assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
     const maintenance = yield* bundle("personal-devbox", ["--maintenance"]);

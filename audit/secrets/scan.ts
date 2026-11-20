@@ -61,8 +61,9 @@ export function scanSecrets(
     ),
   ];
   counts.scanned += paths.length;
-  if (paths.length === 0)
+  if (paths.length === 0) {
     return report.finding("warn", "no readable local config files found for gitleaks secret scan");
+  }
 
   let scanRoot = "";
   let reportRoot = "";
@@ -75,7 +76,9 @@ export function scanSecrets(
     chmodSync(scanRoot, 0o700);
     chmodSync(reportRoot, 0o700);
     writeFileSync(reportPath, "", { mode: 0o600 });
-    for (const path of paths) stagePath(scanRoot, home, path);
+    for (const path of paths) {
+      stagePath(scanRoot, home, path);
+    }
 
     const gitleaks = command(
       "gitleaks",
@@ -106,16 +109,17 @@ export function scanSecrets(
     counts.rules = summary.rules;
     counts.severities = summary.severities;
 
-    if (gitleaks.error || (gitleaks.status !== 0 && gitleaks.status !== 183))
+    if (gitleaks.error || (gitleaks.status !== 0 && gitleaks.status !== 183)) {
       report.finding("fail", "gitleaks local config scan did not complete");
-    else if (summary.findingCount === 0 && gitleaks.status === 183)
+    } else if (summary.findingCount === 0 && gitleaks.status === 183) {
       report.finding("fail", "gitleaks reported leaks without usable findings");
-    else if (summary.findingCount > 0 && gitleaks.status === 0)
+    } else if (summary.findingCount > 0 && gitleaks.status === 0) {
       report.finding("fail", "gitleaks exit status disagrees with its report");
+    }
 
-    if (summary.findingCount === 0 && gitleaks.status === 0 && !gitleaks.error)
+    if (summary.findingCount === 0 && gitleaks.status === 0 && !gitleaks.error) {
       report.finding("ok", `gitleaks found no leaks in ${paths.length} local config files`);
-    else if (summary.findingCount > 0) {
+    } else if (summary.findingCount > 0) {
       if (report.format === "text") {
         for (const locator of findingLocators(scanRoot, reportPath)) {
           const [rule, path] = locator.split("\t", 2);
@@ -128,7 +132,9 @@ export function scanSecrets(
           ? "gitleaks reported findings at or above the failure threshold"
           : "gitleaks reported findings below the failure threshold",
       );
-    } else report.finding("fail", "gitleaks local config scan failed");
+    } else {
+      report.finding("fail", "gitleaks local config scan failed");
+    }
 
     const trufflehog = command(
       "trufflehog",
@@ -145,18 +151,24 @@ export function scanSecrets(
       ],
       { output: "discard", timeoutMs: 600_000 },
     );
-    if (trufflehog.status === 0 && !trufflehog.error)
+    if (trufflehog.status === 0 && !trufflehog.error) {
       report.finding(
         "ok",
         `trufflehog found no verified leaks in ${paths.length} local config files`,
       );
-    else if (trufflehog.status === 183)
+    } else if (trufflehog.status === 183) {
       report.finding("fail", "trufflehog reported verified leaks in local config files");
-    else report.finding("fail", "trufflehog local config scan failed");
+    } else {
+      report.finding("fail", "trufflehog local config scan failed");
+    }
   } catch {
     report.finding("fail", "local secret scan could not stage or classify files safely");
   } finally {
-    if (scanRoot) rmSync(scanRoot, { recursive: true, force: true });
-    if (reportRoot) rmSync(reportRoot, { recursive: true, force: true });
+    if (scanRoot) {
+      rmSync(scanRoot, { recursive: true, force: true });
+    }
+    if (reportRoot) {
+      rmSync(reportRoot, { recursive: true, force: true });
+    }
   }
 }

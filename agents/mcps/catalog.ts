@@ -66,7 +66,9 @@ export type Mcp = typeof Mcp.Type;
 const McpManifest = Schema.Struct({ mcps: Schema.Unknown });
 
 export function expandHeadersHelper(path: string, home: string | undefined): string {
-  if (!path.startsWith("~/")) return path;
+  if (!path.startsWith("~/")) {
+    return path;
+  }
   if (home === undefined || home.length === 0) {
     throw new Error(`Cannot expand headers helper ${path}: HOME is not set`);
   }

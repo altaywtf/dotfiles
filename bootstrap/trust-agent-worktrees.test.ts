@@ -25,7 +25,9 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
   try {
     mkdirSync(dirname(excluded), { recursive: true });
     mkdirSync(bin);
-    for (const path of [...expected, excluded]) writeFileSync(path, "[tools]\n");
+    for (const path of [...expected, excluded]) {
+      writeFileSync(path, "[tools]\n");
+    }
     const mise = join(bin, "mise");
     writeFileSync(
       mise,

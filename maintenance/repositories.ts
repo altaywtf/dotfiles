@@ -34,7 +34,9 @@ const run: Runner = (cwd, command, args) => {
 
 function checked(runner: Runner, cwd: string, command: string, args: string[]): string {
   const result = runner(cwd, command, args);
-  if (result.status !== 0) throw new Error(`${command} ${args[0]} failed; retained local work`);
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args[0]} failed; retained local work`);
+  }
   return result.stdout.trim();
 }
 
@@ -46,8 +48,9 @@ function parseWorktrees(text: string): Worktree[] {
       const fields = block.split("\0");
       const field = (name: string) =>
         fields.find((value) => value.startsWith(`${name} `))?.slice(name.length + 1) ?? "";
-      if (!field("worktree") || !/^[0-9a-f]{40,64}$/.test(field("HEAD")))
+      if (!field("worktree") || !/^[0-9a-f]{40,64}$/.test(field("HEAD"))) {
         throw new Error("invalid worktree inventory");
+      }
       return {
         path: field("worktree"),
         branch: field("branch"),
@@ -59,10 +62,15 @@ function parseWorktrees(text: string): Worktree[] {
 }
 
 export function discoverRepositories(root: string, depth = 2): string[] {
-  if (!existsSync(root) || lstatSync(root).isSymbolicLink()) return [];
-  if (existsSync(join(root, ".git")))
+  if (!existsSync(root) || lstatSync(root).isSymbolicLink()) {
+    return [];
+  }
+  if (existsSync(join(root, ".git"))) {
     return lstatSync(join(root, ".git")).isDirectory() ? [realpathSync(root)] : [];
-  if (depth === 0) return [];
+  }
+  if (depth === 0) {
+    return [];
+  }
   return readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
     .flatMap((entry) => discoverRepositories(join(root, entry.name), depth - 1));
@@ -92,7 +100,9 @@ export function openFiles(home: string, runner: Runner = run): string[] {
     .split(/[\0\n]/)
     .filter((field) => field.startsWith("n/"))
     .map((field) => field.slice(1));
-  if (paths.length === 0) throw new Error("process activity unavailable; retained local work");
+  if (paths.length === 0) {
+    throw new Error("process activity unavailable; retained local work");
+  }
   return paths;
 }
 
@@ -133,8 +143,9 @@ export function candidates(
       kept: [{ target: repo, result: "excluded by local dotfiles.hygiene=skip" }],
     };
   }
-  if (policy.status !== 0 && policy.status !== 1)
+  if (policy.status !== 0 && policy.status !== 1) {
     throw new Error("local hygiene policy unavailable");
+  }
   const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
   const checkedOut = new Set(worktrees.map((worktree) => worktree.branch));
   const refs = git("for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads")
@@ -153,12 +164,16 @@ export function candidates(
     const [branch] = row.split("\0");
     return branch && !longLived(branch) && !checkedOut.has(branch) && !busy(repo, openPaths);
   });
-  if (!possibleTree && !possibleBranch) return { eligible: [], kept: [] };
+  if (!possibleTree && !possibleBranch) {
+    return { eligible: [], kept: [] };
+  }
   // Observe the remote's current default rather than trusting a stale origin/HEAD.
   const remote = git("ls-remote", "--symref", "origin", "HEAD", "refs/heads/*");
   const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(remote)?.[1];
   const target = /^([0-9a-f]{40,64})\tHEAD$/m.exec(remote)?.[1];
-  if (!defaultBranch || !target) throw new Error("remote default branch unavailable");
+  if (!defaultBranch || !target) {
+    throw new Error("remote default branch unavailable");
+  }
   if (runner(repo, "git", ["cat-file", "-e", `${target}^{commit}`]).status !== 0) {
     return {
       eligible: [],
@@ -182,33 +197,54 @@ export function candidates(
     runner(repo, "git", ["merge-base", "--is-ancestor", head, target]).status === 0;
   const protectedBranch = (branch: string) => {
     const name = branch.replace(/^refs\/heads\//, "");
-    if (longLived(branch)) return true;
+    if (longLived(branch)) {
+      return true;
+    }
     const upstream = git("for-each-ref", "--format=%(upstream)", branch);
-    if (remoteHeads.has(name)) return true;
-    if (upstream.startsWith("refs/remotes/origin/"))
+    if (remoteHeads.has(name)) {
+      return true;
+    }
+    if (upstream.startsWith("refs/remotes/origin/")) {
       return remoteHeads.has(upstream.slice("refs/remotes/origin/".length));
+    }
     return Boolean(upstream);
   };
   const worktreeReason = (tree: Worktree): string | undefined => {
-    if (tree.path === repo || !roots.some((root) => inside(tree.path, root) && tree.path !== root))
+    if (
+      tree.path === repo ||
+      !roots.some((root) => inside(tree.path, root) && tree.path !== root)
+    ) {
       return "outside cleanup roots";
-    if (tree.locked || tree.prunable) return "locked or missing worktree";
+    }
+    if (tree.locked || tree.prunable) {
+      return "locked or missing worktree";
+    }
     if (
       !existsSync(tree.path) ||
       lstatSync(tree.path).isSymbolicLink() ||
       realpathSync(tree.path) !== tree.path
-    )
+    ) {
       return "non-canonical worktree path";
+    }
     // A detached worktree has no branch to protect; merged() below is what proves
     // its HEAD is already in the remote default and nothing unique is lost.
     if (tree.branch) {
-      if (tree.branch === `refs/heads/${defaultBranch}`) return "default branch";
-      if (protectedBranch(tree.branch)) return "long-lived branch or existing upstream";
+      if (tree.branch === `refs/heads/${defaultBranch}`) {
+        return "default branch";
+      }
+      if (protectedBranch(tree.branch)) {
+        return "long-lived branch or existing upstream";
+      }
     }
-    if (busy(tree.path, openPaths)) return "active process or open file";
-    if (unfinished(tree.path, runner)) return "unfinished Git operation";
-    if (checked(runner, tree.path, "git", ["status", "--porcelain", "--untracked-files=all"]))
+    if (busy(tree.path, openPaths)) {
+      return "active process or open file";
+    }
+    if (unfinished(tree.path, runner)) {
+      return "unfinished Git operation";
+    }
+    if (checked(runner, tree.path, "git", ["status", "--porcelain", "--untracked-files=all"])) {
       return "dirty worktree";
+    }
     const ignored = checked(runner, tree.path, "git", [
       "ls-files",
       "--others",
@@ -222,15 +258,21 @@ export function candidates(
         .split("\0")
         .filter(Boolean)
         .some((path) => !/(^|\/)node_modules\/$/.test(path))
-    )
+    ) {
       return "ignored local files retained";
-    if (!merged(tree.head)) return "HEAD not in remote default (including squash merges)";
+    }
+    if (!merged(tree.head)) {
+      return "HEAD not in remote default (including squash merges)";
+    }
     return undefined;
   };
   for (const tree of worktrees.slice(1)) {
     const reason = worktreeReason(tree);
-    if (reason) kept.push({ target: tree.path, result: reason });
-    else eligible.push({ kind: "worktree", path: tree.path, branch: tree.branch, head: tree.head });
+    if (reason) {
+      kept.push({ target: tree.path, result: reason });
+    } else {
+      eligible.push({ kind: "worktree", path: tree.path, branch: tree.branch, head: tree.head });
+    }
   }
   for (const row of refs) {
     const [branch, head] = row.split("\0");
@@ -240,16 +282,19 @@ export function candidates(
       branch === `refs/heads/${defaultBranch}` ||
       checkedOut.has(branch) ||
       protectedBranch(branch)
-    )
+    ) {
       continue;
+    }
     if (busy(repo, openPaths) || unfinished(repo, runner)) {
       kept.push({ target: branch, result: "owning checkout active" });
-    } else if (merged(head)) eligible.push({ kind: "branch", path: repo, branch, head });
-    else
+    } else if (merged(head)) {
+      eligible.push({ kind: "branch", path: repo, branch, head });
+    } else {
       kept.push({
         target: branch,
         result: "commits not in remote default (including squash merges)",
       });
+    }
   }
   return { eligible, kept };
 }
@@ -264,7 +309,9 @@ export function cleanRepository(
   runner: Runner = run,
 ) {
   const initial = candidates(repo, roots, activity(), runner);
-  if (apply && initial.eligible.length) checked(runner, repo, "git", ["remote", "prune", "origin"]);
+  if (apply && initial.eligible.length) {
+    checked(runner, repo, "git", ["remote", "prune", "origin"]);
+  }
   const next: Record<string, { head: string; since: number }> = {};
   const entries = [...initial.kept];
   for (const candidate of initial.eligible) {
@@ -328,7 +375,9 @@ export function cleanRepository(
             ? "local default branch is behind the remote; pull before removal"
             : "Git refused removal; retained",
     });
-    if (result.status === 0) delete next[key];
+    if (result.status === 0) {
+      delete next[key];
+    }
   }
   return { entries, candidates: next };
 }
@@ -339,9 +388,12 @@ export function lastChanged(root: string): number {
   let visited = 0;
   while (pending.length > 0) {
     const path = pending.pop();
-    if (path === undefined) break;
-    if (++visited > 100_000)
+    if (path === undefined) {
+      break;
+    }
+    if (++visited > 100_000) {
       throw new Error("worktree activity inspection limit exceeded; retained local work");
+    }
     const info = lstatSync(path);
     latest = Math.max(latest, info.mtimeMs, info.ctimeMs, info.birthtimeMs);
     if (info.isDirectory()) {
@@ -351,7 +403,9 @@ export function lastChanged(root: string): number {
         if (entry.name === "node_modules" && entry.isDirectory()) {
           const dependency = lstatSync(join(path, entry.name));
           latest = Math.max(latest, dependency.mtimeMs, dependency.ctimeMs, dependency.birthtimeMs);
-        } else pending.push(join(path, entry.name));
+        } else {
+          pending.push(join(path, entry.name));
+        }
       }
     }
   }

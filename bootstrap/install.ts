@@ -35,7 +35,9 @@ const execute = Effect.fn("executeInstallCommand")(function* (
         (error) => new CliFailure({ exitCode: 1, message: `${label}: ${error.message}` }),
       ),
     );
-  if (result.status !== 0) return yield* fail(`${label} exited ${result.status}`, result.status);
+  if (result.status !== 0) {
+    return yield* fail(`${label} exited ${result.status}`, result.status);
+  }
 });
 
 const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
@@ -91,8 +93,9 @@ const miseShims = join(
   process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"),
   "shims",
 );
-if (!(process.env.PATH || "").split(":").includes(miseShims))
+if (!(process.env.PATH || "").split(":").includes(miseShims)) {
   process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
+}
 
 const program = Effect.gen(function* () {
   let profileInput: string | undefined;
@@ -141,21 +144,23 @@ const program = Effect.gen(function* () {
     yield* Console.log(steps.join("\n"));
     return;
   }
-  if (!switchProfile)
+  if (!switchProfile) {
     yield* guardProfileSwitch(profile).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
     );
+  }
   if (selected.capabilities.workstation && process.platform !== "darwin") {
     return yield* fail(
       `${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`,
       2,
     );
   }
-  if (maintenance && process.platform === "darwin")
+  if (maintenance && process.platform === "darwin") {
     yield* execute("converge packages", resolve(repoRoot, "homebrew/brew-bundle.ts"), [
       "--maintenance",
       profile,
     ]);
+  }
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

@@ -53,7 +53,9 @@ const program = Effect.gen(function* () {
     const argument = args[index];
     if (argument === "--state") {
       const value = args[index + 1];
-      if (!value) return yield* fail("--state requires a value", 2);
+      if (!value) {
+        return yield* fail("--state requires a value", 2);
+      }
       statePath = value;
       index += 1;
     } else if (argument === "--disable") {

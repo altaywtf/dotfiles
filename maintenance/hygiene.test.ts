@@ -100,7 +100,9 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const childReady = new Promise<void>((resolveReady, reject) => {
         watcher = watch(home, (_event, filename) => {
-          if (filename !== "ready") return;
+          if (filename !== "ready") {
+            return;
+          }
           childPid = Number(readFileSync(ready, "utf8"));
           clearTimeout(timer);
           watcher?.close();
@@ -132,7 +134,9 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
       t.onTestFinished(() => {
         clearTimeout(timer);
         watcher?.close();
-        if (parent.exitCode === null && parent.signalCode === null) parent.kill("SIGKILL");
+        if (parent.exitCode === null && parent.signalCode === null) {
+          parent.kill("SIGKILL");
+        }
         if (childPid !== undefined) {
           try {
             process.kill(childPid, "SIGKILL");

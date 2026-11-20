@@ -142,8 +142,9 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
     const selection = inventory[tool]?.find(
       (entry) => entry.requested_version === configured[tool],
     );
-    if (configured[tool] && !selection)
+    if (configured[tool] && !selection) {
       throw new Error(`mise did not report the configured installation of ${tool}`);
+    }
     if (configured[tool] !== pin || !selection?.installed) {
       pending[tool] = {
         declared: pin,
@@ -194,7 +195,9 @@ function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBa
       name: item.name,
       status,
     };
-    if (app_version) verification.app_version = app_version;
+    if (app_version) {
+      verification.app_version = app_version;
+    }
     return verification;
   });
   return { ...backlog, casks, record_lag, cask_verification };
@@ -212,7 +215,9 @@ function firstLine(result: RawCommandResult): string {
 function parseDisk(result: RawCommandResult) {
   const fields = result.stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
   const mount = fields.at(-1);
-  if (fields.length < 6 || mount === undefined) throw new Error("df returned an unsupported shape");
+  if (fields.length < 6 || mount === undefined) {
+    throw new Error("df returned an unsupported shape");
+  }
   return {
     total_kb: Number(fields[1]),
     used_kb: Number(fields[2]),
@@ -318,8 +323,9 @@ function checkoutPath(context: MaintenanceContext): string | undefined {
 }
 
 function skillFacts(context: MaintenanceContext) {
-  if (context.profileConfig.agentLayers.length === 0)
+  if (context.profileConfig.agentLayers.length === 0) {
     return { managed: false, selected: 0, locked: 0, installed: 0 };
+  }
   const { skills: selected } = readLayeredSkills(
     context.repoRoot,
     context.profile,
@@ -445,7 +451,9 @@ function buildProbes(context: MaintenanceContext): Probe[] {
         env: context.env,
       }),
     );
-    for (const item of probes.slice(-2)) item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
+    for (const item of probes.slice(-2)) {
+      item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
+    }
   }
   return probes;
 }
@@ -504,17 +512,27 @@ const PendingList = Schema.Array(Schema.Unknown);
 function backlogCount(probes: Record<string, ProbeResult>): number {
   let count = 0;
   const brew = Schema.decodeUnknownOption(BrewOutdated)(probes.brew_outdated_greedy?.value);
-  if (Option.isSome(brew)) count += brew.value.formulae.length + brew.value.casks.length;
+  if (Option.isSome(brew)) {
+    count += brew.value.formulae.length + brew.value.casks.length;
+  }
   const misePending = new Set<string>();
   for (const id of ["mise_outdated", "mise_convergence"]) {
     const value = Schema.decodeUnknownOption(PendingKeys)(probes[id]?.value);
-    if (Option.isSome(value)) for (const tool of Object.keys(value.value)) misePending.add(tool);
+    if (Option.isSome(value)) {
+      for (const tool of Object.keys(value.value)) {
+        misePending.add(tool);
+      }
+    }
   }
   count += misePending.size;
   const npm = Schema.decodeUnknownOption(PendingKeys)(probes.npm_outdated?.value);
-  if (Option.isSome(npm)) count += Object.keys(npm.value).length;
+  if (Option.isSome(npm)) {
+    count += Object.keys(npm.value).length;
+  }
   const mas = Schema.decodeUnknownOption(PendingList)(probes.mas_outdated?.value);
-  if (Option.isSome(mas)) count += mas.value.length;
+  if (Option.isSome(mas)) {
+    count += mas.value.length;
+  }
   return count;
 }
 
@@ -555,7 +573,9 @@ export async function collectMaintenanceSnapshot(
     inventory,
   ]);
   const probes: MaintenanceProbes = {};
-  for (const [id, result] of entries) probes[id] = result;
+  for (const [id, result] of entries) {
+    probes[id] = result;
+  }
   if (macosUpdates) {
     const softwareUpdate: ProbeResult<MacOSUpdateInventory> = {
       status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
@@ -563,8 +583,9 @@ export async function collectMaintenanceSnapshot(
       duration_ms: macosUpdates.duration_ms,
       value: macosUpdates,
     };
-    if (macosUpdates.applicability.status === "unknown")
+    if (macosUpdates.applicability.status === "unknown") {
       softwareUpdate.error = "macOS update applicability could not be established";
+    }
     probes.software_update = softwareUpdate;
   }
   const backlog_count = backlogCount(probes);
@@ -598,7 +619,9 @@ export async function collectMaintenanceSnapshot(
 
 function ownsHomebrew(env: NodeJS.ProcessEnv): boolean {
   const result = spawnSync("brew", ["--prefix"], { encoding: "utf8", env });
-  if (result.status !== 0) return false;
+  if (result.status !== 0) {
+    return false;
+  }
   try {
     return statSync(result.stdout.trim()).uid === (process.getuid?.() ?? -1);
   } catch {

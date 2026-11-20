@@ -189,9 +189,11 @@ function main(args: string[]): number {
   let format: AuditFormat = "text";
   let config = "";
   for (let index = 0; index < args.length; index += 1) {
-    if (args[index] === "--json") format = "json";
-    else if (args[index] === "--config" && args[index + 1]) config = args[++index];
-    else {
+    if (args[index] === "--json") {
+      format = "json";
+    } else if (args[index] === "--config" && args[index + 1]) {
+      config = args[++index];
+    } else {
       process.stderr.write("Usage: audit/devbox.ts [--config PATH] [--json]\n");
       return 2;
     }

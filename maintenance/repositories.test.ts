@@ -422,8 +422,9 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "branch", "-d", "finished");
     const offline: Runner = (cwd, command, args) => {
-      if (args[0] === "ls-remote" || args[0] === "remote")
+      if (args[0] === "ls-remote" || args[0] === "remote") {
         throw new Error("unexpected network access");
+      }
       return runner(cwd, command, args);
     };
     const result = clean(f, {}, baseline + gracePeriod, { run: offline });

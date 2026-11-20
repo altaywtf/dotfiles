@@ -49,13 +49,21 @@ function ownerFileAlive(path: string, probe: LockProbe): boolean {
   } catch {
     return true;
   }
-  if (typeof metadata !== "object" || metadata === null) return true;
+  if (typeof metadata !== "object" || metadata === null) {
+    return true;
+  }
   const { pid, bootTime } = metadata as { pid?: unknown; bootTime?: unknown };
-  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return true;
-  if (typeof bootTime !== "number" || !Number.isFinite(bootTime)) return true;
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) {
+    return true;
+  }
+  if (typeof bootTime !== "number" || !Number.isFinite(bootTime)) {
+    return true;
+  }
   const currentBoot = (probe.now?.() ?? Date.now()) - (probe.uptimeMs?.() ?? uptime() * 1000);
   // Recorded before the current boot: the pid belongs to an unrelated process by now.
-  if (bootTime < currentBoot - bootSkewMs) return false;
+  if (bootTime < currentBoot - bootSkewMs) {
+    return false;
+  }
   return (probe.processAlive ?? processAlive)(pid);
 }
 
@@ -136,16 +144,21 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
     try {
       mkdirSync(lock, { mode: 0o700 });
     } catch (error) {
-      if (!hasErrorCode(error, "EEXIST")) throw error;
+      if (!hasErrorCode(error, "EEXIST")) {
+        throw error;
+      }
       if (!lockOwnerAlive(lock, options)) {
         log(`reclaiming stale lock left by a dead process: ${lock}`);
-        if (reclaimOwner(lock, options) === "won") return writeOwner();
+        if (reclaimOwner(lock, options) === "won") {
+          return writeOwner();
+        }
         // Another contender won the reclaim (and now holds the lock) or the
         // holder released; the wait path observes either outcome.
       }
       const remaining = deadline - now();
-      if (remaining <= 0)
+      if (remaining <= 0) {
         throw new Error(`lock is held by an active process: ${lock}`, { cause: error });
+      }
       if (!announced) {
         announced = true;
         log(`waiting up to ${Math.ceil(remaining / 60_000)} minutes for ${lock}`);

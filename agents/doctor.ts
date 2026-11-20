@@ -47,8 +47,12 @@ function capture(runtime: Runtime, command: string, args: readonly string[]) {
 
 function helperProblem(path: string): string | undefined {
   const info = statSync(path, { throwIfNoEntry: false });
-  if (!info) return "is missing";
-  if (!info.isFile()) return "is not a regular file";
+  if (!info) {
+    return "is missing";
+  }
+  if (!info.isFile()) {
+    return "is not a regular file";
+  }
   try {
     accessSync(path, constants.X_OK);
   } catch {
@@ -86,7 +90,9 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
       ? undefined
       : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
   const helperFailure = helper === undefined ? undefined : helperFinding(runtime, mcp, helper);
-  if (helperFailure !== undefined) return helperFailure;
+  if (helperFailure !== undefined) {
+    return helperFailure;
+  }
 
   const result = capture(runtime, "claude", ["mcp", "get", mcp.name]);
   const statusLine =

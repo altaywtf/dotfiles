@@ -18,9 +18,11 @@ const signerSource = join(
 
 const program = Effect.scoped(
   Effect.gen(function* () {
-    for (const key of Object.keys(process.env))
-      if (key.startsWith("GIT_") && !["GIT_USER_NAME", "GIT_USER_EMAIL"].includes(key))
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_") && !["GIT_USER_NAME", "GIT_USER_EMAIL"].includes(key)) {
         delete process.env[key];
+      }
+    }
     const fs = yield* FileSystem.FileSystem;
     const runner = yield* CommandRunner;
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-configure-git." });

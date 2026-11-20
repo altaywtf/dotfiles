@@ -30,13 +30,17 @@ function present(path: string, skipped: SkippedPath): boolean {
     lstatSync(path);
     return true;
   } catch (error) {
-    if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) skipped(path);
+    if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) {
+      skipped(path);
+    }
     return false;
   }
 }
 
 function discoveredFile(path: string, skipped: SkippedPath): boolean {
-  if (Option.exists(stat(path), (info) => info.isFile())) return true;
+  if (Option.exists(stat(path), (info) => info.isFile())) {
+    return true;
+  }
   skipped(path);
   return false;
 }
@@ -55,25 +59,36 @@ export function walkFiles(
   skipped: SkippedPath,
   options: WalkOptions = {},
 ): string[] {
-  if (!present(root, skipped)) return [];
+  if (!present(root, skipped)) {
+    return [];
+  }
   try {
     const info = statSync(root);
-    if (info.isFile()) return [root];
+    if (info.isFile()) {
+      return [root];
+    }
     if (!info.isDirectory()) {
       skipped(root);
       return [];
     }
     return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
       const path = join(root, entry.name);
-      if (entry.isDirectory())
+      if (entry.isDirectory()) {
         return maxDepth > 0 && !options.skipDirectories?.has(entry.name)
           ? walkFiles(path, maxDepth - 1, skipped, options)
           : [];
-      if (entry.isFile()) return [path];
+      }
+      if (entry.isFile()) {
+        return [path];
+      }
       // Follow file links; directory links are reported instead of recursively
       // expanding arbitrary trees or cycles outside the selected audit scope.
-      if (!entry.isSymbolicLink()) return [];
-      if (options.ignoreDirectoryLinks && linkedDirectory(path)) return [];
+      if (!entry.isSymbolicLink()) {
+        return [];
+      }
+      if (options.ignoreDirectoryLinks && linkedDirectory(path)) {
+        return [];
+      }
       return discoveredFile(path, skipped) ? [path] : [];
     });
   } catch {
@@ -90,8 +105,12 @@ export function resolveSources(
   const paths = sources.flatMap((source) => {
     if (source.kind === "path") {
       const path = homePath(home, source.path);
-      if (!present(path, skipped)) return [];
-      if (Option.exists(stat(path), (info) => info.isFile() || info.isDirectory())) return [path];
+      if (!present(path, skipped)) {
+        return [];
+      }
+      if (Option.exists(stat(path), (info) => info.isFile() || info.isDirectory())) {
+        return [path];
+      }
       skipped(path);
       return [];
     }

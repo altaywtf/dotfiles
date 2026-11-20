@@ -40,12 +40,15 @@ function run(repo: string, command: string, args: string[], capture = false): st
       HOMEBREW_NO_UPGRADE_QUIT_CASKS: "1",
     },
   });
-  if (result.error) throw result.error;
-  if (result.status !== 0)
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
     throw new UpdateFailure(
       `${command} ${args[0]} failed${capture ? `: ${result.stderr?.trim()}` : ""}`,
       result.status ?? 1,
     );
+  }
   return result.stdout?.trim() ?? "";
 }
 
@@ -72,7 +75,9 @@ export function syncCheckout(
   }
   const remote = git("symbolic-ref", "refs/remotes/origin/HEAD");
   const branch = defaultBranchFromRemoteHead(remote);
-  if (!branch) throw new UpdateFailure(`${label} has no default branch on origin`);
+  if (!branch) {
+    throw new UpdateFailure(`${label} has no default branch on origin`);
+  }
   const head = () => probe("symbolic-ref", "-q", "HEAD").stdout.trim();
   const before = { revision: git("rev-parse", "HEAD"), head: head() };
   for (const delay of [...fetchRetryDelaysMs, undefined]) {
@@ -80,7 +85,9 @@ export function syncCheckout(
       git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
       break;
     } catch (error) {
-      if (!isUpdateFailure(error) || delay === undefined) throw error;
+      if (!isUpdateFailure(error) || delay === undefined) {
+        throw error;
+      }
       process.stderr.write(`${label} ${error.message}; retrying in ${delay / 1000}s\n`);
       sleep(delay);
     }
@@ -91,8 +98,9 @@ export function syncCheckout(
     );
   }
   const clean = () => {
-    if (git("status", "--porcelain", "--untracked-files=all"))
+    if (git("status", "--porcelain", "--untracked-files=all")) {
       throw new LocalWork(`${label} has local changes; commit or resolve them before retrying`);
+    }
     for (const state of [
       "MERGE_HEAD",
       "CHERRY_PICK_HEAD",
@@ -101,21 +109,28 @@ export function syncCheckout(
       "rebase-apply",
       "sequencer",
     ]) {
-      if (existsSync(resolve(repo, git("rev-parse", "--git-path", state))))
+      if (existsSync(resolve(repo, git("rev-parse", "--git-path", state)))) {
         throw new LocalWork(`finish the current Git operation in the ${label}`);
+      }
     }
   };
   clean();
-  if (before.head !== `refs/heads/${branch}`)
+  if (before.head !== `refs/heads/${branch}`) {
     throw new LocalWork(`${label} is not on its default branch ${branch}`);
-  if (git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote)
+  }
+  if (git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote) {
     throw new UpdateFailure(`${label} updates require the default branch tracking origin`);
+  }
   const ancestry = probe("merge-base", "--is-ancestor", "HEAD", remote);
-  if (ancestry.error) throw ancestry.error;
-  if (ancestry.status === 1)
+  if (ancestry.error) {
+    throw ancestry.error;
+  }
+  if (ancestry.status === 1) {
     throw new LocalWork(`${label} has commits that are not on origin/${branch}`);
-  if (ancestry.status !== 0)
+  }
+  if (ancestry.status !== 0) {
     throw new UpdateFailure(`${label} ancestry check failed with git status ${ancestry.status}`);
+  }
   git("merge", "--ff-only", "--no-autostash", "--no-edit", remote);
   clean();
   return git("rev-parse", "HEAD");
@@ -142,7 +157,9 @@ function ruleSourceCheckouts(home: string, repo: string): string[] {
     const fragment = join(home, ".config/dotfiles", name);
     let target: string;
     try {
-      if (!lstatSync(fragment).isSymbolicLink()) continue;
+      if (!lstatSync(fragment).isSymbolicLink()) {
+        continue;
+      }
       target = realpathSync(fragment);
     } catch {
       continue; // profile setup reports broken fragment links
@@ -151,7 +168,9 @@ function ruleSourceCheckouts(home: string, repo: string): string[] {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-    if (root.status === 0) checkouts.add(realpathSync(root.stdout.trim()));
+    if (root.status === 0) {
+      checkouts.add(realpathSync(root.stdout.trim()));
+    }
   }
   checkouts.delete(realpathSync(repo));
   return [...checkouts];
@@ -175,7 +194,9 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
     try {
       revision = syncCheckout(repo, undefined, options.sleep);
     } catch (error) {
-      if (!isLocalWork(error)) throw error;
+      if (!isLocalWork(error)) {
+        throw error;
+      }
       process.stderr.write(`Kept ${repo}: ${error.message}; convergence skipped\n`);
       return;
     }
@@ -187,9 +208,13 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
         );
         process.stdout.write(`Agent rule checkout ${checkout} at ${advanced}\n`);
       } catch (error) {
-        if (isLocalWork(error)) process.stderr.write(`Kept ${checkout}: ${error.message}\n`);
-        else if (isUpdateFailure(error)) failed.push(`${checkout}: ${error.message}`);
-        else throw error;
+        if (isLocalWork(error)) {
+          process.stderr.write(`Kept ${checkout}: ${error.message}\n`);
+        } else if (isUpdateFailure(error)) {
+          failed.push(`${checkout}: ${error.message}`);
+        } else {
+          throw error;
+        }
       }
     }
     process.stdout.write(`Converging dotfiles ${revision}\n`);
@@ -197,8 +222,9 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
     // The shell bootstrap selects the new repository Node pin before loading dependencies.
     run(repo, join(repo, "dotfiles"), ["maintain"]);
     process.stdout.write(`Dotfiles converged at ${revision}\n`);
-    if (failed.length > 0)
+    if (failed.length > 0) {
       throw new UpdateFailure(`agent rule checkouts not updated:\n${failed.join("\n")}`);
+    }
   } finally {
     release();
   }
@@ -206,8 +232,9 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
 
 if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
   try {
-    if (process.argv.length !== 2 || process.getuid?.() === 0)
+    if (process.argv.length !== 2 || process.getuid?.() === 0) {
       throw new UpdateFailure("run dotfiles convergence as the enrolled user, without arguments");
+    }
     converge(resolve(import.meta.dirname, ".."));
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

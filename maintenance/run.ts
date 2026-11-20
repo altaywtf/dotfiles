@@ -102,7 +102,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
 
   const destination = yield* Effect.gen(function* () {
-    if (!(yield* fs.exists(configPath))) return undefined;
+    if (!(yield* fs.exists(configPath))) {
+      return undefined;
+    }
     const link = yield* fs.readLink(configPath).pipe(Effect.option);
     const info = yield* fs.stat(configPath);
     if (
@@ -136,22 +138,30 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
 
   const blocked = yield* Effect.gen(function* () {
-    if (!(yield* fs.exists(path))) return false;
+    if (!(yield* fs.exists(path))) {
+      return false;
+    }
     const previous = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PreviousReceipt))(
       yield* fs.readFileString(path),
     );
-    if (previous.cleanupComplete !== false) return false;
-    if (!previous.bootId || !bootId || previous.bootId === bootId) return true;
+    if (previous.cleanupComplete !== false) {
+      return false;
+    }
+    if (!previous.bootId || !bootId || previous.bootId === bootId) {
+      return true;
+    }
     yield* Console.log("The previous update ended with a reboot; none of its processes remain.");
     return false;
   }).pipe(Effect.catch(() => Effect.succeed(true)));
-  if (blocked)
+  if (blocked) {
     yield* Console.error(
       "Previous update cleanup is unverified; refusing to start another update.",
     );
+  }
   const gateSaved = yield* receipt({ state: "running", cleanupComplete: false });
-  if (!gateSaved)
+  if (!gateSaved) {
     yield* Console.error("Cannot persist the cleanup gate; refusing to start another update.");
+  }
   const execution =
     blocked || !gateSaved
       ? { status: 125, timedOut: false, cleanupComplete: !blocked }
@@ -176,8 +186,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         : "Timeout diagnostics could not be saved.",
     );
   }
-  if (!execution.cleanupComplete)
+  if (!execution.cleanupComplete) {
     yield* Console.error("Update process cleanup is incomplete; inspect before retrying.");
+  }
   // Persist cleanup before network delivery: cancellation must not reopen the retry gate.
   yield* receipt({
     state: "running",
@@ -192,8 +203,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       Effect.map((state) => state.failing),
       Effect.orElseSucceed(() => false),
     );
-    if (failing === notified) alert = "not-needed";
-    else {
+    if (failing === notified) {
+      alert = "not-needed";
+    } else {
       const host = hostname();
       const subject = failing
         ? `${host}: ${job} failed with exit code ${status}`
@@ -226,7 +238,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
           signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
         });
         const body = await response.text();
-        if (!response.ok) throw new Error(`alert rejected with HTTP ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`alert rejected with HTTP ${response.status}`);
+        }
         return body.slice(0, 65_536);
       }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(SendResult))),
@@ -265,7 +279,9 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
       return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
-    if (process.platform === "darwin" && !(yield* awaitFullWake())) return;
+    if (process.platform === "darwin" && !(yield* awaitFullWake())) {
+      return;
+    }
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
   }).pipe(
     Effect.provide(BoundedCommand.layer),

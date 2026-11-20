@@ -110,8 +110,9 @@ for (const scenario of [
 ] as const) {
   test(`update reporting preserves ${scenario} without repeating the command`, async (t) => {
     const home = await tempHome(t, "dotfiles-report-");
-    if (scenario !== "unconfigured")
+    if (scenario !== "unconfigured") {
       await writeAlertConfig(home, scenario === "invalid" ? "not-json" : undefined);
+    }
     let executions = 0;
     const sent: SentAlert[] = [];
     const expected =
@@ -240,9 +241,15 @@ for (const outcome of ["network", 401, 500, "malformed", "unacknowledged", "boun
     const command = fixedCommand({ status: 23 });
     const sent: SentAlert[] = [];
     const failing = recordingSender(sent, () => {
-      if (outcome === "network") throw new TypeError("fetch failed");
-      if (typeof outcome === "number") return new Response(null, { status: outcome });
-      if (outcome === "malformed") return new Response("<html>", { status: 200 });
+      if (outcome === "network") {
+        throw new TypeError("fetch failed");
+      }
+      if (typeof outcome === "number") {
+        return new Response(null, { status: outcome });
+      }
+      if (outcome === "malformed") {
+        return new Response("<html>", { status: 200 });
+      }
       return outcome === "bounced"
         ? accepted({ permanent_bounces: [alertConfig.to] })
         : accepted({ queued: [] });

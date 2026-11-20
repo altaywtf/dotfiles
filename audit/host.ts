@@ -62,7 +62,9 @@ function reportEntries(report: string, key: string): Array<{ id: string; text: s
 }
 
 function positiveInteger(value: string, option: string): number {
-  if (!/^\d+$/.test(value)) throw new Error(`invalid ${option}: ${value}`);
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`invalid ${option}: ${value}`);
+  }
   return Number(value);
 }
 
@@ -78,7 +80,9 @@ export function parseHostArgs(args: readonly string[]): HostAuditOptions | "help
       help: { type: "boolean", short: "h" },
     },
   });
-  if (values.help) return "help";
+  if (values.help) {
+    return "help";
+  }
   return {
     format: values.json ? "json" : "text",
     allowSudoPrompt: values["allow-sudo-prompt"] ?? false,
@@ -133,8 +137,9 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     let executable = "lynis";
     if (uid !== 0 && options.allowSudoPrompt) {
       const availability = command("lynis", ["--version"], { output: "discard" });
-      if (availability.error?.message.includes("ENOENT")) report.fail("lynis is missing");
-      else {
+      if (availability.error?.message.includes("ENOENT")) {
+        report.fail("lynis is missing");
+      } else {
         privileged = true;
         executable = "sudo";
         result = command("sudo", ["lynis", ...args], commandOptions);
@@ -146,17 +151,21 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
 
     const started = result?.error === undefined && result !== undefined;
     if (result) {
-      if (result.error?.message.includes("ENOENT")) report.fail(`${executable} is missing`);
-      else if (result.error) report.fail(`lynis could not start: ${result.error.message}`);
-      else {
-        if (uid !== 0 && !options.allowSudoPrompt)
+      if (result.error?.message.includes("ENOENT")) {
+        report.fail(`${executable} is missing`);
+      } else if (result.error) {
+        report.fail(`lynis could not start: ${result.error.message}`);
+      } else {
+        if (uid !== 0 && !options.allowSudoPrompt) {
           report.warn(
             "running Lynis without sudo; rerun with --allow-sudo-prompt for deeper OS checks",
           );
+        }
         if (result.status !== 0) {
           report.fail(`lynis exited with status ${result.status ?? "unknown"}`);
-          if (options.format === "text")
+          if (options.format === "text") {
             stderr(`${result.stdout}\n${result.stderr}`.split("\n").slice(0, 40).join("\n") + "\n");
+          }
         }
       }
     }
@@ -165,21 +174,26 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
       report.fail("lynis did not write a report file");
     } else if (started) {
       const contents = readFileSync(reportFile, "utf8");
-      if (!contents) report.fail("lynis did not write a report file");
-      else {
+      if (!contents) {
+        report.fail("lynis did not write a report file");
+      } else {
         lynisVersion = reportValue(contents, "lynis_version") || "unknown";
         hardeningIndex = Number(reportValue(contents, "hardening_index")) || 0;
         testsPerformed = Number(reportValue(contents, "lynis_tests_done")) || 0;
         warningEntries = reportEntries(contents, "warning");
         suggestionEntries = reportEntries(contents, "suggestion");
-        if (warningEntries.length > 0)
+        if (warningEntries.length > 0) {
           report.warn(`lynis reported ${warningEntries.length} warnings`);
-        else report.ok("lynis reported no warnings");
+        } else {
+          report.ok("lynis reported no warnings");
+        }
         if (options.minHardeningIndex !== undefined && hardeningIndex < options.minHardeningIndex) {
           report.fail(
             `lynis hardening index ${hardeningIndex} is below ${options.minHardeningIndex}`,
           );
-        } else report.ok(`lynis hardening index ${hardeningIndex}`);
+        } else {
+          report.ok(`lynis hardening index ${hardeningIndex}`);
+        }
         if (options.format === "text") {
           stdout(
             `lynis tests performed: ${testsPerformed}\nlynis suggestions: ${suggestionEntries.length}\n`,
@@ -188,9 +202,13 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
             ["Lynis warnings", warningEntries],
             ["Top Lynis suggestions", suggestionEntries],
           ] as const) {
-            if (entries.length === 0) continue;
+            if (entries.length === 0) {
+              continue;
+            }
             stdout(`\n${title}:\n`);
-            for (const entry of entries.slice(0, 10)) stdout(`  - ${entry.id}: ${entry.text}\n`);
+            for (const entry of entries.slice(0, 10)) {
+              stdout(`  - ${entry.id}: ${entry.text}\n`);
+            }
           }
         }
       }
@@ -199,19 +217,24 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     if (options.keepArtifacts) {
       mkdirSync(options.keepArtifacts, { recursive: true, mode: 0o700 });
       chmodSync(options.keepArtifacts, 0o700);
-      if (canAccess(reportFile, constants.R_OK))
+      if (canAccess(reportFile, constants.R_OK)) {
         copyFileSync(reportFile, join(options.keepArtifacts, "lynis-report.dat"));
-      if (canAccess(logFile, constants.R_OK))
+      }
+      if (canAccess(logFile, constants.R_OK)) {
         copyFileSync(logFile, join(options.keepArtifacts, "lynis.log"));
-      if (options.format === "text")
+      }
+      if (options.format === "text") {
         report.warn(
           `kept full Lynis artifacts under ${options.keepArtifacts}; review before sharing`,
         );
+      }
     }
   } catch (error) {
     report.fail(`host audit failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
-    if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
+    if (temporaryDirectory) {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
   }
 
   return report.finish("host-security", "host security audit summary", {

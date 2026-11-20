@@ -52,13 +52,14 @@ export async function runProbe(
     timeoutMs: spec.timeoutMs ?? defaultTimeoutMs,
   });
   const duration_ms = Math.round(performance.now() - started);
-  if (result.timedOut)
+  if (result.timedOut) {
     return {
       status: "timed_out",
       required: spec.required,
       duration_ms,
       error: `timed out after ${spec.timeoutMs ?? defaultTimeoutMs}ms`,
     };
+  }
   if (Predicate.hasProperty(result.error, "code") && result.error.code === "ENOENT") {
     return {
       status: "unavailable",
@@ -115,7 +116,9 @@ export function runProcess(
     let drainTimer: ReturnType<typeof setTimeout> | undefined;
     let exitStatus: number | null = null;
     const complete = (result: RawCommandResult) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
@@ -124,11 +127,15 @@ export function runProcess(
       child.stdout.destroy();
       child.stderr.destroy();
       // A timed-out child must not retain the collector if it cannot be reaped yet.
-      if (timedOut) child.unref();
+      if (timedOut) {
+        child.unref();
+      }
       finish(canceled ? { ...result, error: new Error("maintenance probe canceled") } : result);
     };
     const cancel = () => {
-      if (settled || canceled) return;
+      if (settled || canceled) {
+        return;
+      }
       canceled = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
@@ -145,8 +152,9 @@ export function runProcess(
           200,
         );
       };
-      if (exited) drain();
-      else {
+      if (exited) {
+        drain();
+      } else {
         // Wait for the owned child to be reaped before finishing cancellation.
         child.once("exit", drain);
         child.kill("SIGTERM");
@@ -187,7 +195,9 @@ export function runProcess(
     child.on("exit", (status) => {
       exitStatus = status;
       exited = true;
-      if (canceled) clearTimeout(killTimer);
+      if (canceled) {
+        clearTimeout(killTimer);
+      }
     });
     child.on("close", (status) =>
       complete({

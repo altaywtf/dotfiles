@@ -112,8 +112,9 @@ const program = Effect.gen(function* () {
         profile,
       );
     case "apply":
-      if (agentSource !== undefined)
+      if (agentSource !== undefined) {
         yield* saveAgentSource(resolve(homedir(), ".config/dotfiles"), agentSource);
+      }
       return yield* delegate(
         "bootstrap/install.ts",
         ["--profile", profile, ...(switchProfile ? ["--switch-profile"] : [])],

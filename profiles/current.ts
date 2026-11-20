@@ -109,7 +109,9 @@ export const resolveProfile = Effect.fn("resolveProfile")(function* (
   let candidate = requested;
   if (!candidate) {
     const recorded = yield* readRecordedProfile(env, expectedUid);
-    if (Option.isSome(recorded)) return recorded.value;
+    if (Option.isSome(recorded)) {
+      return recorded.value;
+    }
     candidate = env.DOTFILES_PROFILE;
   }
   if (!candidate?.trim()) {

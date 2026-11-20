@@ -38,7 +38,9 @@ const program = Effect.gen(function* () {
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.sh"],
     { cwd: repoRoot },
   );
-  if (listed.status !== 0) return yield* fail("cannot discover shell sources");
+  if (listed.status !== 0) {
+    return yield* fail("cannot discover shell sources");
+  }
   const trackedShell = yield* Effect.filter(
     listed.stdout
       .split("\0")
@@ -67,8 +69,9 @@ const program = Effect.gen(function* () {
   }
   yield* runRequired("git", ["diff", "--check"], "working-tree diff hygiene");
   yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
-  if (process.platform === "darwin")
+  if (process.platform === "darwin") {
     yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
+  }
 
   const agentsPath = resolve(repoRoot, "AGENTS.md");
   const claudePath = resolve(repoRoot, "CLAUDE.md");

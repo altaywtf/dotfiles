@@ -17,9 +17,12 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
   ]) {
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
-    if (Option.isSome(link) && !exists)
+    if (Option.isSome(link) && !exists) {
       return yield* fail(`local agent rules link is broken: ${path}`);
-    if (!exists) continue;
+    }
+    if (!exists) {
+      continue;
+    }
     const info = yield* fs
       .stat(path)
       .pipe(
@@ -28,8 +31,9 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
             new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` }),
         ),
       );
-    if (info.type !== "File")
+    if (info.type !== "File") {
       return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
+    }
     if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
       return yield* fail(`local agent rules must be owned by the current user: ${path}`);
     }

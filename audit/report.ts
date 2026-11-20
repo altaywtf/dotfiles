@@ -31,12 +31,16 @@ export class AuditReport {
   }
 
   section(title: string): void {
-    if (this.format === "text") this.stdout(`\n## ${title}\n`);
+    if (this.format === "text") {
+      this.stdout(`\n## ${title}\n`);
+    }
   }
 
   finding(severity: FindingSeverity, message: string): void {
     this.findings.push({ severity, message });
-    if (this.format === "json") return;
+    if (this.format === "json") {
+      return;
+    }
     const line = `${severity === "fail" ? "FAILED:" : severity} ${message}\n`;
     (severity === "ok" ? this.stdout : this.stderr)(line);
   }
@@ -54,9 +58,15 @@ export class AuditReport {
   }
 
   output(result: CommandResult): void {
-    if (this.format !== "text") return;
-    if (result.stdout) this.stdout(result.stdout);
-    if (result.stderr) this.stderr(result.stderr);
+    if (this.format !== "text") {
+      return;
+    }
+    if (result.stdout) {
+      this.stdout(result.stdout);
+    }
+    if (result.stderr) {
+      this.stderr(result.stderr);
+    }
   }
 
   finish<Name extends string, Fields extends object>(
@@ -74,8 +84,11 @@ export class AuditReport {
       warnings,
       ...fields,
     };
-    if (this.format === "json") this.stdout(`${JSON.stringify(summary)}\n`);
-    else this.stdout(`\n${label}: ${failed} failed, ${warnings} warnings\n`);
+    if (this.format === "json") {
+      this.stdout(`${JSON.stringify(summary)}\n`);
+    } else {
+      this.stdout(`\n${label}: ${failed} failed, ${warnings} warnings\n`);
+    }
     return { status: failed > 0 ? 1 : 0, summary };
   }
 }

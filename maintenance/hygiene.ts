@@ -34,8 +34,9 @@ export function readState(statePath: string): LoadedState {
     // Only a missing file is an empty state. Any other read failure (EACCES,
     // EIO, EISDIR) must not silently restart grace periods or bypass the
     // scheduled interval, so it propagates and fails the run.
-    if (Predicate.hasProperty(error, "code") && error.code === "ENOENT")
+    if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") {
       return { state: empty, recovered: false };
+    }
     throw error;
   }
   try {
@@ -61,10 +62,11 @@ export async function hygiene(
   const directory = join(home, ".local/state/dotfiles");
   const statePath = join(directory, "hygiene.json");
   const { state, recovered } = readState(statePath);
-  if (recovered)
+  if (recovered) {
     process.stderr.write(
       `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}\n`,
     );
+  }
   if (scheduled && now >= state.lastRun && now - state.lastRun < interval) {
     process.stdout.write("Host hygiene: next run is not due.\n");
     return;
@@ -146,7 +148,9 @@ export async function hygiene(
       );
       renameSync(temporary, statePath);
     }
-    if (failed) throw new Error("some hygiene checks failed; inspect the report");
+    if (failed) {
+      throw new Error("some hygiene checks failed; inspect the report");
+    }
   } finally {
     release();
   }
@@ -186,6 +190,8 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
     // Preserve signal termination after the Effect scopes and hygiene lock close.
-    if (interrupted) process.kill(process.pid, interrupted);
+    if (interrupted) {
+      process.kill(process.pid, interrupted);
+    }
   }
 }

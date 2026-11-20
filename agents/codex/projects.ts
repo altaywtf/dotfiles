@@ -68,13 +68,15 @@ export function projectTrustEdits(
   const edits: ConfigEdit[] = [];
   for (const path of checkouts) {
     const key = projectKey(path);
-    if (key && withinRoot(root, path) && !Object.hasOwn(existing, path))
+    if (key && withinRoot(root, path) && !Object.hasOwn(existing, path)) {
       edits.push({ keyPath: `${key}.trust_level`, value: "trusted", mergeStrategy: "upsert" });
+    }
   }
   for (const path of Object.keys(existing).sort()) {
     const key = projectKey(path);
-    if (key && withinRoot(root, path) && !exists(path))
+    if (key && withinRoot(root, path) && !exists(path)) {
       edits.push({ keyPath: key, value: null, mergeStrategy: "replace" });
+    }
   }
   return edits;
 }
@@ -83,7 +85,9 @@ function walkFiles(path: string, depth: number): string[] {
   try {
     return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
       const child = join(path, entry.name);
-      if (entry.isDirectory()) return depth > 0 ? walkFiles(child, depth - 1) : [];
+      if (entry.isDirectory()) {
+        return depth > 0 ? walkFiles(child, depth - 1) : [];
+      }
       return entry.isFile() ? [child] : [];
     });
   } catch {
@@ -95,18 +99,26 @@ export function restrictCodexState(codexHome: string): string[] {
   const changed: string[] = [];
   const restrict = (path: string, mode: number) => {
     const current = lstatSync(path).mode & 0o777;
-    if (current === mode) return;
+    if (current === mode) {
+      return;
+    }
     chmodSync(path, mode);
     changed.push(path);
   };
   for (const name of codexPrivateDirectories) {
     const path = join(codexHome, name);
-    if (isDirectory(path)) restrict(path, 0o700);
+    if (isDirectory(path)) {
+      restrict(path, 0o700);
+    }
   }
   for (const path of walkFiles(codexHome, codexPrivateFileDepth)) {
-    if (!codexPrivateFilePattern.test(path)) continue;
+    if (!codexPrivateFilePattern.test(path)) {
+      continue;
+    }
     const mode = lstatSync(path).mode & 0o777;
-    if (mode & 0o077) restrict(path, mode & 0o700);
+    if (mode & 0o077) {
+      restrict(path, mode & 0o700);
+    }
   }
   return changed;
 }

@@ -41,7 +41,9 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   const fs = yield* FileSystem.FileSystem;
   const link = yield* fs.readLink(target).pipe(Effect.option);
   const exists = yield* fs.exists(target);
-  if (!exists && Option.isNone(link)) return true;
+  if (!exists && Option.isNone(link)) {
+    return true;
+  }
   if (expectedType === "symlink" && Option.isSome(link)) {
     const expected = yield* runChezmoi(context, ["cat", target]);
     return link.value === expected.stdout.trimEnd();
@@ -84,7 +86,9 @@ const backupPath = Effect.fn("backupPath")(function* (
   expectedType: "file" | "symlink",
 ) {
   const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
+  if (matches) {
+    return;
+  }
   const fs = yield* FileSystem.FileSystem;
   const now = yield* DateTime.now;
   const timestamp = DateTime.formatIso(now).replaceAll(/\D/g, "").slice(0, 14);
@@ -109,7 +113,9 @@ const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
   expectedType: "file" | "symlink",
 ) {
   const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
+  if (matches) {
+    return;
+  }
   if (context.dryRun) {
     yield* Console.log(`would replace generated agent rules at ${target}`);
     return;
@@ -124,7 +130,9 @@ const removeLegacyAgentRules = Effect.fn("removeLegacyAgentRules")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const legacy = join(context.home, "AGENTS.md");
-  if (!(yield* fs.exists(legacy))) return;
+  if (!(yield* fs.exists(legacy))) {
+    return;
+  }
   if (context.dryRun) {
     yield* Console.log(`would remove legacy agent rules at ${legacy}`);
     return;

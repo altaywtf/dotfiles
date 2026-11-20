@@ -206,8 +206,12 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
 
     const scans: Array<readonly string[]> = [];
     const command: CommandRunner = (name, args, options) => {
-      if (name === "git") return runCommand(name, args, options);
-      if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
+      if (name === "git") {
+        return runCommand(name, args, options);
+      }
+      if (name === "trufflehog" && args[0] === "filesystem") {
+        scans.push(args);
+      }
       return { status: 0, stdout: "", stderr: "" };
     };
     const result = runRepoAudit(noMscp(root), {
@@ -233,16 +237,20 @@ test("linked worktree scan fails closed on paths that do not decode", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
   const scans: Array<readonly string[]> = [];
   const command: CommandRunner = (name, args, options) => {
-    if (name === "git" && args.includes("worktree"))
+    if (name === "git" && args.includes("worktree")) {
       return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };
-    if (name === "git" && options?.strictUtf8)
+    }
+    if (name === "git" && options?.strictUtf8) {
       return {
         status: 0,
         stdout: "",
         stderr: "",
         error: new Error("git output is not valid UTF-8"),
       };
-    if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
+    }
+    if (name === "trufflehog" && args[0] === "filesystem") {
+      scans.push(args);
+    }
     return { status: 0, stdout: "", stderr: "" };
   };
   try {

@@ -95,7 +95,9 @@ function managedEdits(): ConfigEdit[] {
 
 // ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
 function localEdits(path: string): ConfigEdit[] {
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) {
+    return [];
+  }
   let settings: typeof LocalSettings.Type;
   try {
     settings = Schema.decodeUnknownSync(LocalSettings)(readFileSync(path, "utf8"));
@@ -114,7 +116,9 @@ const Gateway = Schema.fromJsonString(
 );
 
 function gatewayEdits(path: string): ConfigEdit[] {
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) {
+    return [];
+  }
   let gateway: typeof Gateway.Type;
   try {
     gateway = Schema.decodeUnknownSync(Gateway)(readFileSync(path, "utf8"));
@@ -168,7 +172,9 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
     let completed = false;
     let settled = false;
     const fail = (error: Error) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       lines.close();
       child.stdin.end();
@@ -177,10 +183,15 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
     };
     child.once("error", (error) => fail(error));
     child.once("close", (status) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
-      if (completed && status === 0) finish();
-      else reject(new Error(stderr.trim() || `Codex app-server exited ${status ?? 1}`));
+      if (completed && status === 0) {
+        finish();
+      } else {
+        reject(new Error(stderr.trim() || `Codex app-server exited ${status ?? 1}`));
+      }
     });
     lines.on("line", (line) => {
       let message: RpcMessage;
@@ -191,16 +202,20 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
         return;
       }
       if (message.id === 0) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex app-server initialization failed"));
+        }
         send({ method: "initialized", params: {} });
-        if (!Predicate.isFunction(edits))
+        if (!Predicate.isFunction(edits)) {
           send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
-        else send({ method: "config/read", id: 2, params: { includeLayers: true } });
+        } else {
+          send({ method: "config/read", id: 2, params: { includeLayers: true } });
+        }
       }
       if (message.id === 2 && Predicate.isFunction(edits)) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex config read failed"));
+        }
         let current: ReturnType<typeof userLayer>;
         try {
           current = userLayer(message.result, configPath);
@@ -218,8 +233,9 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
         });
       }
       if (message.id === 1) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex config update failed"));
+        }
         completed = true;
         child.stdin.end();
       }

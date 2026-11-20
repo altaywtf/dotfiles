@@ -13,8 +13,9 @@ function fixture(
     run: (command, args = []) => {
       calls.push([command, ...args]);
       const failing = args.includes(options.failure ?? "never");
-      if (failing && options.spawnFailure)
+      if (failing && options.spawnFailure) {
         return Effect.fail(new CommandError({ command, message: "spawn failed" }));
+      }
       return Effect.succeed({
         status: failing ? 9 : 0,
         stdout: command === "loginctl" ? (options.linger === false ? "no\n" : "yes\n") : "",

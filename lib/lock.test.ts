@@ -102,7 +102,9 @@ test("contention waits with backoff and acquires after release, without real sle
     sleep: (ms) => {
       slept.push(ms);
       time += ms;
-      if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
+      if (time >= 30_000) {
+        rmSync(lock, { recursive: true, force: true });
+      }
     },
   });
   assert.deepEqual(slept, [5000, 10_000, 20_000]);

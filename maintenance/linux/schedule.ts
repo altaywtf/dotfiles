@@ -15,7 +15,9 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
   home: string,
   uid: number,
 ) {
-  if (!["enable", "disable", "run", "status"].includes(action)) return yield* fail(usage, 2);
+  if (!["enable", "disable", "run", "status"].includes(action)) {
+    return yield* fail(usage, 2);
+  }
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const systemctl = (...args: string[]) =>
@@ -25,8 +27,9 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
   if (action === "enable") {
     for (const suffix of ["timer", "service"]) {
       const unitFile = join(home, ".config/systemd/user", `${updateUnit}.${suffix}`);
-      if (!(yield* fs.exists(unitFile)))
+      if (!(yield* fs.exists(unitFile))) {
         return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
+      }
     }
   }
   // Without lingering the user manager, and this timer with it, stops at logout.
@@ -36,23 +39,26 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
       ["show-user", String(uid), "--property=Linger", "--value"],
       { output: "capture" },
     );
-    if (result.status !== 0)
+    if (result.status !== 0) {
       return yield* fail(`loginctl show-user exited ${result.status}: ${result.stderr.trim()}`);
+    }
     return result.stdout.trim() === "yes";
   });
 
   switch (action) {
     case "enable": {
-      if (!(yield* linger))
+      if (!(yield* linger)) {
         return yield* fail(
           "unattended maintenance needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)",
         );
+      }
       for (const args of [["daemon-reload"], ["enable", "--now", `${updateUnit}.timer`]]) {
         const result = yield* systemctl(...args);
-        if (result.status !== 0)
+        if (result.status !== 0) {
           return yield* fail(
             `systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`,
           );
+        }
       }
       return yield* Console.log(
         `Software maintenance enabled: ${updateUnit}.timer runs every six hours.`,
@@ -69,20 +75,24 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
         const result = yield* systemctl(...args).pipe(
           Effect.catch((error) => Effect.succeed({ status: 1, stdout: "", stderr: error.message })),
         );
-        if (result.status !== 0)
+        if (result.status !== 0) {
           failures.push(
             `systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`,
           );
+        }
       }
-      if (failures.length > 0) return yield* fail(failures.join("\n"));
+      if (failures.length > 0) {
+        return yield* fail(failures.join("\n"));
+      }
       return yield* Console.log("Software maintenance disabled; any running update was stopped.");
     }
     case "run": {
       const result = yield* systemctl("start", "--no-block", `${updateUnit}.service`);
-      if (result.status !== 0)
+      if (result.status !== 0) {
         return yield* fail(
           `systemctl --user start exited ${result.status}: ${result.stderr.trim()}`,
         );
+      }
       return yield* Console.log(
         `Update requested; systemd keeps one instance. Log: journalctl --user -u ${updateUnit}`,
       );
@@ -107,7 +117,9 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
       yield* Console.log(
         `timer: ${enabled.stdout.trim() || "unknown"} (${active.stdout.trim() || "unknown"})`,
       );
-      if (next.stdout.trim()) yield* Console.log(`next: ${next.stdout.trim()}`);
+      if (next.stdout.trim()) {
+        yield* Console.log(`next: ${next.stdout.trim()}`);
+      }
       yield* Console.log(
         lastRun.stdout
           .trim()
@@ -116,15 +128,18 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
           .join("\n"),
       );
       const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
-      if (yield* fs.exists(receipt))
+      if (yield* fs.exists(receipt)) {
         yield* Console.log(`receipt: ${(yield* fs.readFileString(receipt)).trim()}`);
+      }
       yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
-      if (enabled.status !== 0 || active.status !== 0)
+      if (enabled.status !== 0 || active.status !== 0) {
         return yield* fail(
           `${updateUnit}.timer is ${enabled.stdout.trim() || "not enabled"} and ${active.stdout.trim() || "not active"}`,
         );
-      if (!(yield* linger))
+      }
+      if (!(yield* linger)) {
         return yield* fail("systemd lingering is off; the timer stops at logout");
+      }
       return;
     }
   }

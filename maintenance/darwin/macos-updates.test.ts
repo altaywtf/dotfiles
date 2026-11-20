@@ -72,10 +72,12 @@ function runner(
 ): CommandRunner {
   return async (command, args, runOptions) => {
     options.calls?.push({ command, args, timeoutMs: runOptions.timeoutMs });
-    if (command === "sw_vers" && args[0] === "-productVersion")
+    if (command === "sw_vers" && args[0] === "-productVersion") {
       return commandResult(`${options.osVersion ?? "26.6.2"}\n`);
-    if (command === "sw_vers" && args[0] === "-buildVersion")
+    }
+    if (command === "sw_vers" && args[0] === "-buildVersion") {
       return commandResult(`${options.osBuild ?? "25G83"}\n`);
+    }
     if (command === "defaults") {
       return {
         status: options.safariStatus ?? 0,
@@ -83,15 +85,18 @@ function runner(
         stderr: options.safariStderr ?? "",
       };
     }
-    if (command === "ioreg") return commandResult(options.deviceOutput ?? deviceOutput);
+    if (command === "ioreg") {
+      return commandResult(options.deviceOutput ?? deviceOutput);
+    }
     if (command === "softwareupdate" && args.includes("--no-scan")) {
       return commandResult(options.cached ?? "Software Update Tool\nNo new software available.\n");
     }
-    if (command === "softwareupdate")
+    if (command === "softwareupdate") {
       return commandResult(
         options.live ?? "Software Update Tool\nNo new software available.\n",
         options.liveStatus,
       );
+    }
     throw new Error(`unexpected command ${command} ${args.join(" ")}`);
   };
 }
@@ -110,15 +115,19 @@ function io(
   return {
     async fetch(url) {
       options.fetches?.push(url);
-      if (url.includes("gdmf.apple.com"))
+      if (url.includes("gdmf.apple.com")) {
         return options.apple ?? { status: 200, body: JSON.stringify(gdmf) };
-      if (url.includes("macos_data_feed"))
+      }
+      if (url.includes("macos_data_feed")) {
         return options.macos ?? { status: 200, body: JSON.stringify(sofaMacOS) };
+      }
       return options.safari ?? { status: 200, body: JSON.stringify(sofaSafari) };
     },
     async readCache(path) {
       if (path.endsWith("softwareupdate-live.json")) {
-        if (options.applicabilityCache === null) return undefined;
+        if (options.applicabilityCache === null) {
+          return undefined;
+        }
         return (
           options.applicabilityCache ?? JSON.stringify({ schema_version: 1, completed_at: now })
         );

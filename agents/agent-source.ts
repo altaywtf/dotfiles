@@ -27,8 +27,9 @@ export const saveAgentSource = Effect.fn("saveAgentSource")(function* (
   const fs = yield* FileSystem.FileSystem;
   const source = resolve(expandHome(input));
   const info = yield* fs.stat(source).pipe(Effect.option);
-  if (Option.isNone(info) || info.value.type !== "Directory")
+  if (Option.isNone(info) || info.value.type !== "Directory") {
     return yield* fail(`agent source must be an existing directory: ${source}`, 2);
+  }
   yield* fs.makeDirectory(configDir, { recursive: true, mode: 0o700 });
   yield* fs.writeFileString(join(configDir, settingName), `${source}\n`, { mode: 0o600 });
   yield* fs.chmod(join(configDir, settingName), 0o600);
@@ -37,17 +38,27 @@ export const saveAgentSource = Effect.fn("saveAgentSource")(function* (
 const readAgentSource = Effect.fn("readAgentSource")(function* (configDir: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = join(configDir, settingName);
-  if (!(yield* fs.exists(path))) return Option.none<string>();
+  if (!(yield* fs.exists(path))) {
+    return Option.none<string>();
+  }
   const info = yield* fs.stat(path);
-  if (info.type !== "File") return yield* fail(`${path} must be a regular file`);
-  if (Option.getOrUndefined(info.uid) !== process.getuid?.())
+  if (info.type !== "File") {
+    return yield* fail(`${path} must be a regular file`);
+  }
+  if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
     return yield* fail(`${path} must be owned by the current user`);
-  if ((info.mode & 0o022) !== 0) return yield* fail(`${path} must not be group or other writable`);
+  }
+  if ((info.mode & 0o022) !== 0) {
+    return yield* fail(`${path} must not be group or other writable`);
+  }
   const source = (yield* fs.readFileString(path)).trim();
-  if (!isAbsolute(source)) return yield* fail(`${path} must hold an absolute directory path`);
+  if (!isAbsolute(source)) {
+    return yield* fail(`${path} must hold an absolute directory path`);
+  }
   const sourceInfo = yield* fs.stat(source).pipe(Effect.option);
-  if (Option.isNone(sourceInfo) || sourceInfo.value.type !== "Directory")
+  if (Option.isNone(sourceInfo) || sourceInfo.value.type !== "Directory") {
     return yield* fail(`agent source from ${path} is not a directory: ${source}`);
+  }
   return Option.some(source);
 });
 
@@ -58,8 +69,12 @@ export const linkAgentSource = Effect.fn("linkAgentSource")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const source = yield* readAgentSource(configDir);
-  if (Option.isNone(source)) return;
-  if (!dryRun) yield* fs.makeDirectory(configDir, { recursive: true, mode: 0o700 });
+  if (Option.isNone(source)) {
+    return;
+  }
+  if (!dryRun) {
+    yield* fs.makeDirectory(configDir, { recursive: true, mode: 0o700 });
+  }
   for (const [name, sourceName] of ruleLinks(host)) {
     const destination = join(configDir, name);
     const target = join(source.value, sourceName);
@@ -69,21 +84,29 @@ export const linkAgentSource = Effect.fn("linkAgentSource")(function* (
       // A link left pointing into the source for a file it no longer has would
       // fail rule rendering; anything else at the destination stays the operator's.
       if (Option.isSome(current) && current.value.startsWith(`${source.value}/`)) {
-        if (dryRun) yield* Console.log(`would remove stale rule link ${destination}`);
-        else yield* fs.remove(destination);
+        if (dryRun) {
+          yield* Console.log(`would remove stale rule link ${destination}`);
+        } else {
+          yield* fs.remove(destination);
+        }
       }
       continue;
     }
-    if (Option.isSome(current) && current.value === target) continue;
-    if (Option.isNone(current) && (yield* fs.exists(destination)))
+    if (Option.isSome(current) && current.value === target) {
+      continue;
+    }
+    if (Option.isNone(current) && (yield* fs.exists(destination))) {
       return yield* fail(
         `${destination} is a regular file; remove it to link ${target} from the agent source`,
       );
+    }
     if (dryRun) {
       yield* Console.log(`would link ${destination} -> ${target}`);
       continue;
     }
-    if (Option.isSome(current)) yield* fs.remove(destination);
+    if (Option.isSome(current)) {
+      yield* fs.remove(destination);
+    }
     yield* fs.symlink(target, destination);
   }
 }, Effect.mapError(asCliFailure));

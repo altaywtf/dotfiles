@@ -17,8 +17,9 @@ import { discoverCheckouts, projectTrustEdits, restrictCodexState } from "./proj
 const directories: string[] = [];
 
 afterEach(() => {
-  for (const directory of directories.splice(0))
+  for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 function temporary(): string {
@@ -29,8 +30,9 @@ function temporary(): string {
 
 test("discovers primary checkouts one and two levels under the root", () => {
   const root = join(temporary(), "projects");
-  for (const path of ["solo/.git", "owner/repo/.git", "owner/repo/nested/.git", ".hidden/.git"])
+  for (const path of ["solo/.git", "owner/repo/.git", "owner/repo/nested/.git", ".hidden/.git"]) {
     mkdirSync(join(root, path), { recursive: true });
+  }
   mkdirSync(join(root, "owner/plain"), { recursive: true });
   mkdirSync(join(root, "owner/worktree"));
   writeFileSync(join(root, "owner/worktree/.git"), "gitdir: elsewhere\n");
@@ -80,21 +82,25 @@ const mode = (path: string) => statSync(path).mode & 0o777;
 
 test("restricts loose Codex state the devbox audit checks and leaves other files alone", () => {
   const home = join(temporary(), ".codex");
-  for (const path of ["sessions/2026", "shell_snapshots", "log", "skills"])
+  for (const path of ["sessions/2026", "shell_snapshots", "log", "skills"]) {
     mkdirSync(join(home, path), { recursive: true, mode: 0o755 });
+  }
   const files = {
     state: join(home, "state_5.sqlite"),
     snapshot: join(home, "log/codex-tui.log"),
     deep: join(home, "sessions/2026/deep.sqlite"),
     skill: join(home, "skills/SKILL.md"),
   };
-  for (const path of Object.values(files)) writeFileSync(path, "", { mode: 0o644 });
+  for (const path of Object.values(files)) {
+    writeFileSync(path, "", { mode: 0o644 });
+  }
   chmodSync(home, 0o755);
   chmodSync(join(home, "sessions"), 0o755);
 
   const changed = restrictCodexState(home);
-  for (const path of ["", "sessions", "shell_snapshots", "log"])
+  for (const path of ["", "sessions", "shell_snapshots", "log"]) {
     assert.equal(mode(join(home, path)), 0o700, path);
+  }
   assert.equal(mode(files.state), 0o600);
   assert.equal(mode(files.snapshot), 0o600);
   assert.equal(mode(files.deep), 0o600);

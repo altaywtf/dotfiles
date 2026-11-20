@@ -11,7 +11,9 @@ export function decodeOrThrow<S extends Schema.ConstraintDecoder<unknown>>(
   describe: (detail: string) => string,
 ): S["Type"] {
   const result = Schema.decodeUnknownResult(schema)(input);
-  if (Result.isSuccess(result)) return result.success;
+  if (Result.isSuccess(result)) {
+    return result.success;
+  }
   const [issue] = formatIssues(result.failure.issue).issues;
   throw new Error(describe(issue?.message ?? result.failure.message), {
     cause: result.failure,

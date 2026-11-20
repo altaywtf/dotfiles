@@ -82,8 +82,9 @@ test("reads machine-local Markdown through a symlink", () => {
 test("omits private layers for blank Markdown", () => {
   const { home } = createFixture();
   mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
-  for (const name of ["agents.start.md", "agents.end.md"])
+  for (const name of ["agents.start.md", "agents.end.md"]) {
     writeFileSync(join(home, ".config/dotfiles", name), " \n\t\n", { mode: 0o600 });
+  }
 
   runWrapper(home);
 

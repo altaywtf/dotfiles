@@ -27,7 +27,9 @@ if (import.meta.main) {
       catch: (error) => error,
     });
     yield* Console.log(`configured Codex defaults in ${configPath}`);
-    for (const path of restricted) yield* Console.log(`restricted Codex state: ${path}`);
+    for (const path of restricted) {
+      yield* Console.log(`restricted Codex state: ${path}`);
+    }
   });
   runMain(program.pipe(Effect.provide(NodeServices.layer)));
 }

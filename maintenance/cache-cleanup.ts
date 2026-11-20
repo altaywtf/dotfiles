@@ -96,14 +96,18 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
     name: string,
     args: readonly string[],
   ) {
-    if (!apply) return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
+    if (!apply) {
+      return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
+    }
     yield* checked(name, args);
   });
   const used = Effect.fn("cacheCleanup.used")(function* () {
     const volume = (yield* fs.exists("/System/Volumes/Data")) ? "/System/Volumes/Data" : "/";
     const result = yield* checked("df", ["-k", volume]);
     const value = Number(result.stdout.trim().split("\n")[1]?.trim().split(/\s+/)[2]);
-    if (Number.isFinite(value)) return value;
+    if (Number.isFinite(value)) {
+      return value;
+    }
     failed = true;
     yield* log("warning: disk usage unavailable");
     return undefined;
@@ -119,7 +123,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
     ];
     for (const [path, days, keep] of targets) {
       const info = yield* fs.stat(path).pipe(Effect.option);
-      if (Option.isNone(info) || info.value.type !== "Directory") continue;
+      if (Option.isNone(info) || info.value.type !== "Directory") {
+        continue;
+      }
       yield* log(`prune files older than ${days} days under ${path}`);
       const result = yield* checked("find", [
         path,
@@ -131,15 +137,19 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         apply ? "-delete" : "-print0",
       ]);
       // -mindepth 1 keeps the cache root itself when every file under it expired.
-      if (apply)
+      if (apply) {
         yield* checked("find", [path, "-mindepth", "1", "-type", "d", "-empty", "-delete"]);
-      else lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
+      } else {
+        lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
+      }
     }
     const builds: string[] = [];
     for (const relative of buildRoots) {
       const root = join(home, relative);
       const info = yield* fs.stat(root).pipe(Effect.option);
-      if (Option.isNone(info) || info.value.type !== "Directory") continue;
+      if (Option.isNone(info) || info.value.type !== "Directory") {
+        continue;
+      }
       const found = yield* checked("find", [
         root,
         "-maxdepth",
@@ -167,13 +177,16 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           tag.value.startsWith(cacheTagSignature) &&
           buildNames.has(basename(directory)) &&
           (yield* fs.exists(join(dirname(directory), ".git")))
-        )
+        ) {
           builds.push(directory);
+        }
       }
     }
     const removed: string[] = [];
     for (const directory of builds.sort()) {
-      if (removed.some((parent) => directory.startsWith(`${parent}/`))) continue;
+      if (removed.some((parent) => directory.startsWith(`${parent}/`))) {
+        continue;
+      }
       const ignored = yield* command("git", [
         "-C",
         dirname(directory),
@@ -181,7 +194,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         "-q",
         basename(directory),
       ]);
-      if (ignored.status !== 0) continue;
+      if (ignored.status !== 0) {
+        continue;
+      }
       const recent = yield* checked("find", [
         directory,
         "-mtime",
@@ -189,10 +204,14 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         "-print",
         "-quit",
       ]);
-      if (recent.status !== 0 || recent.stdout !== "") continue;
+      if (recent.status !== 0 || recent.stdout !== "") {
+        continue;
+      }
       removed.push(directory);
       yield* log(`remove build output idle for ${buildIdleDays} days: ${directory}`);
-      if (!apply) continue;
+      if (!apply) {
+        continue;
+      }
       yield* fs.remove(directory, { recursive: true }).pipe(
         Effect.catch(() =>
           Effect.gen(function* () {
@@ -211,31 +230,40 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           env: { HOME: home },
         })
         .pipe(Effect.option);
-      if (Option.isSome(probe) && probe.value.status <= 1) return probe.value.status === 0;
+      if (Option.isSome(probe) && probe.value.status <= 1) {
+        return probe.value.status === 0;
+      }
       failed = true;
       yield* log(`warning: cannot tell whether ${path} is running; kept`);
       return true;
     });
-    if (yield* commandAvailable("pgrep"))
+    if (yield* commandAvailable("pgrep")) {
       for (const relative of claudeRemoteInstalls) {
         const root = join(home, relative);
         const ancestry = [join(home, ".claude"), join(home, ".claude/remote"), root];
-        if (!(yield* Effect.forEach(ancestry, realDirectory)).every(Boolean)) continue;
+        if (!(yield* Effect.forEach(ancestry, realDirectory)).every(Boolean)) {
+          continue;
+        }
         const names = yield* fs.readDirectory(root).pipe(Effect.orElseSucceed(() => []));
         const installs: { path: string; modified: number }[] = [];
         for (const name of names) {
           const info = yield* fs.stat(join(root, name)).pipe(Effect.option);
-          if (Option.isSome(info))
+          if (Option.isSome(info)) {
             installs.push({
               path: join(root, name),
               modified: Option.getOrElse(info.value.mtime, () => new Date(0)).getTime(),
             });
+          }
         }
         installs.sort((left, right) => right.modified - left.modified);
         for (const { path } of installs.slice(1)) {
-          if (yield* inUse(path)) continue;
+          if (yield* inUse(path)) {
+            continue;
+          }
           yield* log(`remove superseded Claude remote install: ${path}`);
-          if (!apply) continue;
+          if (!apply) {
+            continue;
+          }
           yield* fs.remove(path, { recursive: true }).pipe(
             Effect.catch(() =>
               Effect.gen(function* () {
@@ -246,6 +274,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           );
         }
       }
+    }
     if (
       (yield* commandAvailable("xcrun")) &&
       (yield* command("xcrun", ["--find", "simctl"])).status === 0
@@ -269,8 +298,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       ) {
         yield* log("mise prune unused runtime versions");
         yield* mutate("mise", ["prune", "--yes"]);
-      } else
+      } else {
         yield* log("skip mise prune: mise older than 2026.10.9 may delete versions still in use");
+      }
     }
     if ((yield* commandAvailable("docker")) && (yield* command("docker", ["info"])).status === 0) {
       yield* log("docker build cache older than 7 days");

@@ -62,7 +62,9 @@ function systemRunner(calls: string[][], kickstartStatus = 0, systemLoaded = tru
   return CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
-      if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+      if (command === "id") {
+        return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+      }
       const status =
         args[0] === "print"
           ? args[1] === systemService && systemLoaded
@@ -133,8 +135,9 @@ test.each([
   const calls: string[][] = [];
   const result = await runSystemUpdate(systemRunner(calls, status), options);
   assert.deepEqual(calls.at(-1), argv);
-  if (status === 0) assert.ok(Result.isSuccess(result));
-  else {
+  if (status === 0) {
+    assert.ok(Result.isSuccess(result));
+  } else {
     assert.ok(Result.isFailure(result));
     assert.ok(String(result.failure).includes(`run: sudo ${kickstart.join(" ")}`));
   }
@@ -166,7 +169,9 @@ for (const loaded of [false, true]) {
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        }
         return Effect.succeed({
           status: args[0] === "print" && (!loaded || args[1] === systemService) ? 113 : 0,
           stdout: "",
@@ -215,7 +220,9 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     await mkdir(join(home, ".config/dotfiles"), { recursive: true });
     await writeFile(join(home, ".config/dotfiles/profile"), "workstation\n", { mode: 0o600 });
     await writeFile(plist, "fixture: plutil is stubbed at the process boundary", { mode: 0o600 });
-    if (kind === "writable") await chmod(plist, 0o622);
+    if (kind === "writable") {
+      await chmod(plist, 0o622);
+    }
     if (kind === "symlink") {
       await rm(plist);
       await symlink(join(home, ".config/dotfiles/profile"), plist);
@@ -225,8 +232,12 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
-        if (args[0] === "bootstrap") loaded = true;
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        }
+        if (args[0] === "bootstrap") {
+          loaded = true;
+        }
         return Effect.succeed({
           status: args[0] === "print" && !loaded ? 113 : 0,
           stdout: "",
@@ -439,8 +450,9 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
-      if (command === "plutil")
+      if (command === "plutil") {
         return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+      }
       return Effect.succeed({ status: 0, stdout: launchdPrintFixture, stderr: "" });
     },
   });
@@ -554,9 +566,12 @@ for (const loaded of [true, false]) {
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
-        if (command === "plutil")
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
+        }
+        if (command === "plutil") {
           return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+        }
         return Effect.succeed({
           status: loaded && args[1] === service ? 0 : 113,
           stdout: launchdPrintFixture,
@@ -573,12 +588,14 @@ for (const loaded of [true, false]) {
         }),
       );
     }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
-    if (loaded) await Effect.runPromise(operation);
-    else
+    if (loaded) {
+      await Effect.runPromise(operation);
+    } else {
       assert.match(
         String(await Effect.runPromise(operation.pipe(Effect.flip))),
         /not loaded in the GUI or system domain/,
       );
+    }
     assert.deepEqual(calls, [
       ["launchctl", "print", `gui/${uid}/${updateLabel}`],
       ["id", "-un", String(uid)],

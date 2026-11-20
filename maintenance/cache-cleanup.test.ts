@@ -23,11 +23,15 @@ async function fixture(t: TestContext) {
   process.env.CODEX_HOME = join(home, ".codex");
   t.onTestFinished(() => {
     process.env.PATH = previousPath;
-    if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-    else process.env.CODEX_HOME = previousCodexHome;
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousCodexHome;
+    }
   });
-  for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"])
+  for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"]) {
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
+  }
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
     await mkdir(join(path, ".."), { recursive: true });
@@ -55,11 +59,12 @@ async function fixture(t: TestContext) {
             assert.equal(commandOptions?.cwd, home);
             assert.equal(commandOptions?.env?.HOME, home);
             calls.push([command, ...args]);
-            if (command === options.failure)
+            if (command === options.failure) {
               return options.spawnFailure
                 ? Effect.fail(new CommandError({ command, message: "fixture spawn failure" }))
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
-            if (command === "pgrep")
+            }
+            if (command === "pgrep") {
               return Effect.succeed({
                 status: options.running?.some((path) => new RegExp(args[1] ?? "").test(path))
                   ? 0
@@ -67,8 +72,10 @@ async function fixture(t: TestContext) {
                 stdout: "",
                 stderr: "",
               });
-            if (command === "find" || command === "git")
+            }
+            if (command === "find" || command === "git") {
               return live.run(`/usr/bin/${command}`, args, commandOptions);
+            }
             return Effect.succeed({
               status: options.probeFailure && (args[0] === "info" || args[0] === "--find") ? 1 : 0,
               stdout:
@@ -234,10 +241,13 @@ test("codex retention honours day boundaries, keeps roots, locks, and root state
   assert.equal(dry.status, 0);
   await Promise.all([...expired, ...retained, ...protectedState].map((path) => access(path)));
   assert.equal((await f.run(true)).status, 0);
-  for (const path of expired) await assert.rejects(access(path), { code: "ENOENT" });
+  for (const path of expired) {
+    await assert.rejects(access(path), { code: "ENOENT" });
+  }
   await Promise.all([...retained, ...protectedState].map((path) => access(path)));
-  for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"])
+  for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"]) {
     await access(join(f.home, ".codex", root));
+  }
 });
 
 test("codex retention empties a session root without removing the root itself", async (t) => {
@@ -288,15 +298,18 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   };
   const build = async (relative: string, days: number, tagged = true) => {
     const artifact = await f.file(`${relative}/debug/deps/libcrate.rlib`, days);
-    if (tagged) await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
+    if (tagged) {
+      await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
+    }
     const when = new Date(Date.now() - days * 86_400_000);
     for (const path of [
       `${relative}/CACHEDIR.TAG`,
       `${relative}/debug/deps`,
       `${relative}/debug`,
       relative,
-    ])
+    ]) {
       await utimes(join(f.home, path), when, when).catch(() => undefined);
+    }
     return artifact;
   };
   await repo(".claude/worktrees/pnpm/review");
@@ -328,8 +341,11 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
 
 const install = async (path: string, days: number, directory = false) => {
   await mkdir(directory ? path : join(path, ".."), { recursive: true });
-  if (directory) await writeFile(join(path, "server"), "fixture");
-  else await writeFile(path, "fixture");
+  if (directory) {
+    await writeFile(join(path, "server"), "fixture");
+  } else {
+    await writeFile(path, "fixture");
+  }
   const when = new Date(Date.now() - days * 86_400_000);
   await utimes(path, when, when);
 };

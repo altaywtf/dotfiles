@@ -28,7 +28,9 @@ function configuredOAuth<S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
 ): Option.Option<S["Type"]> {
   const home = env.CODEX_HOME || (env.HOME ? join(env.HOME, ".codex") : undefined);
-  if (home === undefined) return Option.none();
+  if (home === undefined) {
+    return Option.none();
+  }
   let parsed: unknown;
   try {
     parsed = parseToml(readFileSync(join(home, "config.toml"), "utf8"));

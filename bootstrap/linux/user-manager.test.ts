@@ -36,7 +36,9 @@ test("apply converges manager PATH idempotently without losing unrelated entries
   const runner = CommandRunner.of({
     run: (_command, args = []) => {
       calls.push([...args]);
-      if (args[1] === "set-environment") path = args[2]?.slice(5) ?? "";
+      if (args[1] === "set-environment") {
+        path = args[2]?.slice(5) ?? "";
+      }
       return Effect.succeed({
         status: 0,
         stdout: args[1] === "show-environment" ? `OTHER=value\nPATH=${path}\n` : "",

@@ -10,8 +10,9 @@ const directories: string[] = [];
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  for (const directory of directories.splice(0))
+  for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 function fixture(reply: string) {

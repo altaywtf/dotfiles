@@ -34,8 +34,9 @@ const program = Effect.gen(function* () {
     "rev-parse",
     "--git-common-dir",
   ]);
-  if (commonDirResult.status !== 0 || !commonDirResult.stdout.trim())
+  if (commonDirResult.status !== 0 || !commonDirResult.stdout.trim()) {
     return yield* fail(`not a Git checkout: ${repoRoot}`);
+  }
   const commonDir = commonDirResult.stdout.trim();
   const hooksDir = join(isAbsolute(commonDir) ? commonDir : join(repoRoot, commonDir), "hooks");
   const prePush = join(hooksDir, "pre-push");

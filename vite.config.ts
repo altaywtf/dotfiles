@@ -33,7 +33,6 @@ export default defineConfig({
     rules: {
       ...cloudflare.rules,
       "vite-plus/prefer-vite-plus-imports": "error",
-      curly: "off",
       "typescript/array-type": "off",
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
@@ -42,7 +41,6 @@ export default defineConfig({
       {
         files: ["**/*.ts"],
         rules: {
-          curly: "off",
           "typescript/array-type": "off",
         },
       },

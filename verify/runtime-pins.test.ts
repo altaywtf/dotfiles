@@ -140,9 +140,15 @@ const settle = (manager: string) =>
         matches(rule.matchPackageNames, "pnpm"),
     )
     .reduce<Record<string, Schema.Json>>((merged, rule) => {
-      if (rule.minimumReleaseAge !== undefined) merged.minimumReleaseAge = rule.minimumReleaseAge;
-      if (rule.schedule !== undefined) merged.schedule = rule.schedule;
-      if (rule.groupName !== undefined) merged.groupName = rule.groupName;
+      if (rule.minimumReleaseAge !== undefined) {
+        merged.minimumReleaseAge = rule.minimumReleaseAge;
+      }
+      if (rule.schedule !== undefined) {
+        merged.schedule = rule.schedule;
+      }
+      if (rule.groupName !== undefined) {
+        merged.groupName = rule.groupName;
+      }
       return merged;
     }, {});
 
