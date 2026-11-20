@@ -13,23 +13,23 @@ test("verification reports completed checks before a stalled child and cleans it
   const pidFile = join(root, "pid");
   const output: string[] = [];
   let failedBeforeTermination = false;
-  const errorWrite = vi.spyOn(process.stderr, "write").mockImplementation(function (
-    chunk: string | Uint8Array,
-  ) {
-    const text = String(chunk);
-    output.push(text);
-    if (text.includes("FAILED: quick")) {
-      if (existsSync(pidFile)) {
-        try {
-          process.kill(Number(readFileSync(pidFile, "utf8")), 0);
-          failedBeforeTermination = true;
-        } catch {
-          failedBeforeTermination = false;
+  const errorWrite = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk: string | Uint8Array) => {
+      const text = String(chunk);
+      output.push(text);
+      if (text.includes("FAILED: quick")) {
+        if (existsSync(pidFile)) {
+          try {
+            process.kill(Number(readFileSync(pidFile, "utf8")), 0);
+            failedBeforeTermination = true;
+          } catch {
+            failedBeforeTermination = false;
+          }
         }
       }
-    }
-    return true;
-  });
+      return true;
+    });
   try {
     const started = Date.now();
     const result = await Effect.runPromise(
