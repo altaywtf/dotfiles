@@ -13,7 +13,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
-import { Effect, Fiber, FileSystem } from "effect";
+import type { FileSystem } from "effect";
+import { Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 import { CommandRunner } from "../lib/command.ts";
 import {
