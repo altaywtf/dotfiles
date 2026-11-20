@@ -25,7 +25,7 @@ import {
 } from "./repositories.ts";
 import type { Runner } from "./repositories.ts";
 
-const gracePeriod = 3 * 86400_000;
+const gracePeriod = 3 * 86_400_000;
 const baseline = Date.now();
 
 const runner: Runner = (cwd, command, args) => {

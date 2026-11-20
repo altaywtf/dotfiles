@@ -27,7 +27,7 @@ function elapsedSeconds(value: string): number {
   const [, days, hours, minutes, seconds] = match;
   if (Number(minutes) > 59 || Number(seconds) > 59) return NaN;
   return (
-    Number(days ?? 0) * 86400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
+    Number(days ?? 0) * 86_400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
   );
 }
 

@@ -100,7 +100,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
     return undefined;
   });
   const gigabytes = (value: number | undefined) =>
-    value === undefined ? "unknown" : `${(value / 1048576).toFixed(1)}G`;
+    value === undefined ? "unknown" : `${(value / 1_048_576).toFixed(1)}G`;
   const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);

@@ -87,7 +87,7 @@ test.each([
   ],
   [
     "an out-of-range oauth callback port",
-    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 65536 } }],
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 65_536 } }],
     /oauth callbackPort must be an integer from 1024 to 65535/,
   ],
   [

@@ -204,9 +204,9 @@ const appleUrl = "https://gdmf.apple.com/v2/pmv";
 const sofaMacOSUrl = "https://sofafeed.macadmins.io/v2/macos_data_feed.json";
 const sofaSafariUrl = "https://sofafeed.macadmins.io/v2/safari_data_feed.json";
 const userAgent = "dotfiles-maintenance/1";
-const dayMs = 24 * 60 * 60 * 1_000;
-const commandTimeoutMs = 5_000;
-const feedTimeoutMs = 1_500;
+const dayMs = 24 * 60 * 60 * 1000;
+const commandTimeoutMs = 5000;
+const feedTimeoutMs = 1500;
 const safariMajorByMacOSMajor = new Map([
   [12, "17"],
   [13, "18"],
@@ -243,7 +243,7 @@ function ageSeconds(nowMs: number, value: string): number | undefined {
   if (!parsed) return undefined;
   const ageMs = nowMs - DateTime.toEpochMillis(parsed);
   if (ageMs < 0) return undefined;
-  return Math.floor(ageMs / 1_000);
+  return Math.floor(ageMs / 1000);
 }
 
 function commandInstalled(
@@ -524,13 +524,13 @@ async function appleSource(
   const fetchedAgeUnknown = cached.record?.fetched_at !== undefined && fetchedAge === undefined;
   const reusableCache =
     cached.record && checkedAge !== undefined && !fetchedAgeUnknown ? cached.record : undefined;
-  if (reusableCache && checkedAge !== undefined && checkedAge < dayMs / 1_000) {
+  if (reusableCache && checkedAge !== undefined && checkedAge < dayMs / 1000) {
     if (reusableCache.payload !== undefined) {
       const result = selectPayload(
         "apple_gdmf",
         reusableCache.payload,
         reusableCache.checked_at,
-        fetchedAge !== undefined && fetchedAge >= dayMs / 1_000 ? "stale_cache" : "daily_cache",
+        fetchedAge !== undefined && fetchedAge >= dayMs / 1000 ? "stale_cache" : "daily_cache",
         (payload) => selectGdmfBaseline(payload, identifiers),
         fetchedAge,
       );
@@ -874,7 +874,7 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
   const reasons: string[] = [];
   if (options.fresh) reasons.push("explicit_fresh");
   if (liveScanCacheError || lastLiveScanAge === undefined) reasons.push("live_scan_age_unknown");
-  else if (lastLiveScanAge >= dayMs / 1_000) reasons.push("live_scan_stale");
+  else if (lastLiveScanAge >= dayMs / 1000) reasons.push("live_scan_stale");
   if (cachedApplicability.status === "failed") reasons.push("cached_applicability_invalid");
   else if (cachedApplicability.available) reasons.push("cached_backlog_nonempty");
   if (

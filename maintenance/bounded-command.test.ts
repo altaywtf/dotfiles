@@ -73,7 +73,7 @@ for (const status of [0, 23]) {
     const diagnosticDirectory = await diagnostics(t);
     assert.deepEqual(
       await Effect.runPromise(
-        execute(`process.exit(${status})`, { diagnosticDirectory, timeoutMs: 2_000 }),
+        execute(`process.exit(${status})`, { diagnosticDirectory, timeoutMs: 2000 }),
       ),
       { status, ...clean },
     );
@@ -84,7 +84,7 @@ test("a command that exits before the first inventory still proves cleanup", asy
   const diagnosticDirectory = await diagnostics(t);
   for (let attempt = 0; attempt < 10; attempt++) {
     const result = await Effect.runPromise(
-      bounded("/bin/sh", ["-c", "exit 0"], { diagnosticDirectory, timeoutMs: 2_000 }),
+      bounded("/bin/sh", ["-c", "exit 0"], { diagnosticDirectory, timeoutMs: 2000 }),
     );
     assert.deepEqual(result, { status: 0, ...clean });
   }
@@ -98,7 +98,7 @@ test("a command that dies before release still returns", { timeout: 10_000 }, as
     bounded(
       "/bin/sh",
       ["-c", "exit 0"],
-      { diagnosticDirectory, timeoutMs: 2_000, termGraceMs: 50 },
+      { diagnosticDirectory, timeoutMs: 2000, termGraceMs: 50 },
       (real) => ({
         run: (command, args, options) =>
           armed && command === "/bin/ps"
@@ -164,7 +164,7 @@ for (const diagnosticFailure of [false, true]) {
       assert.equal((await stat(result.diagnosticPath)).mode & 0o777, 0o600);
     }
     const next = await Effect.runPromise(
-      execute("process.exit(0)", { diagnosticDirectory, timeoutMs: 2_000 }),
+      execute("process.exit(0)", { diagnosticDirectory, timeoutMs: 2000 }),
     );
     assert.equal(next.status, 0);
   });
@@ -223,7 +223,7 @@ test("a transient inventory failure does not void cleanup proof", async (t) => {
   const result = await Effect.runPromise(
     execute(
       "process.exit(0)",
-      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2000 },
       (real) => ({
         run: (command, args, options) =>
           Effect.suspend(() => {
@@ -241,7 +241,7 @@ test("a missed root identity cannot certify cleanup even when the command exits 
   const result = await Effect.runPromise(
     execute(
       "process.exit(0)",
-      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2000 },
       () => ({ run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }) }),
     ),
   );
@@ -254,7 +254,7 @@ test("a system account reported with a negative UID does not invalidate the upda
   const result = await Effect.runPromise(
     execute(
       "setTimeout(() => {}, 100)",
-      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2_000 },
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2000 },
       (real) => ({
         run: (command, args, options) =>
           real.run(command, args, options).pipe(

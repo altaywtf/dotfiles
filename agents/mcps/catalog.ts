@@ -17,7 +17,7 @@ const McpOAuth = ClosedStruct(
     callbackPort: Schema.Number.annotate({ message: CALLBACK_PORT_MESSAGE })
       .check(
         Schema.isInt({ message: CALLBACK_PORT_MESSAGE }),
-        Schema.isBetween({ minimum: 1024, maximum: 65535 }, { message: CALLBACK_PORT_MESSAGE }),
+        Schema.isBetween({ minimum: 1024, maximum: 65_535 }, { message: CALLBACK_PORT_MESSAGE }),
       )
       .annotateKey({ messageMissingKey: CALLBACK_PORT_MESSAGE }),
   },

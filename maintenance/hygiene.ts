@@ -14,7 +14,7 @@ import { cleanRepository, discoverRepositories, openFiles } from "./repositories
 
 type Entry = { target: string; result: string };
 
-const interval = 3 * 86400_000;
+const interval = 3 * 86_400_000;
 const State = Schema.Struct({
   lastRun: Schema.Number,
   lastCache: Schema.Number,

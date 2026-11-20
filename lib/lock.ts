@@ -12,7 +12,7 @@ const ownerFileName = "owner.json";
 // this tolerance during boot misclassifies a live owner from the current boot
 // as pre-boot and skips its pid probe.
 const bootSkewMs = 300_000;
-const initialRetryDelayMs = 5_000;
+const initialRetryDelayMs = 5000;
 const maxRetryDelayMs = 60_000;
 
 export type LockProbe = {

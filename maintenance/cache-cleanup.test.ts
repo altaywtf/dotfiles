@@ -32,7 +32,7 @@ async function fixture(t: TestContext) {
     const path = join(home, relative);
     await mkdir(join(path, ".."), { recursive: true });
     await writeFile(path, "preserve unless eligible");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(path, when, when);
     return path;
   };
@@ -289,7 +289,7 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   const build = async (relative: string, days: number, tagged = true) => {
     const artifact = await f.file(`${relative}/debug/deps/libcrate.rlib`, days);
     if (tagged) await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     for (const path of [
       `${relative}/CACHEDIR.TAG`,
       `${relative}/debug/deps`,
@@ -334,7 +334,7 @@ test("superseded Claude remote installs go, keeping the newest and any still run
     await mkdir(directory ? path : join(path, ".."), { recursive: true });
     if (directory) await writeFile(join(path, "server"), "fixture");
     else await writeFile(path, "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(path, when, when);
   };
   await install(join(cli, "2.1.304-old"), 20);
@@ -375,7 +375,7 @@ test("a Claude remote install whose running state is unknown stays", async (t) =
     ["new", 0],
   ] as const) {
     await writeFile(join(cli, name), "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(cli, name), when, when);
   }
   const result = await run(true, { failure: "pgrep", spawnFailure: true });
@@ -392,7 +392,7 @@ test("a symlinked Claude remote directory is never followed", async (t) => {
     ["new", 0],
   ] as const) {
     await writeFile(join(outside, name), "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(outside, name), when, when);
   }
   await mkdir(join(home, ".claude/remote"), { recursive: true });

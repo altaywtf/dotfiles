@@ -14,7 +14,7 @@ export const updateLabel = "local.dotfiles.software-update";
 const usage = "Usage: maintenance/darwin/schedule.ts <enable|disable|run|status>";
 // Two six-hour schedule slots plus jitter: an older receipt means the wrapper
 // is not running even though the job is loaded (for example a broken node shim).
-const staleReceiptMs = 13 * 3600_000;
+const staleReceiptMs = 13 * 3_600_000;
 
 export type LoadedJob = {
   readonly arguments?: readonly string[];
@@ -112,7 +112,7 @@ export function receiptWarning(receipt: string | undefined, now: number): string
   if (Option.isNone(reference) || Number.isNaN(reference.value))
     return "update receipt is unreadable; inspect the log";
   if (now - reference.value > staleReceiptMs) {
-    return `update receipt is older than ${Math.round(staleReceiptMs / 3600_000)} hours; the scheduler may be failing before the wrapper runs (inspect the log and the node shim)`;
+    return `update receipt is older than ${Math.round(staleReceiptMs / 3_600_000)} hours; the scheduler may be failing before the wrapper runs (inspect the log and the node shim)`;
   }
   return undefined;
 }

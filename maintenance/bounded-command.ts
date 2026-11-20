@@ -87,7 +87,7 @@ export class BoundedCommand extends Context.Service<
       const runner = yield* CommandRunner;
       const snapshot = runner
         .run("/bin/ps", ["-axo", "pid=,ppid=,uid=,lstart=,stat=,pcpu="], {
-          timeoutMs: 2_000,
+          timeoutMs: 2000,
           env: { LC_ALL: "C" },
         })
         .pipe(
@@ -106,7 +106,7 @@ export class BoundedCommand extends Context.Service<
       ) {
         const timeoutMs = options.timeoutMs ?? 60 * 60_000;
         const graceMs = options.termGraceMs ?? 10_000;
-        const intervalMs = options.pollIntervalMs ?? 2_000;
+        const intervalMs = options.pollIntervalMs ?? 2000;
         const owned = new Map<number, ProcessRow>();
         let rootPid = 0;
         let completed = false;
@@ -190,7 +190,7 @@ export class BoundedCommand extends Context.Service<
               stderr: "inherit",
               detached: false,
               killSignal: "SIGKILL",
-              forceKillAfter: 1_000,
+              forceKillAfter: 1000,
             }),
           );
           rootPid = Number(handle.pid);
@@ -224,7 +224,7 @@ export class BoundedCommand extends Context.Service<
                   if (!current.some((candidate) => sameProcess(candidate, row))) continue;
                   const sample = yield* runner
                     .run("/usr/bin/sample", [String(row.pid), "1", "1", "-file", "/dev/stdout"], {
-                      timeoutMs: 2_000,
+                      timeoutMs: 2000,
                     })
                     .pipe(Effect.option);
                   if (sample._tag === "Some") {

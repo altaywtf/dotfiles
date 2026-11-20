@@ -79,12 +79,12 @@ function managedEdits(): ConfigEdit[] {
     // without stopping a worker from returning early on completion.
     {
       keyPath: "features.multi_agent_v2.min_wait_timeout_ms",
-      value: 120000,
+      value: 120_000,
       mergeStrategy: "upsert",
     },
     {
       keyPath: "features.multi_agent_v2.default_wait_timeout_ms",
-      value: 120000,
+      value: 120_000,
       mergeStrategy: "upsert",
     },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
@@ -134,7 +134,7 @@ function gatewayEdits(path: string): ConfigEdit[] {
       mergeStrategy: "replace",
     },
     { keyPath: `${provider}.auth.command`, value: gateway.keyCommand, mergeStrategy: "replace" },
-    { keyPath: `${provider}.auth.timeout_ms`, value: 10000, mergeStrategy: "replace" },
+    { keyPath: `${provider}.auth.timeout_ms`, value: 10_000, mergeStrategy: "replace" },
     { keyPath: `${provider}.auth.refresh_interval_ms`, value: 0, mergeStrategy: "replace" },
   ];
 }

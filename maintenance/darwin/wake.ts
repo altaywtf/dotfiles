@@ -27,7 +27,7 @@ const fullWake = Effect.gen(function* () {
 export const awaitFullWake = Effect.fn("awaitFullWake")(function* (
   probe: Effect.Effect<boolean | undefined, never, CommandRunner> = fullWake,
   intervalMs = 60_000,
-  maxWaitMs = 5.5 * 3600_000,
+  maxWaitMs = 5.5 * 3_600_000,
 ) {
   const deadline = Date.now() + maxWaitMs;
   let announced = false;

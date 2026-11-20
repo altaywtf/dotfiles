@@ -309,7 +309,7 @@ test("alerts follow transitions: one failure email, silence while failing, one r
               run: (command, args, options) =>
                 bounded.run(command, args, {
                   ...options,
-                  timeoutMs: 1_000,
+                  timeoutMs: 1000,
                   termGraceMs: 100,
                   pollIntervalMs: 50,
                 }),

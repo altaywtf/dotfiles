@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 
-const gracePeriod = 3 * 86400_000;
+const gracePeriod = 3 * 86_400_000;
 type Result = { status: number; stdout: string };
 export type Runner = (cwd: string, command: string, args: string[]) => Result;
 export type Worktree = {

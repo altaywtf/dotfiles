@@ -136,7 +136,7 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   withWarnings(() =>
     assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms))),
   );
-  assert.deepEqual(slept, [5_000, 20_000]);
+  assert.deepEqual(slept, [5000, 20_000]);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
   mkdirSync(lock); // metadata-free lock: the owner is unknown, so it is kept
@@ -180,7 +180,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
       if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
     },
   });
-  assert.deepEqual(slept, [5_000, 10_000, 20_000]);
+  assert.deepEqual(slept, [5000, 10_000, 20_000]);
   waited();
   assert.equal(existsSync(lock), false);
 });

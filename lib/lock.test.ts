@@ -58,7 +58,7 @@ test("a holder recorded before the current boot is reclaimed even when its pid l
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: process.pid, bootTime: 500 })}\n`,
   );
-  const probe = { now: () => 1_000_000_000, uptimeMs: () => 1_000, processAlive: () => true };
+  const probe = { now: () => 1_000_000_000, uptimeMs: () => 1000, processAlive: () => true };
   assert.equal(lockOwnerAlive(lock, probe), false);
   const release = acquireDirectoryLock(lock, { ...silent, ...probe });
   release();
@@ -105,7 +105,7 @@ test("contention waits with backoff and acquires after release, without real sle
       if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
     },
   });
-  assert.deepEqual(slept, [5_000, 10_000, 20_000]);
+  assert.deepEqual(slept, [5000, 10_000, 20_000]);
   release();
   assert.equal(existsSync(lock), false);
 });
@@ -200,6 +200,6 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
       rmSync(lock, { recursive: true, force: true });
     },
   });
-  assert.deepEqual(slept, [5_000], "the contender waited instead of claiming the owner-less lock");
+  assert.deepEqual(slept, [5000], "the contender waited instead of claiming the owner-less lock");
   release();
 });

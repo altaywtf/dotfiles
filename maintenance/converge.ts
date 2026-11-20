@@ -13,7 +13,7 @@ import type { LockOptions } from "../lib/lock.ts";
 // Concurrent manual and scheduled convergence wait for the checkout owner.
 const lockWaitMs = 15 * 60_000;
 // GitHub intermittently refuses SSH or drops connections; a fetch is idempotent.
-const fetchRetryDelaysMs = [5_000, 20_000];
+const fetchRetryDelaysMs = [5000, 20_000];
 
 class UpdateFailure extends Error {
   readonly exitCode: number;
