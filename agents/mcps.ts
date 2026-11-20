@@ -90,7 +90,7 @@ function writeMcpLock(
   mcps: readonly LockedMcp[],
   overlays?: OverlayOwnership,
 ): void {
-  const lock: McpLock = { version: 1, mcps: [...mcps], ...(overlays ? { overlays } : {}) };
+  const lock: McpLock = { version: 1, mcps: [...mcps], overlays };
   writeLockFile(lockPath, lock);
 }
 
@@ -219,8 +219,8 @@ function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): string[] {
   const config = JSON.stringify({
     type: "http",
     url: mcp.url,
-    ...(headersHelper === undefined ? {} : { headersHelper }),
-    ...(mcp.oauth === undefined ? {} : { oauth: mcp.oauth }),
+    headersHelper,
+    oauth: mcp.oauth,
   });
   return ["mcp", "add-json", "-s", "user", mcp.name, config];
 }

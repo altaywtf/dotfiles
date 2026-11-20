@@ -78,7 +78,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
   const receipt = Effect.fn("writeUpdateReceipt")(
     function* (fields: ReceiptFields) {
-      const record = `${JSON.stringify({ version: 1, job, startedAt, ...(bootId ? { bootId } : {}), ...fields })}\n`;
+      const record = `${JSON.stringify({ version: 1, job, startedAt, bootId: bootId || undefined, ...fields })}\n`;
       yield* Console.log(`Update receipt: ${record.trim()}`);
       yield* Effect.gen(function* () {
         const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
@@ -183,7 +183,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     state: "running",
     exitCode: status,
     cleanupComplete: execution.cleanupComplete,
-    ...(execution.timedOut ? { timedOut: true } : {}),
+    timedOut: execution.timedOut || undefined,
   });
   if (destination) {
     const failing = status !== 0;
@@ -252,10 +252,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     finishedAt: new Date().toISOString(),
     exitCode: status,
     alert,
-    ...(execution.timedOut ? { timedOut: true } : {}),
-    ...(execution.timedOut || !execution.cleanupComplete
-      ? { cleanupComplete: execution.cleanupComplete }
-      : {}),
+    timedOut: execution.timedOut || undefined,
+    cleanupComplete:
+      execution.timedOut || !execution.cleanupComplete ? execution.cleanupComplete : undefined,
   });
   return status;
 });

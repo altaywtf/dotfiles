@@ -42,13 +42,14 @@ function parseCatalogLine(line: string): XcodeRelease | undefined {
   const match = catalogLine.exec(left ?? "");
   if (!match?.[1] || !match[2]) return undefined;
   const flags = match[4] ?? "";
-  return {
+  const release: XcodeRelease = {
     version: match[1].trim(),
     build: match[2],
     selected: flags.includes("(Selected)"),
     installed: flags.includes("(Installed") || flags.includes("(Selected)") || Boolean(path),
-    ...(path ? { path } : {}),
   };
+  if (path) release.path = path;
+  return release;
 }
 
 export function parseCatalog(contents: string): XcodeRelease[] {

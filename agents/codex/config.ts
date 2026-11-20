@@ -213,7 +213,7 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
           params: {
             edits: edits(current.user),
             filePath: configPath,
-            ...(current.version ? { expectedVersion: current.version } : {}),
+            expectedVersion: current.version || undefined,
           },
         });
       }

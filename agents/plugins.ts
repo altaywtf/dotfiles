@@ -294,7 +294,7 @@ function writePluginLock(
   plugins: readonly Plugin[],
   overlays?: OverlayOwnership,
 ): void {
-  const lock: PluginLock = { version: 1, plugins: [...plugins], ...(overlays ? { overlays } : {}) };
+  const lock: PluginLock = { version: 1, plugins: [...plugins], overlays };
   writeLockFile(lockPath, lock);
 }
 

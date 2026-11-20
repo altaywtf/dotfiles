@@ -190,7 +190,12 @@ function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBa
     const status =
       app_version === item.current_version ? "record_lag" : app_version ? "pending" : "unknown";
     (status === "record_lag" ? record_lag : casks).push(item);
-    return { name: item.name, status, ...(app_version ? { app_version } : {}) } as const;
+    const verification: NonNullable<BrewBacklog["cask_verification"]>[number] = {
+      name: item.name,
+      status,
+    };
+    if (app_version) verification.app_version = app_version;
+    return verification;
   });
   return { ...backlog, casks, record_lag, cask_verification };
 }
@@ -552,15 +557,15 @@ export async function collectMaintenanceSnapshot(
   const probes: MaintenanceProbes = {};
   for (const [id, result] of entries) probes[id] = result;
   if (macosUpdates) {
-    probes.software_update = {
+    const softwareUpdate: ProbeResult<MacOSUpdateInventory> = {
       status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
       required: true,
       duration_ms: macosUpdates.duration_ms,
       value: macosUpdates,
-      ...(macosUpdates.applicability.status === "unknown"
-        ? { error: "macOS update applicability could not be established" }
-        : {}),
     };
+    if (macosUpdates.applicability.status === "unknown")
+      softwareUpdate.error = "macOS update applicability could not be established";
+    probes.software_update = softwareUpdate;
   }
   const backlog_count = backlogCount(probes);
   const required_failures = Object.values(probes).filter(

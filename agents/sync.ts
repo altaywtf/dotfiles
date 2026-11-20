@@ -44,7 +44,7 @@ function writeSkillLock(
   skills: readonly Skill[],
   overlays: OverlayOwnership | undefined,
 ): void {
-  const lock: SkillLock = { version: 1, skills: [...skills], ...(overlays ? { overlays } : {}) };
+  const lock: SkillLock = { version: 1, skills: [...skills], overlays };
   writeLockFile(lockPath, lock);
 }
 

@@ -225,7 +225,7 @@ function writeClaudeConfig(home: string, headersHelper?: string): void {
   const entry = {
     type: "http",
     url: "https://auth.fixture.test/mcp",
-    ...(headersHelper ? { headersHelper } : {}),
+    headersHelper: headersHelper || undefined,
   };
   writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { "auth-mcp": entry } }));
 }
