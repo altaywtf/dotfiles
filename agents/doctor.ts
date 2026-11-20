@@ -2,6 +2,7 @@
 
 import { accessSync, constants, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { Array, Effect, Option, Result, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
@@ -37,12 +38,9 @@ type Finding = {
   repair?: string;
 };
 
-// oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences from CLI output.
-const stripAnsi = (text: string) => text.replaceAll(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
-
 function capture(runtime: Runtime, command: string, args: ReadonlyArray<string>) {
   const result = runtime.run(command, args, { stdout: "capture", stderr: "capture" });
-  return { ...result, text: stripAnsi(`${result.stdout}\n${result.stderr}`) };
+  return { ...result, text: stripVTControlCharacters(`${result.stdout}\n${result.stderr}`) };
 }
 
 function helperProblem(path: string): string | undefined {
@@ -137,8 +135,6 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
   };
 }
 
-// `codex mcp list --json` reports the auth mode, not whether the stored OAuth
-// session is still valid; Codex only reveals that when a session starts.
 function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
   const result = capture(runtime, "codex", ["mcp", "list", "--json"]);
   const repair = `codex mcp login ${mcp.name}`;
