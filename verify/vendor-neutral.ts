@@ -31,6 +31,10 @@ function allowed(file: string, content: string): boolean {
       return content.includes("uinaf/ffss");
     case "agents/rules/shared.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
+    case "package.json":
+    case "pnpm-lock.yaml":
+    case "vite.config.ts":
+      return content.includes("@uinaf/oxlint-plugin-no-comments");
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
       return content.includes("uinaf/tap");

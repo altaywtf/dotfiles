@@ -29,12 +29,12 @@ export default defineConfig({
     jsPlugins: [
       ...(cloudflare.jsPlugins ?? []),
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
-      { name: "uinaf", specifier: "@uinaf/oxlint-plugin-no-comments" },
+      { name: "comments", specifier: "@uinaf/oxlint-plugin-no-comments" },
     ],
     rules: {
       ...cloudflare.rules,
       "vite-plus/prefer-vite-plus-imports": "error",
-      "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
+      "comments/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
   },
