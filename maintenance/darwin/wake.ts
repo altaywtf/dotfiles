@@ -26,7 +26,7 @@ const fullWake = Effect.gen(function* () {
 // Defer until a full wake; give the slot up before the next six-hour slot.
 export const awaitFullWake = Effect.fn("awaitFullWake")(function* (
   probe: Effect.Effect<boolean | undefined, never, CommandRunner> = fullWake,
-  intervalMs = 60_000,
+  intervalMs: number = 60_000,
   maxWaitMs = 5.5 * 3_600_000,
 ) {
   const deadline = Date.now() + maxWaitMs;

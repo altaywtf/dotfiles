@@ -110,7 +110,7 @@ const run = (command: string, args: readonly string[] = [], inherit = false) =>
 const checked = Effect.fn("runCheckedServiceCommand")(function* (
   command: string,
   args: readonly string[] = [],
-  inherit = false,
+  inherit: boolean = false,
 ) {
   const result = yield* run(command, args, inherit);
   if (result.status !== 0)

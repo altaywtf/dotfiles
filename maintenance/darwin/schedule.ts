@@ -167,7 +167,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
   action: string,
   home: string,
   uid: number,
-  interactive = process.stdin.isTTY === true,
+  interactive: boolean = process.stdin.isTTY === true,
 ) {
   if (!["enable", "disable", "run", "status"].includes(action)) return yield* fail(usage, 2);
   if (!home || !home.startsWith("/") || uid <= 0)

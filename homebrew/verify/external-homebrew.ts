@@ -76,7 +76,7 @@ const program = Effect.scoped(
     });
     const local = join(temporary, "Brewfile.local");
     const validate = Effect.fn("validateExternalHomebrewFixture")(function* (
-      profile = "workstation",
+      profile: string = "workstation",
       extra: Readonly<Record<string, string>> = {},
       profiles: ProfileModel = model,
     ) {

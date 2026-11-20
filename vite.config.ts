@@ -35,7 +35,6 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       curly: "off",
       "typescript/array-type": "off",
-      "typescript/no-unsafe-argument": "off",
       "typescript/no-unsafe-assignment": "off",
       "typescript/no-unsafe-call": "off",
       "typescript/no-unsafe-return": "off",
@@ -49,7 +48,6 @@ export default defineConfig({
         rules: {
           curly: "off",
           "typescript/array-type": "off",
-          "typescript/no-unsafe-argument": "off",
           "typescript/no-unsafe-assignment": "off",
           "typescript/no-unsafe-call": "off",
           "typescript/no-unsafe-return": "off",

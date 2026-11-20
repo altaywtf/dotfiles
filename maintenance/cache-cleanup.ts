@@ -60,7 +60,7 @@ const realDirectory = (path: string) =>
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
   apply: boolean,
-  timeoutMs = cacheCleanupTimeoutMs,
+  timeoutMs: number = cacheCleanupTimeoutMs,
 ) {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
