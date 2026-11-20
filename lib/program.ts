@@ -6,6 +6,8 @@ export class CliFailure extends Schema.TaggedError<CliFailure>()("CliFailure", {
   message: Schema.String,
 }) {}
 
+export const isCliFailure = Schema.is(CliFailure);
+
 export const fail = (message: string, exitCode = 1): Effect.Effect<never, CliFailure> =>
   Effect.fail(new CliFailure({ exitCode, message }));
 
@@ -16,7 +18,7 @@ export function runMain(program: Effect.Effect<void, unknown>): void {
       return Effect.sync(() => {
         const error = cause.reasons.find(Cause.isFailReason)?.error;
         const failure =
-          !Cause.hasDies(cause) && Schema.is(CliFailure)(error)
+          !Cause.hasDies(cause) && isCliFailure(error)
             ? error
             : new CliFailure({
                 exitCode: 1,

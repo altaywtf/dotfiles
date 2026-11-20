@@ -1,7 +1,7 @@
 import { Console, Effect, FileSystem, Option } from "effect";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { CliFailure, fail } from "../lib/program.ts";
+import { CliFailure, fail, isCliFailure } from "../lib/program.ts";
 
 // Machine-local fragments linked from a directory the operator names once.
 // Keys are the files the rule renderer reads; values are paths in the source.
@@ -89,7 +89,7 @@ export const linkAgentSource = Effect.fn("linkAgentSource")(function* (
 }, Effect.mapError(asCliFailure));
 
 function asCliFailure(error: unknown): CliFailure {
-  return error instanceof CliFailure
+  return isCliFailure(error)
     ? error
     : new CliFailure({ exitCode: 1, message: `agent source: ${String(error)}` });
 }

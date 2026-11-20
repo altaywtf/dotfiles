@@ -15,7 +15,7 @@ test("a missing executable retains its structured platform cause", async () => {
   assert.ok(Exit.isFailure(exit));
   const error = exit.cause.reasons.find(Cause.isFailReason)?.error;
   assert.ok(error instanceof CommandError);
-  assert.ok(error.cause instanceof PlatformError.PlatformError);
+  assert.ok(PlatformError.isPlatformError(error.cause));
   assert.equal(error.cause.reason._tag, "NotFound");
   assert.equal(error.message, String(error.cause));
 });

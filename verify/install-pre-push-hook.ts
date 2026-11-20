@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, DateTime, Effect, FileSystem, Option } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain, isCliFailure } from "../lib/program.ts";
 
 const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_PRE_PUSH_REPO_ROOT || sourceRoot;
@@ -60,7 +60,7 @@ const program = Effect.gen(function* () {
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),
   Effect.mapError((error) =>
-    error instanceof CliFailure ? error : new CliFailure({ exitCode: 1, message: String(error) }),
+    isCliFailure(error) ? error : new CliFailure({ exitCode: 1, message: String(error) }),
   ),
 );
 

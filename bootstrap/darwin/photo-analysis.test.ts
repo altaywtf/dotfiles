@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import { NodeServices } from "@effect/platform-node";
 import { checkDevboxPhotoAnalysis, disableDevboxPhotoAnalysis } from "./photo-analysis.ts";
 
@@ -52,7 +52,7 @@ test("Photos analysis policy reports a rejected launchctl change", async () => {
     disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(Effect.flip),
     runner,
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
 

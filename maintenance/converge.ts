@@ -15,7 +15,11 @@ const lockWaitMs = 15 * 60_000;
 // GitHub intermittently refuses SSH or drops connections; a fetch is idempotent.
 const fetchRetryDelaysMs = [5000, 20_000];
 
+const updateFailure = Symbol("UpdateFailure");
+const localWork = Symbol("LocalWork");
+
 class UpdateFailure extends Error {
+  readonly [updateFailure] = true;
   readonly exitCode: number;
   constructor(message: string, exitCode = 1) {
     super(message);
@@ -47,7 +51,14 @@ function run(repo: string, command: string, args: string[], capture = false): st
 }
 
 // Local work blocks a fast-forward without making the checkout unusable.
-class LocalWork extends UpdateFailure {}
+class LocalWork extends UpdateFailure {
+  readonly [localWork] = true;
+}
+
+const isUpdateFailure = (value: unknown): value is UpdateFailure =>
+  typeof value === "object" && value !== null && updateFailure in value;
+const isLocalWork = (value: unknown): value is LocalWork =>
+  isUpdateFailure(value) && localWork in value;
 
 export function syncCheckout(
   repo: string,
@@ -70,7 +81,7 @@ export function syncCheckout(
       git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
       break;
     } catch (error) {
-      if (!(error instanceof UpdateFailure) || delay === undefined) throw error;
+      if (!isUpdateFailure(error) || delay === undefined) throw error;
       process.stderr.write(`${label} ${error.message}; retrying in ${delay / 1000}s\n`);
       sleep(delay);
     }
@@ -165,7 +176,7 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
     try {
       revision = syncCheckout(repo, undefined, options.sleep);
     } catch (error) {
-      if (!(error instanceof LocalWork)) throw error;
+      if (!isLocalWork(error)) throw error;
       process.stderr.write(`Kept ${repo}: ${error.message}; convergence skipped\n`);
       return;
     }
@@ -177,9 +188,8 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
         );
         process.stdout.write(`Agent rule checkout ${checkout} at ${advanced}\n`);
       } catch (error) {
-        if (error instanceof LocalWork)
-          process.stderr.write(`Kept ${checkout}: ${error.message}\n`);
-        else if (error instanceof UpdateFailure) failed.push(`${checkout}: ${error.message}`);
+        if (isLocalWork(error)) process.stderr.write(`Kept ${checkout}: ${error.message}\n`);
+        else if (isUpdateFailure(error)) failed.push(`${checkout}: ${error.message}`);
         else throw error;
       }
     }
@@ -202,6 +212,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     converge(resolve(import.meta.dirname, ".."));
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = error instanceof UpdateFailure ? error.exitCode : 1;
+    process.exitCode = isUpdateFailure(error) ? error.exitCode : 1;
   }
 }

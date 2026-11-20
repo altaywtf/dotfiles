@@ -45,7 +45,7 @@ const recordingSender = (sent: SentAlert[], respond: () => Response = () => acce
     assert.equal(body.from, alertConfig.from);
     assert.equal(body.to, alertConfig.to);
     sent.push({
-      url: input instanceof Request ? input.url : input.toString(),
+      url: typeof input === "string" ? input : "url" in input ? input.url : input.toString(),
       token: new Headers(init?.headers).get("authorization") ?? undefined,
       subject: body.subject,
       text: body.text,

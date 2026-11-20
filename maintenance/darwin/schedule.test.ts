@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { Effect, FileSystem, Result } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import {
   comparePlist,
   manageSchedule,
@@ -146,7 +146,7 @@ test("on-demand launch failures reach the caller", async () => {
       Effect.flip,
     ),
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
 
@@ -190,7 +190,7 @@ test("disabling fails while the system updater stays enrolled", async () => {
       Effect.flip,
     ),
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.match(failure.message, /system updater still enrolled/);
 });
 

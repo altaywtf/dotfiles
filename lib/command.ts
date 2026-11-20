@@ -1,4 +1,4 @@
-import { Context, Effect, Fiber, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Fiber, Layer, Predicate, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { CliFailure, fail } from "./program.ts";
@@ -66,10 +66,9 @@ export class CommandRunner extends Context.Service<
               detached: options.stdin !== "inherit",
               // Effect waits forever for a child that ignores SIGTERM unless told to escalate.
               forceKillAfter: options.timeoutMs === undefined ? undefined : "5 seconds",
-              stdin:
-                options.stdin instanceof Uint8Array
-                  ? Stream.make(options.stdin)
-                  : (options.stdin ?? "ignore"),
+              stdin: Predicate.isUint8Array(options.stdin)
+                ? Stream.make(options.stdin)
+                : (options.stdin ?? "ignore"),
               stdout: output === "capture" ? "pipe" : output,
               stderr: output === "capture" ? "pipe" : output,
             }),

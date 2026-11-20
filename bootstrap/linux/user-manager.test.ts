@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import { join } from "node:path";
 import { convergeUserManager } from "./user-manager.ts";
 
@@ -80,7 +80,7 @@ for (const operation of ["daemon-reload", "set-environment"]) {
           Effect.flip,
         ),
       );
-      assert.ok(error instanceof CliFailure);
+      assert.ok(isCliFailure(error));
       assert.match(error.message, new RegExp(`systemctl --user ${operation}`));
       assert.equal(error.exitCode, failure === "exit" ? 7 : 1);
     });

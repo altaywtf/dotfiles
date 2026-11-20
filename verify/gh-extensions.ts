@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain, isCliFailure } from "../lib/program.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const installer = join(repoRoot, "bootstrap/install-gh-extensions.ts");
@@ -63,7 +63,7 @@ const program = Effect.scoped(
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
     Effect.mapError((error) =>
-      error instanceof CliFailure ? error : new CliFailure({ exitCode: 1, message: String(error) }),
+      isCliFailure(error) ? error : new CliFailure({ exitCode: 1, message: String(error) }),
     ),
   ),
 );

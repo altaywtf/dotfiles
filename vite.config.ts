@@ -33,7 +33,6 @@ export default defineConfig({
     rules: {
       ...cloudflare.rules,
       "vite-plus/prefer-vite-plus-imports": "error",
-      "@nkzw/no-instanceof": "off",
       curly: "off",
       "quality/no-conditional-empty-object-spread": "off",
       "quality/no-known-value-widening": "off",
@@ -55,7 +54,6 @@ export default defineConfig({
       {
         files: ["**/*.ts"],
         rules: {
-          "@nkzw/no-instanceof": "off",
           curly: "off",
           "quality/no-conditional-empty-object-spread": "off",
           "quality/no-known-value-widening": "off",
