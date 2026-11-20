@@ -153,15 +153,15 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", reject);
     child.on("close", (status) => {
-      const error = Buffer.concat(stderr).toString();
+      const output = Buffer.concat(stderr).toString();
       try {
         if (fixture.malformed) {
           assert.notEqual(status, 0);
-          assert.match(error, /fromJson|invalid character|unexpected end/i);
+          assert.match(output, /fromJson|invalid character|unexpected end/i);
           finish();
           return;
         }
-        assert.equal(status, 0, error);
+        assert.equal(status, 0, output);
         const actual = JSON.parse(Buffer.concat(stdout).toString()) as Settings;
         const expected = fixture.expected ?? {};
         assert.deepEqual(
@@ -213,8 +213,8 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.permissions?.[managedMode], "auto");
         assert.deepEqual({ ...actual.env, ...managedEnv }, actual.env);
         finish();
-      } catch (failure) {
-        reject(failure);
+      } catch (error) {
+        reject(error);
       }
     });
     child.stdin.end(fixture.contents);

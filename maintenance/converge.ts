@@ -116,10 +116,10 @@ export function acquireCheckoutLock(repo: string, options: LockOptions = {}): ()
   const lock = join(gitDir, "dotfiles-converge.lock");
   try {
     return acquireDirectoryLock(lock, { waitMs: lockWaitMs, ...options });
-  } catch (cause) {
+  } catch (error) {
     throw new Error(
       `dotfiles convergence lock unavailable: ${lock}; check for an active or interrupted update`,
-      { cause },
+      { cause: error },
     );
   }
 }

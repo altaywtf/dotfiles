@@ -71,8 +71,8 @@ function decodeJsonOutput<S extends Schema.Decoder<unknown>>(
 ): S["Type"] {
   try {
     return Schema.decodeUnknownSync(Schema.fromJsonString(schema))(contents);
-  } catch (cause) {
-    throw new Error(message, { cause });
+  } catch (error) {
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -111,8 +111,8 @@ function misePins(path: string): Record<string, string> {
         Predicate.isString(pin) ? pin : pin.version,
       ]),
     );
-  } catch (cause) {
-    throw new Error(`cannot inspect mise pins in ${path}`, { cause });
+  } catch (error) {
+    throw new Error(`cannot inspect mise pins in ${path}`, { cause: error });
   }
 }
 
@@ -131,8 +131,8 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
     inventory = Schema.decodeUnknownSync(Schema.fromJsonString(MiseInstallInventory))(
       result.stdout,
     );
-  } catch (cause) {
-    throw new Error("mise returned an invalid installed pin inventory", { cause });
+  } catch (error) {
+    throw new Error("mise returned an invalid installed pin inventory", { cause: error });
   }
   const pending: Record<
     string,
@@ -257,8 +257,8 @@ function parseContentCaches(result: RawCommandResult) {
   let locator: typeof CacheLocator.Type;
   try {
     locator = Schema.decodeUnknownSync(Schema.fromJsonString(CacheLocator))(result.stdout);
-  } catch (cause) {
-    throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause });
+  } catch (error) {
+    throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause: error });
   }
   return locator.results.system["refreshed servers"]["shared caching"].map(
     ({ hostport, healthy }) => ({ hostport, healthy }),

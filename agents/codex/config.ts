@@ -98,8 +98,8 @@ function localEdits(path: string): ConfigEdit[] {
   let settings: typeof LocalSettings.Type;
   try {
     settings = Schema.decodeUnknownSync(LocalSettings)(readFileSync(path, "utf8"));
-  } catch (cause) {
-    throw new Error(`${path} must be a JSON object of Codex key paths to values`, { cause });
+  } catch (error) {
+    throw new Error(`${path} must be a JSON object of Codex key paths to values`, { cause: error });
   }
   return Object.entries(settings).map(([keyPath, value]) => ({
     keyPath,
@@ -117,8 +117,10 @@ function gatewayEdits(path: string): ConfigEdit[] {
   let gateway: typeof Gateway.Type;
   try {
     gateway = Schema.decodeUnknownSync(Gateway)(readFileSync(path, "utf8"));
-  } catch (cause) {
-    throw new Error(`${path} must be a JSON object with baseUrl and keyCommand strings`, { cause });
+  } catch (error) {
+    throw new Error(`${path} must be a JSON object with baseUrl and keyCommand strings`, {
+      cause: error,
+    });
   }
   const provider = "model_providers.gateway";
   return [

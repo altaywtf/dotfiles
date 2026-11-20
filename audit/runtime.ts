@@ -46,12 +46,12 @@ export function runCommand(
   try {
     const stdout = new TextDecoder("utf-8", { fatal: true }).decode(result.stdout ?? undefined);
     return { status: result.status, stdout, stderr, error: result.error };
-  } catch (cause) {
+  } catch (error) {
     return {
       status: result.status,
       stdout: "",
       stderr,
-      error: result.error ?? new Error(`${command} output is not valid UTF-8`, { cause }),
+      error: result.error ?? new Error(`${command} output is not valid UTF-8`, { cause: error }),
     };
   }
 }

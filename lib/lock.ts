@@ -117,13 +117,13 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
     };
     try {
       writeFileSync(owner, `${JSON.stringify(metadata)}\n`, { mode: 0o600 });
-    } catch (cause) {
+    } catch (error) {
       try {
         rmSync(lock, { recursive: true, force: true });
       } catch {
         // Keep the original failure; the owner-less directory stays for inspection.
       }
-      throw cause;
+      throw error;
     }
     return () => {
       rmSync(lock, { recursive: true, force: true });
@@ -132,8 +132,8 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
   for (;;) {
     try {
       mkdirSync(lock, { mode: 0o700 });
-    } catch (cause) {
-      if ((cause as NodeJS.ErrnoException).code !== "EEXIST") throw cause;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       if (!lockOwnerAlive(lock, options)) {
         log(`reclaiming stale lock left by a dead process: ${lock}`);
         if (reclaimOwner(lock, options) === "won") return writeOwner();
@@ -141,7 +141,8 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
         // holder released; the wait path observes either outcome.
       }
       const remaining = deadline - now();
-      if (remaining <= 0) throw new Error(`lock is held by an active process: ${lock}`, { cause });
+      if (remaining <= 0)
+        throw new Error(`lock is held by an active process: ${lock}`, { cause: error });
       if (!announced) {
         announced = true;
         log(`waiting up to ${Math.ceil(remaining / 60_000)} minutes for ${lock}`);

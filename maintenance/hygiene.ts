@@ -74,8 +74,10 @@ export async function hygiene(
   // a live or ambiguous owner still fails the run for inspection.
   try {
     release = acquireDirectoryLock(join(directory, "hygiene.lock"));
-  } catch (cause) {
-    throw new Error("hygiene lock exists; check for an active or interrupted cleanup", { cause });
+  } catch (error) {
+    throw new Error("hygiene lock exists; check for an active or interrupted cleanup", {
+      cause: error,
+    });
   }
   try {
     // Eligibility rests entirely on the per-worktree checks below, which retain
