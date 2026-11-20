@@ -1,5 +1,6 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 import { basename } from "node:path";
+import { Option } from "effect";
 import type { AuditReport } from "./report.ts";
 import { walkFiles } from "./paths.ts";
 
@@ -58,10 +59,7 @@ function checkLogFile(path: string, env: NodeJS.ProcessEnv, report: AuditReport)
   const physical = statSync(path).size;
   const failBytes = numericEnv(env, "CODEX_LOG_FAIL_BYTES", 524_288_000);
   const warnBytes = numericEnv(env, "CODEX_LOG_WARN_BYTES", 209_715_200);
-  let stats: [number, number, number] | undefined;
-  try {
-    stats = sqlitePageStats(path);
-  } catch {}
+  const stats = Option.getOrUndefined(Option.liftThrowable(sqlitePageStats)(path));
   if (!stats) {
     report.finding(
       physical >= failBytes ? "fail" : physical >= warnBytes ? "warn" : "ok",

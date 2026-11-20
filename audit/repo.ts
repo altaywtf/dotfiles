@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { constants, existsSync, statSync } from "node:fs";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -132,9 +132,8 @@ function trufflehogHistoryResult(report: AuditReport, result: CommandResult): bo
 }
 
 function trufflehogSource(repoRoot: string, command: CommandRunner): string {
-  try {
-    if (statSync(join(repoRoot, ".git")).isDirectory()) return repoRoot;
-  } catch {}
+  const git = Option.liftThrowable(() => statSync(join(repoRoot, ".git")))();
+  if (Option.exists(git, (info) => info.isDirectory())) return repoRoot;
   const worktrees = command("git", ["-C", repoRoot, "worktree", "list", "--porcelain"]);
   const source = worktrees.stdout
     .split("\n")

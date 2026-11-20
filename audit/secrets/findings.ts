@@ -72,11 +72,10 @@ function readFindings(path: string): typeof Findings.Type {
   );
 }
 
+const realPath = Option.liftThrowable((path: string) => realpathSync(path));
+
 function rootVariants(root: string): string[] {
-  const roots = new Set([resolve(root)]);
-  try {
-    roots.add(realpathSync(root));
-  } catch {}
+  const roots = new Set([resolve(root), ...Option.toArray(realPath(root))]);
   for (const candidate of roots) {
     if (candidate.startsWith("/private/")) roots.add(candidate.slice(8));
     else if (candidate.startsWith("/var/")) roots.add(`/private${candidate}`);

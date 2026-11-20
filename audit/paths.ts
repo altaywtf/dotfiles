@@ -1,6 +1,8 @@
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import { Predicate } from "effect";
+import { Option, Predicate } from "effect";
+
+const stat = Option.liftThrowable((path: string) => statSync(path));
 
 export type PathSource =
   | { kind: "path"; path: string }
@@ -34,9 +36,7 @@ function present(path: string, skipped: SkippedPath): boolean {
 }
 
 function discoveredFile(path: string, skipped: SkippedPath): boolean {
-  try {
-    if (statSync(path).isFile()) return true;
-  } catch {}
+  if (Option.exists(stat(path), (info) => info.isFile())) return true;
   skipped(path);
   return false;
 }
@@ -91,10 +91,7 @@ export function resolveSources(
     if (source.kind === "path") {
       const path = homePath(home, source.path);
       if (!present(path, skipped)) return [];
-      try {
-        const info = statSync(path);
-        if (info.isFile() || info.isDirectory()) return [path];
-      } catch {}
+      if (Option.exists(stat(path), (info) => info.isFile() || info.isDirectory())) return [path];
       skipped(path);
       return [];
     }

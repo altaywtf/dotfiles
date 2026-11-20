@@ -1,4 +1,4 @@
-import { Console, Context, Effect, Layer, Schedule, Schema, Stream } from "effect";
+import { Console, Context, Effect, Layer, Option, Schedule, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   constants,
@@ -274,9 +274,7 @@ export class BoundedCommand extends Context.Service<
                   }
                   renameSync(temporary, path);
                 } finally {
-                  try {
-                    unlinkSync(temporary);
-                  } catch {}
+                  Option.liftThrowable(unlinkSync)(temporary);
                 }
                 return path;
               });

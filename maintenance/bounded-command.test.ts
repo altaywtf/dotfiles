@@ -129,9 +129,9 @@ for (const diagnosticFailure of [false, true]) {
     });
     t.onTestFinished(async () => {
       unrelated.kill("SIGKILL");
-      try {
-        process.kill(await waitForPid(pidFile), "SIGKILL");
-      } catch {}
+      await waitForPid(pidFile)
+        .then((pid) => process.kill(pid, "SIGKILL"))
+        .catch(() => false);
       await rm(directory, { recursive: true, force: true });
     });
     const completion = Effect.runPromise(
@@ -187,9 +187,9 @@ test("cancellation cleans a detached child before returning", async (t) => {
   t.onTestFinished(async () => {
     controller.abort();
     await completion;
-    try {
-      process.kill(await waitForPid(pidFile), "SIGKILL");
-    } catch {}
+    await waitForPid(pidFile)
+      .then((pid) => process.kill(pid, "SIGKILL"))
+      .catch(() => false);
     await rm(directory, { recursive: true, force: true });
   });
   const child = await waitForPid(pidFile);
