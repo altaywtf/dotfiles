@@ -11,7 +11,39 @@ export type Mcp = {
   url: string;
   harnesses: readonly Harness[];
   headersHelper?: string;
+  oauth?: McpOAuth;
 };
+
+export type McpOAuth = { clientId: string; callbackPort: number };
+
+function readOAuth(value: unknown, path: string, name: string): McpOAuth | undefined {
+  if (value === undefined) return undefined;
+  const invalid = (detail: string) =>
+    new Error(`Invalid MCP manifest at ${path}: ${name} oauth ${detail}`);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw invalid("must be an object with clientId and callbackPort");
+  }
+  const unknownKeys = Object.keys(value).filter(
+    (key) => key !== "clientId" && key !== "callbackPort",
+  );
+  if (unknownKeys.length > 0) {
+    throw invalid(`has unsupported keys ${unknownKeys.join(", ")}`);
+  }
+  const clientId = "clientId" in value ? value.clientId : undefined;
+  if (typeof clientId !== "string" || !/^[A-Za-z0-9._-]+$/.test(clientId)) {
+    throw invalid("clientId must match [A-Za-z0-9._-]+");
+  }
+  const callbackPort = "callbackPort" in value ? value.callbackPort : undefined;
+  if (
+    typeof callbackPort !== "number" ||
+    !Number.isInteger(callbackPort) ||
+    callbackPort < 1024 ||
+    callbackPort > 65535
+  ) {
+    throw invalid("callbackPort must be an integer from 1024 to 65535");
+  }
+  return { clientId, callbackPort };
+}
 
 export function expandHeadersHelper(path: string, home: string | undefined): string {
   if (!path.startsWith("~/")) return path;
@@ -93,9 +125,20 @@ function readMcp(value: unknown, manifestPath: string): Mcp {
     value.name,
   );
 
-  return headersHelper === undefined
-    ? { name: value.name, url: value.url, harnesses }
-    : { name: value.name, url: value.url, harnesses, headersHelper };
+  const oauth = readOAuth("oauth" in value ? value.oauth : undefined, manifestPath, value.name);
+  if (oauth !== undefined && headersHelper !== undefined) {
+    throw new Error(
+      `Invalid MCP manifest at ${manifestPath}: ${value.name} cannot set both oauth and headersHelper`,
+    );
+  }
+
+  return {
+    name: value.name,
+    url: value.url,
+    harnesses,
+    ...(headersHelper === undefined ? {} : { headersHelper }),
+    ...(oauth === undefined ? {} : { oauth }),
+  };
 }
 
 function parseMcps(value: unknown, manifestPath: string): Mcp[] {

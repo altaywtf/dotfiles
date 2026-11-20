@@ -63,6 +63,12 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   or `~/` path and `harnesses` to `["claude"]`; Codex has no equivalent. The
   helper prints the headers as JSON and reads the token from a mode-0600 file
   or a secret manager.
+- A remote MCP whose OAuth provider refuses dynamic client registration sets
+  `oauth` to `{ "clientId": "…", "callbackPort": 8080 }`. Register
+  `http://localhost:PORT/callback` for Claude Code and the
+  `mcp_servers.NAME.oauth.callback_url` that sync writes to
+  `~/.codex/config.toml` for Codex. `oauth` and `headersHelper` are mutually
+  exclusive.
 - A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
 

@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { type McpOAuth } from "./catalog.ts";
+
 function claudeConfigPath(env: NodeJS.ProcessEnv): string | undefined {
   const dir = env.CLAUDE_CONFIG_DIR || env.HOME;
   return dir ? join(dir, ".claude.json") : undefined;
 }
 
-// `claude mcp get` does not print headersHelper, so read the user-scope entry.
-export function configuredHeadersHelper(env: NodeJS.ProcessEnv, name: string): string | undefined {
+function userEntry(env: NodeJS.ProcessEnv, name: string): object | undefined {
   const path = claudeConfigPath(env);
   if (path === undefined) return undefined;
   let parsed: unknown;
@@ -22,10 +23,32 @@ export function configuredHeadersHelper(env: NodeJS.ProcessEnv, name: string): s
     return undefined;
   }
   const entry: unknown = Object.getOwnPropertyDescriptor(servers, name)?.value;
-  return typeof entry === "object" &&
-    entry !== null &&
-    "headersHelper" in entry &&
-    typeof entry.headersHelper === "string"
-    ? entry.headersHelper
-    : undefined;
+  return typeof entry === "object" && entry !== null ? entry : undefined;
+}
+
+export function claudeAuthMatches(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  headersHelper: string | undefined,
+  oauth: McpOAuth | undefined,
+): boolean {
+  const entry = userEntry(env, name);
+  const configuredHelper =
+    entry !== undefined && "headersHelper" in entry && typeof entry.headersHelper === "string"
+      ? entry.headersHelper
+      : undefined;
+  if (configuredHelper !== headersHelper) return false;
+
+  const configuredOAuth: unknown =
+    entry !== undefined && "oauth" in entry ? entry.oauth : undefined;
+  if (oauth === undefined) return configuredOAuth === undefined;
+  return (
+    typeof configuredOAuth === "object" &&
+    configuredOAuth !== null &&
+    Object.keys(configuredOAuth).length === 2 &&
+    "clientId" in configuredOAuth &&
+    configuredOAuth.clientId === oauth.clientId &&
+    "callbackPort" in configuredOAuth &&
+    configuredOAuth.callbackPort === oauth.callbackPort
+  );
 }

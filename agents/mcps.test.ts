@@ -279,6 +279,93 @@ test("re-adds a Claude mcp whose config lacks its headers helper", () => {
   assert.match(harnessCalls(runtime, "claude")[2] ?? "", /^mcp add-json -s user auth-mcp /);
 });
 
+const oauthMcp = {
+  name: "oauth-mcp",
+  url: "https://oauth.fixture.test/mcp",
+  oauth: { clientId: "client-1", callbackPort: 8080 },
+};
+
+const configuredOAuthMcp = new Map([
+  ["claude mcp get oauth-mcp", "oauth-mcp:\n  Type: http\n  URL: https://oauth.fixture.test/mcp\n"],
+  ["codex mcp get oauth-mcp", "oauth-mcp\n  url: https://oauth.fixture.test/mcp\n"],
+]);
+
+function writeSavedOAuth(home: string, clientId: string, port: number): void {
+  writeFileSync(
+    join(home, ".claude.json"),
+    JSON.stringify({
+      mcpServers: {
+        "oauth-mcp": { type: "http", url: oauthMcp.url, oauth: { clientId, callbackPort: port } },
+      },
+    }),
+  );
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(
+    join(home, ".codex", "config.toml"),
+    [
+      "[mcp_servers.oauth-mcp]",
+      `url = "${oauthMcp.url}"`,
+      "",
+      "[mcp_servers.oauth-mcp.oauth]",
+      `client_id = "${clientId}"`,
+      `callback_url = "http://localhost:${port}/callback/abc"`,
+      "",
+    ].join("\n"),
+  );
+}
+
+const claudeOAuthAdd = `mcp add-json -s user oauth-mcp ${JSON.stringify({
+  type: "http",
+  url: oauthMcp.url,
+  oauth: oauthMcp.oauth,
+})}`;
+const codexOAuthAdd =
+  'mcp add -c mcp_oauth_callback_url="http://localhost:8080/callback" oauth-mcp --url https://oauth.fixture.test/mcp --oauth-client-id client-1';
+
+test("adds an OAuth mcp with its pre-registered client on both harnesses", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [oauthMcp]);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      ["claude mcp get oauth-mcp", { stdout: "", stderr: "not found" }],
+      ["codex mcp get oauth-mcp", { stdout: "", stderr: "not found" }],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), ["mcp get oauth-mcp", claudeOAuthAdd]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), ["mcp get oauth-mcp", codexOAuthAdd]);
+});
+
+test("keeps an OAuth mcp whose saved client matches", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [oauthMcp]);
+  writeSavedOAuth(home, "client-1", 8080);
+  const runtime = new FixtureRuntime(repoDir, home, { outputs: configuredOAuthMcp });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), ["mcp get oauth-mcp"]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), ["mcp get oauth-mcp"]);
+});
+
+test.each([
+  ["client ID", "client-0", 8080],
+  ["callback port", "client-1", 9090],
+])("re-adds an OAuth mcp whose saved %s drifted", (_case, clientId, port) => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [oauthMcp]);
+  writeSavedOAuth(home, clientId, port);
+  const runtime = new FixtureRuntime(repoDir, home, { outputs: configuredOAuthMcp });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "mcp get oauth-mcp",
+    "mcp remove -s user oauth-mcp",
+    claudeOAuthAdd,
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), ["mcp get oauth-mcp", codexOAuthAdd]);
+});
+
 test("downgrades a Codex add whose config landed before its login step failed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {

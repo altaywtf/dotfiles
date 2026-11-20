@@ -9,7 +9,7 @@ import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
 import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
-import { configuredHeadersHelper } from "./mcps/claude-config.ts";
+import { claudeAuthMatches } from "./mcps/claude-config.ts";
 import {
   createRuntime,
   errorMessage,
@@ -65,7 +65,7 @@ function helperFinding(runtime: Runtime, mcp: Mcp, helper: string): Finding | un
       repair: `create an executable ${helper} that prints the headers as JSON`,
     };
   }
-  if (configuredHeadersHelper(runtime.env, mcp.name) !== helper) {
+  if (!claudeAuthMatches(runtime.env, mcp.name, helper, mcp.oauth)) {
     return {
       harness: "claude",
       mcp: mcp.name,

@@ -20,7 +20,8 @@ import {
   type SyncFailure,
 } from "./harness.ts";
 import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
-import { configuredHeadersHelper } from "./mcps/claude-config.ts";
+import { claudeAuthMatches } from "./mcps/claude-config.ts";
+import { codexCallbackUrl, codexOAuthMatches } from "./mcps/codex-config.ts";
 import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
@@ -159,7 +160,7 @@ function runPlanned(
 }
 
 // `codex mcp add` upserts the config but then probes the mcp and can start an
-// interactive OAuth login, so converge through get: a matching URL is a no-op,
+// interactive OAuth login, so converge through get: a matching URL and OAuth client is a no-op,
 // and an add whose config landed before the login step failed is a warning.
 function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
   const label = "Codex";
@@ -176,16 +177,20 @@ function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure
 
   for (const mcp of selected) {
     const configuredUrl = `url: ${mcp.url}\n`;
+    const matches = (result: { status: number; stdout: string }) =>
+      result.status === 0 &&
+      result.stdout.includes(configuredUrl) &&
+      codexOAuthMatches(runtime.env, mcp.name, mcp.oauth);
     const existing = runtime.run("codex", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
-    if (existing.status === 0 && existing.stdout.includes(configuredUrl)) {
+    if (matches(existing)) {
       writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
       continue;
     }
 
-    const addArgs = ["mcp", "add", mcp.name, "--url", mcp.url];
+    const addArgs = codexAddArgs(mcp);
     writeLine(runtime.stdout, `${label}: codex ${addArgs.join(" ")}`);
     const added = runtime.run("codex", addArgs, { stdout: "capture", stderr: "capture" });
     if (added.status === 0) {
@@ -196,7 +201,7 @@ function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure
       stdout: "capture",
       stderr: "capture",
     });
-    if (converged.status === 0 && converged.stdout.includes(configuredUrl)) {
+    if (matches(converged)) {
       writeLine(
         runtime.stdout,
         `${label}: ${mcp.name} is configured, but its login did not finish; run 'codex mcp login ${mcp.name}' if the mcp needs one`,
@@ -210,16 +215,38 @@ function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure
   }
 }
 
+function codexAddArgs(mcp: Mcp): string[] {
+  if (mcp.oauth === undefined) {
+    return ["mcp", "add", mcp.name, "--url", mcp.url];
+  }
+  return [
+    "mcp",
+    "add",
+    "-c",
+    `mcp_oauth_callback_url=${JSON.stringify(codexCallbackUrl(mcp.oauth))}`,
+    mcp.name,
+    "--url",
+    mcp.url,
+    "--oauth-client-id",
+    mcp.oauth.clientId,
+  ];
+}
+
 function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): string[] {
-  if (headersHelper === undefined) {
+  if (headersHelper === undefined && mcp.oauth === undefined) {
     return ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url];
   }
-  const config = JSON.stringify({ type: "http", url: mcp.url, headersHelper });
+  const config = JSON.stringify({
+    type: "http",
+    url: mcp.url,
+    ...(headersHelper === undefined ? {} : { headersHelper }),
+    ...(mcp.oauth === undefined ? {} : { oauth: mcp.oauth }),
+  });
   return ["mcp", "add-json", "-s", "user", mcp.name, config];
 }
 
 // `claude mcp add` refuses an existing name instead of updating it, so converge
-// through get: matching URL and headers helper is a no-op, anything else is
+// through get: matching URL, headers helper, and OAuth client is a no-op, anything else is
 // removed and re-added.
 function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
   const label = "Claude Code";
@@ -246,7 +273,7 @@ function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailur
     if (existing.status === 0) {
       if (
         existing.stdout.includes(`URL: ${mcp.url}\n`) &&
-        configuredHeadersHelper(runtime.env, mcp.name) === headersHelper
+        claudeAuthMatches(runtime.env, mcp.name, headersHelper, mcp.oauth)
       ) {
         writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
         continue;

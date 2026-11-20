@@ -75,6 +75,45 @@ test.each([
     [{ name: "one", url, harnesses: ["claude"], headersHelper: "bin/helper" }],
     /headersHelper must be an absolute or ~\/ path/,
   ],
+  [
+    "an oauth client ID with unsafe characters",
+    [{ name: "one", url, oauth: { clientId: "a b", callbackPort: 8080 } }],
+    /oauth clientId must match/,
+  ],
+  [
+    "a privileged oauth callback port",
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 80 } }],
+    /oauth callbackPort must be an integer from 1024 to 65535/,
+  ],
+  [
+    "an out-of-range oauth callback port",
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 65536 } }],
+    /oauth callbackPort must be an integer from 1024 to 65535/,
+  ],
+  [
+    "a fractional oauth callback port",
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 8080.5 } }],
+    /oauth callbackPort must be an integer from 1024 to 65535/,
+  ],
+  [
+    "an unknown oauth key",
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 8080, clientSecret: "s" } }],
+    /oauth has unsupported keys clientSecret/,
+  ],
+  ["a non-object oauth", [{ name: "one", url, oauth: "abc" }], /oauth must be an object/],
+  [
+    "both oauth and a headers helper",
+    [
+      {
+        name: "one",
+        url,
+        harnesses: ["claude"],
+        headersHelper: "/opt/helper",
+        oauth: { clientId: "abc", callbackPort: 8080 },
+      },
+    ],
+    /cannot set both oauth and headersHelper/,
+  ],
 ])("rejects a manifest with %s", (_case, mcps, message) => {
   const { repoDir } = createFixture();
   writeManifest(repoDir, "developer", mcps);
