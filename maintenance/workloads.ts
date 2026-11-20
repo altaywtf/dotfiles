@@ -23,9 +23,9 @@ type Finding = {
 
 function elapsedSeconds(value: string): number {
   const match = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(value);
-  if (!match) return NaN;
+  if (!match) return Number.NaN;
   const [, days, hours, minutes, seconds] = match;
-  if (Number(minutes) > 59 || Number(seconds) > 59) return NaN;
+  if (Number(minutes) > 59 || Number(seconds) > 59) return Number.NaN;
   return (
     Number(days ?? 0) * 86_400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
   );
