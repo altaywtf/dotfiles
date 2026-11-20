@@ -8,8 +8,25 @@ import { delimiter, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
 import { auditCommand, runAudit } from "../audit/run.ts";
+import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
+const TaskListing = Schema.fromJsonString(
+  Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      depends: Schema.Array(Schema.String),
+      source: Schema.String,
+    }),
+  ),
+);
+const CurrentTools = Schema.fromJsonString(
+  Schema.Record(
+    Schema.String,
+    Schema.Array(Schema.Struct({ requested_version: Schema.optionalKey(Schema.String) })),
+  ),
+);
+const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
 function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
   return (
     env.MISE_GLOBAL_CONFIG_FILE ||
@@ -56,11 +73,7 @@ test("mise exposes one validated task graph", () => {
 
   const listing = run("mise", ["tasks", "--hidden", "--json"]);
   assert.equal(listing.status, 0, listing.stderr);
-  const tasks = JSON.parse(listing.stdout) as Array<{
-    name: string;
-    depends: string[];
-    source: string;
-  }>;
+  const tasks = Schema.decodeUnknownSync(TaskListing)(listing.stdout);
   assert.ok(tasks.every((task) => task.source === resolve(repoRoot, "mise.toml")));
   assert.ok(tasks.find((task) => task.name === "verify")?.depends.includes("verify:history"));
 });
@@ -68,14 +81,9 @@ test("mise exposes one validated task graph", () => {
 test("tasks resolve the repository Node and pnpm pins without a global config", () => {
   const listing = run("mise", ["ls", "--current", "--json"]);
   assert.equal(listing.status, 0, listing.stderr);
-  const current = JSON.parse(listing.stdout) as Record<
-    string,
-    Array<{ requested_version: string }> | undefined
-  >;
-  const packageManager = (
-    JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")) as {
-      packageManager: string;
-    }
+  const current = Schema.decodeUnknownSync(CurrentTools)(listing.stdout);
+  const packageManager = Schema.decodeUnknownSync(PackageManifest)(
+    readFileSync(resolve(repoRoot, "package.json"), "utf8"),
   ).packageManager;
   assert.equal(
     current.node?.[0]?.requested_version,

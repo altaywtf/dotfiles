@@ -27,6 +27,9 @@ export type LockOptions = LockProbe & {
   readonly log?: (message: string) => void;
 };
 
+const hasErrorCode = (error: unknown, code: string) =>
+  typeof error === "object" && error !== null && "code" in error && error.code === code;
+
 export function processAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -34,7 +37,7 @@ export function processAlive(pid: number): boolean {
   } catch (error) {
     // EPERM means the pid exists under another Unix user (the devbox checkout
     // lock is shared across users); only ESRCH proves the recorded owner is gone.
-    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+    return !hasErrorCode(error, "ESRCH");
   }
 }
 
@@ -133,7 +136,7 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
     try {
       mkdirSync(lock, { mode: 0o700 });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (!hasErrorCode(error, "EEXIST")) throw error;
       if (!lockOwnerAlive(lock, options)) {
         log(`reclaiming stale lock left by a dead process: ${lock}`);
         if (reclaimOwner(lock, options) === "won") return writeOwner();

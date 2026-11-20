@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { Console, Effect } from "effect";
+import { Console, Effect, Schema } from "effect";
 import { spawn } from "node:child_process";
 import {
   chmodSync,
@@ -17,7 +17,6 @@ import { runMain } from "../lib/program.ts";
 import { dirname, join, resolve } from "node:path";
 
 import { runApply } from "./home-fixture.ts";
-import type { Schema } from "effect";
 
 type Settings = Record<string, Schema.Json | undefined> & {
   autoMemoryDirectory?: string;
@@ -33,6 +32,22 @@ type Fixture = {
 };
 
 const repoRoot = resolve(import.meta.dirname, "..");
+const JsonRecord = Schema.Record(Schema.String, Schema.Json);
+const JsonDocument = Schema.fromJsonString(JsonRecord);
+const decodeSettings = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.StructWithRest(
+      Schema.Struct({
+        autoMemoryDirectory: Schema.optionalKey(Schema.String),
+        autoMemoryEnabled: Schema.optionalKey(Schema.Boolean),
+        env: Schema.optionalKey(JsonRecord),
+        modelSettings: Schema.optionalKey(Schema.Record(Schema.String, JsonRecord)),
+        permissions: Schema.optionalKey(JsonRecord),
+      }),
+      [JsonRecord],
+    ),
+  ),
+);
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedMode = "defaultMode";
@@ -162,7 +177,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           return;
         }
         assert.equal(status, 0, output);
-        const actual = JSON.parse(Buffer.concat(stdout).toString()) as Settings;
+        const actual = decodeSettings(Buffer.concat(stdout).toString());
         const expected = fixture.expected ?? {};
         assert.deepEqual(
           {
@@ -225,7 +240,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   const fixtureRoot = join(root, "missing");
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
-  const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
+  const written = decodeSettings(readFileSync(path, "utf8"));
   assert.equal(written.autoMemoryEnabled, true);
   assert.equal(written.autoMemoryDirectory, memoryDirectory);
   assert.equal(written.permissions?.[managedMode], "auto");
@@ -251,22 +266,24 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
-  assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, true);
-  assert.equal((JSON.parse(firstContents) as Settings).autoMemoryDirectory, memoryDirectory);
-  assert.equal((JSON.parse(firstContents) as Settings).model, "claude-opus-5-5[1m]");
+  assert.equal(decodeSettings(firstContents).autoMemoryEnabled, true);
+  assert.equal(decodeSettings(firstContents).autoMemoryDirectory, memoryDirectory);
+  assert.equal(decodeSettings(firstContents).model, "claude-opus-5-5[1m]");
   assert.equal(
-    (JSON.parse(firstContents) as Settings).modelSettings?.["claude-opus-5-5"]?.effortLevel,
+    decodeSettings(firstContents).modelSettings?.["claude-opus-5-5"]?.effortLevel,
     "medium",
   );
-  assert.equal((JSON.parse(firstContents) as Settings).effortLevel, "medium");
-  assert.equal((JSON.parse(firstContents) as Settings).outputStyle, "Concise");
-  assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");
+  assert.equal(decodeSettings(firstContents).effortLevel, "medium");
+  assert.equal(decodeSettings(firstContents).outputStyle, "Concise");
+  assert.equal(decodeSettings(firstContents).permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
   await runApply("workstation", fixtureRoot);
   assert.equal(readFileSync(path, "utf8"), firstContents);
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
   const reordered = `${JSON.stringify(
-    Object.fromEntries(Object.entries(JSON.parse(firstContents) as Settings).toReversed()),
+    Object.fromEntries(
+      Object.entries(Schema.decodeUnknownSync(JsonDocument)(firstContents)).toReversed(),
+    ),
   )}\n`;
   writeFileSync(path, reordered);
   const reorderedMtime = statSync(path, { bigint: true }).mtimeNs;

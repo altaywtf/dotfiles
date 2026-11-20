@@ -31,6 +31,10 @@ const Renovate = Schema.fromJsonString(
   }),
 );
 
+const XcodePin = Schema.fromJsonString(
+  Schema.Struct({ version: Schema.Number, release: Schema.String, build: Schema.String }),
+);
+
 function miseSettings() {
   const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
   const settings = source.slice(source.indexOf("[settings]"), source.indexOf("[settings.github]"));
@@ -47,11 +51,7 @@ function miseSettings() {
 }
 
 test("Xcode pin is a dotted release and its build", () => {
-  const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as {
-    version: number;
-    release: string;
-    build: string;
-  };
+  const xcode = Schema.decodeUnknownSync(XcodePin)(read("chezmoi/.chezmoidata/xcode.json"));
   assert.equal(xcode.version, 1);
   assert.match(xcode.release, /^\d+\.\d+$/);
   assert.match(xcode.build, /^\d+[A-Z]\d+[a-z]?$/);

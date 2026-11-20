@@ -35,7 +35,6 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       curly: "off",
       "typescript/array-type": "off",
-      "typescript/no-unsafe-type-assertion": "off",
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
     overrides: [
@@ -45,7 +44,6 @@ export default defineConfig({
         rules: {
           curly: "off",
           "typescript/array-type": "off",
-          "typescript/no-unsafe-type-assertion": "off",
         },
       },
     ],

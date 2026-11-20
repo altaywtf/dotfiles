@@ -14,12 +14,9 @@ type Case = {
 
 const keyOf = (entry: Entry) => entry.name;
 const NAMES = ["a", "b", "c"];
-const SUBSETS: readonly (readonly Harness[])[] = [
-  [],
-  ["claude"],
-  ["codex"],
-  ["claude", "codex"],
-].map((harnesses) => Object.freeze(harnesses as Harness[]));
+const SUBSETS: readonly (readonly Harness[])[] = (
+  [[], ["claude"], ["codex"], ["claude", "codex"]] satisfies Harness[][]
+).map((harnesses) => Object.freeze(harnesses));
 
 // Every list with at most one non-empty-harness entry per name, in the given name order.
 function entryLists(names: readonly string[]): (readonly Entry[])[] {

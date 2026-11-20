@@ -277,9 +277,7 @@ test("another checkout without the overlay keeps overlay-owned plugins", () => {
     harnessCalls(other, "claude").some((call) => call.includes("uninstall -y local@local-market")),
     false,
   );
-  const lock = JSON.parse(readFileSync(pluginLockPath(home), "utf8")) as {
-    plugins: { name: string }[];
-  };
+  const lock = Schema.decodeUnknownSync(LockedPlugins)(readFileSync(pluginLockPath(home), "utf8"));
   assert.ok(lock.plugins.some((plugin) => plugin.name === "local"));
 });
 

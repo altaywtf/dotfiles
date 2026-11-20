@@ -89,9 +89,9 @@ class FixtureRuntime implements Runtime {
     }
 
     const key = `${command} ${args.join(" ")}`;
-    const sequence = this.sequences.get(key);
-    if (sequence !== undefined && sequence.length > 0) {
-      return sequence.shift() as FixtureResult;
+    const next = this.sequences.get(key)?.shift();
+    if (next !== undefined) {
+      return next;
     }
 
     const diagnostic = this.failures.get(key);
@@ -658,7 +658,7 @@ test("another checkout without the overlay keeps overlay-owned mcps", () => {
     false,
   );
   assert.ok(
-    (JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as { mcps: { name: string }[] }).mcps.some(
+    Schema.decodeUnknownSync(LockedMcps)(readFileSync(mcpLockPath(home), "utf8")).mcps.some(
       (mcp) => mcp.name === "machine-mcp",
     ),
   );
@@ -690,10 +690,8 @@ test("a checkout selecting another checkout's overlay mcp keeps both harness set
   const runtime = new FixtureRuntime(other, home);
   assert.equal(main([], runtime), 0);
   assert.equal(harnessCalls(runtime, "claude").includes("mcp remove -s user machine-mcp"), false);
-  const locked = (
-    JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as {
-      mcps: { name: string; harnesses: string[] }[];
-    }
+  const locked = Schema.decodeUnknownSync(LockedMcps)(
+    readFileSync(mcpLockPath(home), "utf8"),
   ).mcps.find((mcp) => mcp.name === "machine-mcp");
   assert.deepEqual(locked?.harnesses, ["claude", "codex"]);
 });

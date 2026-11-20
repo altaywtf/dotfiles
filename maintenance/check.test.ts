@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -106,6 +106,13 @@ function hostRunner(
           ? result("{}")
           : result("1.0.0\n"));
 }
+
+const Named = Schema.Struct({ name: Schema.String });
+const ReconciledBacklog = Schema.Struct({
+  casks: Schema.Array(Named),
+  record_lag: Schema.Array(Named),
+  cask_verification: Schema.Array(Schema.Struct({ status: Schema.String })),
+});
 
 test("single-owner Darwin devboxes retain the service probe without shared Homebrew", async () => {
   const calls: string[][] = [];
@@ -573,11 +580,9 @@ for (const inventoryAvailable of [true, false]) {
         return result("{}");
       },
     );
-    const backlog = snapshot.probes.brew_outdated_greedy.value as {
-      casks: { name: string }[];
-      record_lag: { name: string }[];
-      cask_verification: { status: string }[];
-    };
+    const backlog = Schema.decodeUnknownSync(ReconciledBacklog)(
+      snapshot.probes.brew_outdated_greedy.value,
+    );
     assert.deepEqual(
       backlog.record_lag.map((item) => item.name),
       inventoryAvailable ? ["current", "compound"] : [],
