@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../../lib/darwin/launchd.ts";
-import { fail, isCliFailure, runMain } from "../../lib/program.ts";
+import { CliFailure, isCliFailure, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const installer = join(repoRoot, "bootstrap/darwin/install-devbox-service-daemons.ts");
@@ -88,7 +88,13 @@ const program = Effect.scoped(
     );
     yield* Console.log("ok LaunchDaemon labels are vendor-neutral and configurable");
   }).pipe(
-    Effect.catch((error) => fail(error instanceof Error ? error.message : String(error))),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({
+          exitCode: 1,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    ),
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   ),

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CliFailure, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -65,7 +65,13 @@ printf '<%s>' "$@" >"$FAKE_SOPS_LOG"
     );
     yield* Console.log("ok SOPS sudo runner preserves both age identity boundaries");
   }).pipe(
-    Effect.catch((error) => fail(error instanceof Error ? error.message : String(error))),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({
+          exitCode: 1,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    ),
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   ),
