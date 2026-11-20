@@ -480,7 +480,9 @@ function selectPayload(
   }
 }
 
-function parseCache(contents: string | undefined): { record?: CacheRecord; error?: string } {
+type ParsedRecord<A> = { record?: A; error?: string };
+
+function parseCache(contents: string | undefined): ParsedRecord<CacheRecord> {
   if (contents === undefined) return {};
   try {
     return { record: Schema.decodeUnknownSync(Schema.fromJsonString(CacheRecord))(contents) };
@@ -489,10 +491,7 @@ function parseCache(contents: string | undefined): { record?: CacheRecord; error
   }
 }
 
-function parseLiveScanRecord(contents: string | undefined): {
-  record?: LiveScanRecord;
-  error?: string;
-} {
+function parseLiveScanRecord(contents: string | undefined): ParsedRecord<LiveScanRecord> {
   if (contents === undefined) return {};
   try {
     return { record: Schema.decodeUnknownSync(Schema.fromJsonString(LiveScanRecord))(contents) };

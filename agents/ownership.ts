@@ -89,12 +89,14 @@ function mergeLockEntries<T extends HarnessOwned>(
 
 // Inputs are validated manifest/lock entries. Persist nextLock only after all
 // apply/remove operations succeed; deferred removals remain owned for retry.
+type OwnershipPlan<T> = { removals: T[]; nextLock: (deferred: readonly T[]) => T[] };
+
 export function planOwnership<T extends HarnessOwned>(options: {
   previous: readonly T[];
   selected: readonly T[];
   available: readonly Harness[];
   keyOf: (entry: T) => string;
-}): { removals: T[]; nextLock: (deferred: readonly T[]) => T[] } {
+}): OwnershipPlan<T> {
   const { previous, selected, available, keyOf } = options;
   const applied = presentHarnessEntries(available, selected);
   const retained = retainAbsentEntries(available, previous, selected, keyOf);

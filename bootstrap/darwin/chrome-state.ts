@@ -88,7 +88,7 @@ const applyPreferences = Effect.fnUntraced(function* (
   preferences: readonly Preference[],
   mode: Mode,
 ) {
-  const updated: Record<string, Schema.Json> = { ...data };
+  const updated = { ...data };
   let changed = false;
   for (const { group, key, value } of preferences) {
     const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);

@@ -261,7 +261,7 @@ function checkGitIdentity(
   );
 }
 
-export function readSettingsFile(path: string): Record<string, string> {
+export function readSettingsFile(path: string) {
   if (!existsSync(path)) return {};
   const settings: Record<string, string> = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {

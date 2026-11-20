@@ -83,7 +83,7 @@ const findFixedExecutable = Effect.fn("findFixedSopsSudoExecutable")(function* (
   return undefined;
 });
 
-function sanitizedEnvironment(extra: Readonly<Record<string, string>>): Record<string, string> {
+function sanitizedEnvironment(extra: Readonly<Record<string, string>>) {
   const environment: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (key !== "SUDO_PASSWORD_AGE" && value !== undefined) environment[key] = value;

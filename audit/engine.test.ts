@@ -23,7 +23,9 @@ import { runPolicy } from "./engine.ts";
 import type { AuditPolicy } from "./engine.ts";
 import { workstationPolicy } from "./workstation.ts";
 
-function fixture(t: TestContext): { home: string; root: string } {
+type Fixture = { home: string; root: string };
+
+function fixture(t: TestContext): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-engine-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, "home");
@@ -51,13 +53,14 @@ const quiet = { stdout: () => {}, stderr: () => {} };
 function cleanCommand(command: string, args: readonly string[]) {
   if (command === "git") {
     const key = args.at(-1);
-    const values: Record<string, string> = {
-      "user.name": "Fixture",
-      "user.email": "fixture@example.invalid",
-      "user.signingkey": "fixture-key",
-      "commit.gpgsign": "true",
-    };
-    return { status: values[key ?? ""] ? 0 : 1, stdout: values[key ?? ""] ?? "", stderr: "" };
+    const values = new Map([
+      ["user.name", "Fixture"],
+      ["user.email", "fixture@example.invalid"],
+      ["user.signingkey", "fixture-key"],
+      ["commit.gpgsign", "true"],
+    ]);
+    const value = values.get(key ?? "");
+    return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
   if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
   if (command.endsWith("/socketfilterfw"))

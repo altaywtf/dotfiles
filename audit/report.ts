@@ -5,9 +5,14 @@ export type FindingSeverity = "ok" | "warn" | "fail";
 
 type Finding = { severity: FindingSeverity; message: string };
 
-export type AuditSummary<Name extends string, Fields extends object> = AuditBaseSummary & {
+type AuditSummary<Name extends string, Fields extends object> = AuditBaseSummary & {
   audit: Name;
 } & Fields;
+
+type AuditResult<Name extends string, Fields extends object> = {
+  status: number;
+  summary: AuditSummary<Name, Fields>;
+};
 
 export class AuditReport {
   readonly findings: Finding[] = [];
@@ -58,7 +63,7 @@ export class AuditReport {
     audit: Name,
     label: string,
     fields: Fields,
-  ): { status: number; summary: AuditSummary<Name, Fields> } {
+  ): AuditResult<Name, Fields> {
     const failed = this.findings.filter(({ severity }) => severity === "fail").length;
     const warnings = this.findings.filter(({ severity }) => severity === "warn").length;
     const status: "pass" | "warn" | "fail" = failed > 0 ? "fail" : warnings > 0 ? "warn" : "pass";

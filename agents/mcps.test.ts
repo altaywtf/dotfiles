@@ -37,6 +37,8 @@ type FixtureOptions = {
   profile?: string;
 };
 
+type FakeResult = { status: number; stdout: string; stderr: string };
+
 class BufferWriter {
   value = "";
 
@@ -70,10 +72,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(
-    command: string,
-    args: readonly string[],
-  ): { status: number; stdout: string; stderr: string } {
+  run(command: string, args: readonly string[]): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -116,7 +115,9 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string; home: string } {
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-mcps-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");

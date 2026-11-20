@@ -54,7 +54,9 @@ afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) rmSync(path, { force: true, recursive: true });
 });
 
-function createFixture(): { repoDir: string; home: string } {
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-doctor-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");

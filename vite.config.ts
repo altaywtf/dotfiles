@@ -34,7 +34,6 @@ export default defineConfig({
       ...cloudflare.rules,
       "vite-plus/prefer-vite-plus-imports": "error",
       curly: "off",
-      "quality/no-known-value-widening": "off",
       "typescript/array-type": "off",
       "typescript/no-unsafe-argument": "off",
       "typescript/no-unsafe-assignment": "off",
@@ -49,7 +48,6 @@ export default defineConfig({
         files: ["**/*.ts"],
         rules: {
           curly: "off",
-          "quality/no-known-value-widening": "off",
           "typescript/array-type": "off",
           "typescript/no-unsafe-argument": "off",
           "typescript/no-unsafe-assignment": "off",

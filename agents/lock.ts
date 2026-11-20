@@ -80,11 +80,16 @@ export function readOverlayOwnership(lockPath: string): OverlayOwnership | undef
 
 // The local overlay is checkout-local while the lock is per user: a sync keeps
 // what other existing checkouts' overlays installed and owns only its own.
+type OverlayGuard = {
+  readonly kept: ReadonlySet<string>;
+  readonly next: OverlayOwnership | undefined;
+};
+
 export function guardOverlay(
   previous: OverlayOwnership | undefined,
   repoDir: string,
   overlayNames: readonly string[] | undefined,
-): { readonly kept: ReadonlySet<string>; readonly next: OverlayOwnership | undefined } {
+): OverlayGuard {
   const checkout = realpathSync(repoDir);
   const others = Object.entries(previous ?? {}).filter(
     ([path]) => path !== checkout && existsSync(path),

@@ -223,7 +223,7 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
     const config = yield* parsePlist(path);
     const files = yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
     const seen = new Set<string>();
-    const skips: Record<string, string[]> = {
+    const skips: Record<"HOMEBREW_BUNDLE_BREW_SKIP" | "HOMEBREW_BUNDLE_CASK_SKIP", string[]> = {
       HOMEBREW_BUNDLE_BREW_SKIP: [],
       HOMEBREW_BUNDLE_CASK_SKIP: [],
     };
@@ -268,7 +268,7 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
           capability.packageType === "brew"
             ? "HOMEBREW_BUNDLE_BREW_SKIP"
             : "HOMEBREW_BUNDLE_CASK_SKIP"
-        ]?.push(capability.name);
+        ].push(capability.name);
       yield* Console.log(`validated external ${capability.packageType} ${capability.name}`);
     }
     return Object.fromEntries(

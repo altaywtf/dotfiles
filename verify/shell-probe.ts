@@ -40,14 +40,14 @@ export const runCleanZsh = Effect.fn("runCleanZsh")(function* (
   const zsh = yield* resolveZsh();
   const runner = yield* CommandRunner;
   const user = process.env.USER || "unknown";
-  const environment: Record<string, string> = {
-    HOME: process.env.HOME || "",
-    USER: user,
-    LOGNAME: process.env.LOGNAME || user,
-    SHELL: zsh,
-    TMPDIR: process.env.TMPDIR || "/tmp",
-    PATH: yield* cleanLoginPath(),
-  };
+  const environment = new Map([
+    ["HOME", process.env.HOME || ""],
+    ["USER", user],
+    ["LOGNAME", process.env.LOGNAME || user],
+    ["SHELL", zsh],
+    ["TMPDIR", process.env.TMPDIR || "/tmp"],
+    ["PATH", yield* cleanLoginPath()],
+  ]);
   for (const key of [
     "TERM",
     "LANG",
@@ -65,17 +65,11 @@ export const runCleanZsh = Effect.fn("runCleanZsh")(function* (
     "MISE_ENV",
   ] as const) {
     const value = process.env[key];
-    if (value) environment[key] = value;
+    if (value) environment.set(key, value);
   }
   return yield* runner.run(
     "/usr/bin/env",
-    [
-      "-i",
-      ...Object.entries(environment).map(([key, value]) => `${key}=${value}`),
-      zsh,
-      flags,
-      command,
-    ],
+    ["-i", ...[...environment].map(([key, value]) => `${key}=${value}`), zsh, flags, command],
     { extendEnv: false },
   );
 });

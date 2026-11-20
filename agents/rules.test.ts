@@ -29,10 +29,12 @@ import type { RuleRuntime } from "./rules.ts";
 
 const originalRules = "## General guidelines\n\nOriginal rules.\n";
 
+type Fixture = { cache: string; root: string };
+
 function createFixture(
   sources = ["https://rules.example.test/shared.md"],
   options: { readonly cached?: boolean } = { cached: true },
-): { cache: string; root: string } {
+): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-rules-"));
   const cache = join(root, "state/dotfiles/agent-rules.md");
   mkdirSync(join(root, "agents/rules"), { recursive: true });

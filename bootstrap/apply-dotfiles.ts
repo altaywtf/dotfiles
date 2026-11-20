@@ -37,10 +37,12 @@ const Arguments = Schema.Struct({
 });
 type Arguments = typeof Arguments.Type;
 
+type ParsedArguments = { profile?: string; dryRun: boolean; verbose: boolean };
+
 const parseArguments = Effect.fn("parseApplyDotfilesArguments")(function* (
   args: readonly string[],
 ) {
-  const parsed: { profile?: string; dryRun: boolean; verbose: boolean } = {
+  const parsed: ParsedArguments = {
     dryRun: false,
     verbose: false,
   };

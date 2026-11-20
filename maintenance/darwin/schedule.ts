@@ -21,12 +21,14 @@ export type LoadedJob = {
   readonly environment?: Readonly<Record<string, string>>;
 };
 
+type MutableLoadedJob = { arguments?: string[]; environment?: Record<string, string> };
+
 // Extract ProgramArguments and EnvironmentVariables from `launchctl print` text.
 // The format is undocumented, so parsing is defensive: an unrecognized layout
 // yields an empty result and the caller reports the comparison as unavailable.
 export function parseLaunchdPrint(output: string): LoadedJob {
   const lines = output.split("\n");
-  const job: { arguments?: string[]; environment?: Record<string, string> } = {};
+  const job: MutableLoadedJob = {};
   for (let index = 0; index < lines.length; index += 1) {
     // Anchored so "default environment = {" and "inherited environment = {" do not match.
     const open = /^(\s*)(arguments|environment) = {$/.exec(lines[index] ?? "");
@@ -72,10 +74,9 @@ const UpdateReceipt = Schema.Struct({
 // the same value rather than exact equality. Only ProgramArguments and
 // EnvironmentVariables are compared; schedule and working-directory drift is
 // outside this check, and the status message says so.
-export function comparePlist(
-  loaded: LoadedJob,
-  plist: unknown,
-): { comparable: boolean; drift: string[] } {
+type PlistComparison = { comparable: boolean; drift: string[] };
+
+export function comparePlist(loaded: LoadedJob, plist: unknown): PlistComparison {
   const decoded = Schema.decodeUnknownOption(LaunchdPlist)(plist);
   const loadedArguments = loaded.arguments;
   if (!loadedArguments || Option.isNone(decoded)) return { comparable: false, drift: [] };

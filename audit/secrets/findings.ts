@@ -30,11 +30,13 @@ const decodeJsonObjectValue = Schema.decodeUnknownOption(JsonObject);
 const isSeverity = Schema.is(Severity);
 const isCount = Schema.is(Schema.Natural);
 
-function readPolicy(path: string): {
+type Policy = {
   defaultSeverity: Severity;
   failureThreshold: Severity;
   rules: Record<string, Severity>;
-} {
+};
+
+function readPolicy(path: string): Policy {
   const policy = Option.getOrThrowWith(
     decodeJsonObject(readFileSync(path, "utf8")),
     () => new Error("invalid Gitleaks policy"),
@@ -104,7 +106,7 @@ export function findingLocators(scanRoot: string, reportPath: string): string[] 
   });
 }
 
-function readRuleCounts(existingJson: string): RuleCounts {
+function readRuleCounts(existingJson: string) {
   const parsed = Option.getOrThrowWith(
     decodeJsonObject(existingJson || "{}"),
     () => new Error("invalid persisted count map"),

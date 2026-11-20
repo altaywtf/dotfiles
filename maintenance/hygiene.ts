@@ -23,7 +23,9 @@ const State = Schema.Struct({
   ),
 });
 type State = typeof State.Type;
-export function readState(statePath: string): { state: State; recovered: boolean } {
+type LoadedState = { state: State; recovered: boolean };
+
+export function readState(statePath: string): LoadedState {
   const empty: State = { lastRun: 0, lastCache: 0, candidates: {} };
   let text: string;
   try {

@@ -29,7 +29,9 @@ export function agentRulesCache(home: string): string {
   return join(home, ".local/state/dotfiles/agent-rules.md");
 }
 
-export function createFixture(): { config: string; home: string; root: string } {
+type AgentRulesFixture = { config: string; home: string; root: string };
+
+export function createFixture(): AgentRulesFixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-local-"));
   temporaryDirectories.push(root);
   const home = join(root, "home");

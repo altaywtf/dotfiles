@@ -17,7 +17,9 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string } {
+type Fixture = { repoDir: string };
+
+function createFixture(): Fixture {
   const repoDir = mkdtempSync(join(tmpdir(), "dotfiles-mcp-catalog-"));
   temporaryDirectories.push(repoDir);
   mkdirSync(join(repoDir, "agents", "mcps"), { recursive: true });
