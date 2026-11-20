@@ -122,12 +122,12 @@ test("both pnpm pins share one Renovate release gate and schedule", () => {
           matches(rule.matchPackageNames, "pnpm"),
       )
       .reduce<Record<string, unknown>>(
-        (merged, rule) => ({
-          ...merged,
-          ...("minimumReleaseAge" in rule ? { minimumReleaseAge: rule.minimumReleaseAge } : {}),
-          ...("schedule" in rule ? { schedule: rule.schedule } : {}),
-          ...("groupName" in rule ? { groupName: rule.groupName } : {}),
-        }),
+        (merged, rule) =>
+          Object.assign(merged, {
+            ...("minimumReleaseAge" in rule ? { minimumReleaseAge: rule.minimumReleaseAge } : {}),
+            ...("schedule" in rule ? { schedule: rule.schedule } : {}),
+            ...("groupName" in rule ? { groupName: rule.groupName } : {}),
+          }),
         {},
       );
   assert.deepEqual(settle("mise"), settle("npm"));

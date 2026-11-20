@@ -89,18 +89,15 @@ const applyPreferences = Effect.fnUntraced(function* (
   preferences: readonly Preference[],
   mode: Mode,
 ) {
-  let updated = data;
+  const updated: Record<string, unknown> = { ...data };
   let changed = false;
   for (const { group, key, value } of preferences) {
     const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);
     if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) continue;
-    updated = {
-      ...updated,
-      [group]:
-        mode === "enable"
-          ? { ...section, [key]: value }
-          : Object.fromEntries(Object.entries(section).filter(([name]) => name !== key)),
-    };
+    updated[group] =
+      mode === "enable"
+        ? { ...section, [key]: value }
+        : Object.fromEntries(Object.entries(section).filter(([name]) => name !== key));
     changed = true;
   }
   return changed ? Option.some(updated) : Option.none();
