@@ -48,6 +48,15 @@ const codexHome = (home: string) => {
   return configured && isAbsolute(configured) ? configured : join(home, ".codex");
 };
 
+const gigabytes = (value: number | undefined) =>
+  value === undefined ? "unknown" : `${(value / 1_048_576).toFixed(1)}G`;
+
+const realDirectory = (path: string) =>
+  Effect.try(() => lstatSync(path)).pipe(
+    Effect.map((info) => info.isDirectory() && !info.isSymbolicLink()),
+    Effect.orElseSucceed(() => false),
+  );
+
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
   apply: boolean,
@@ -99,8 +108,6 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
     yield* log("warning: disk usage unavailable");
     return undefined;
   });
-  const gigabytes = (value: number | undefined) =>
-    value === undefined ? "unknown" : `${(value / 1_048_576).toFixed(1)}G`;
   const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);
@@ -209,11 +216,6 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* log(`warning: cannot tell whether ${path} is running; kept`);
       return true;
     });
-    const realDirectory = (path: string) =>
-      Effect.try(() => lstatSync(path)).pipe(
-        Effect.map((info) => info.isDirectory() && !info.isSymbolicLink()),
-        Effect.orElseSucceed(() => false),
-      );
     if (yield* commandAvailable("pgrep"))
       for (const relative of claudeRemoteInstalls) {
         const root = join(home, relative);

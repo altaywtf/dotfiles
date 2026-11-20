@@ -38,12 +38,13 @@ const execute = Effect.fn("executeInstallCommand")(function* (
   if (result.status !== 0) return yield* fail(`${label} exited ${result.status}`, result.status);
 });
 
+const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
+
 const runStep = Effect.fn("runInstallStep")(function* (
   step: InstallStep,
   profile: string,
   maintenance: boolean,
 ) {
-  const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
   switch (step) {
     case "apply-dotfiles":
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);

@@ -33,11 +33,12 @@ function childDirectories(path: string): string[] {
   }
 }
 
+const checkout = (path: string) => isDirectory(join(path, ".git"));
+
 // Checkouts sit at ROOT/NAME or ROOT/OWNER/NAME. Linked worktrees carry a
 // .git file and resolve to their main checkout's trust, so only primary
 // checkouts qualify.
 export function discoverCheckouts(root: string): string[] {
-  const checkout = (path: string) => isDirectory(join(path, ".git"));
   return childDirectories(root)
     .flatMap((path) => [path, ...childDirectories(path)])
     .filter(checkout)

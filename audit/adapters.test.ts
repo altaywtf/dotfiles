@@ -19,28 +19,29 @@ const noMscp = (root: string) => ({
   allowSudoPrompt: false,
 });
 
+const lynisRunner: CommandRunner = (_command, args) => {
+  writeFileSync(
+    args[args.indexOf("--report-file") + 1],
+    [
+      "lynis_version=3.1.4",
+      "hardening_index=72",
+      "lynis_tests_done=191",
+      "warning[]=AUTH-9262|Password policy is weak|",
+      "suggestion[]=BOOT-5122|Protect startup mode|",
+    ].join("\n"),
+  );
+  writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
+  return { status: 0, stdout: "", stderr: "" };
+};
+
 test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
   const output: string[] = [];
-  const command: CommandRunner = (_command, args) => {
-    writeFileSync(
-      args[args.indexOf("--report-file") + 1],
-      [
-        "lynis_version=3.1.4",
-        "hardening_index=72",
-        "lynis_tests_done=191",
-        "warning[]=AUTH-9262|Password policy is weak|",
-        "suggestion[]=BOOT-5122|Protect startup mode|",
-      ].join("\n"),
-    );
-    writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
-    return { status: 0, stdout: "", stderr: "" };
-  };
   try {
     const result = runHostAudit(
       { format: "json", allowSudoPrompt: false, minHardeningIndex: 70 },
       {
-        command,
+        command: lynisRunner,
         env: { TMPDIR: root },
         uid: 501,
         stdout: (value) => output.push(value),
@@ -169,14 +170,15 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   }
 });
 
+const git = (cwd: string, ...args: string[]) => {
+  const result = runCommand("git", ["-C", cwd, ...args]);
+  assert.equal(result.status, 0, result.stderr);
+};
+
 test("linked worktree scan covers unignored files and skips dependency trees", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-audit-test-"));
   const main = join(root, "main");
   const linked = join(root, "linked");
-  const git = (cwd: string, ...args: string[]) => {
-    const result = runCommand("git", ["-C", cwd, ...args]);
-    assert.equal(result.status, 0, result.stderr);
-  };
   try {
     mkdirSync(main);
     git(main, "init", "--quiet", "--initial-branch=main");

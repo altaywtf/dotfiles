@@ -621,15 +621,16 @@ test("another checkout without the overlay keeps overlay-owned skills", () => {
   assert.deepEqual(removedSkillNames(owner), ["machine-only"]);
 });
 
+const overlay = (repoDir: string, name: string) =>
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
+    { mode: 0o600 },
+  );
+
 test("checkouts with their own overlays keep each other's skills", () => {
   const first = createFixture();
   const second = createFixture().repoDir;
-  const overlay = (repoDir: string, name: string) =>
-    writeFileSync(
-      join(repoDir, "agents", "local.json"),
-      JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
-      { mode: 0o600 },
-    );
   overlay(first.repoDir, "first-only");
   overlay(second, "second-only");
   assert.equal(main([], new FixtureRuntime(first.repoDir, first.home)), 0);

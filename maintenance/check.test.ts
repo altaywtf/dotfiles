@@ -226,16 +226,17 @@ test("maintenance probes run concurrently and summarize package drift", async ()
   assert.equal(snapshot.summary.status, "clean");
 });
 
+const missingCommandRunner: CommandRunner = async () => ({
+  status: 127,
+  stdout: "",
+  stderr: "",
+  error: Object.assign(new Error("missing"), { code: "ENOENT" }),
+});
+
 test("missing required commands make the snapshot incomplete without throwing", async () => {
-  const runner: CommandRunner = async () => ({
-    status: 127,
-    stdout: "",
-    stderr: "",
-    error: Object.assign(new Error("missing"), { code: "ENOENT" }),
-  });
   const snapshot = await collectMaintenanceSnapshot(
     { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
-    runner,
+    missingCommandRunner,
   );
   assert.equal(snapshot.summary.status, "incomplete");
   assert.ok(snapshot.summary.required_failures > 0);

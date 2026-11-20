@@ -12,6 +12,8 @@ import { CliFailure, runMain } from "../lib/program.ts";
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const script = join(repoRoot, "identity/configure-sops-age-identity.ts");
 
+const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+
 const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -78,7 +80,6 @@ cat "$input"
       provision.stdout,
       /^backup required: save the private identity in the approved human recovery system before use$/m,
     );
-    const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
     const before = digest(yield* fs.readFile(identity));
     assert.equal((yield* execute()).status, 0);
     assert.equal(digest(yield* fs.readFile(identity)), before);

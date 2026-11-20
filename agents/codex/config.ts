@@ -39,8 +39,9 @@ const ConfigRead = Schema.Struct({
   ),
 });
 
+const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+
 function userLayer(result: unknown, configPath: string) {
-  const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
   const layer = Schema.decodeUnknownSync(ConfigRead)(result).layers.find(
     (candidate) =>
       candidate.name.type === "user" &&

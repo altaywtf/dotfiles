@@ -110,6 +110,9 @@ function unfinished(repo: string, runner: Runner): boolean {
   );
 }
 
+const longLived = (branch: string) =>
+  /^refs\/heads\/(main|master|develop|dev|production|staging|release)(\/|$)/.test(branch);
+
 export function candidates(
   repo: string,
   roots: readonly string[],
@@ -137,8 +140,6 @@ export function candidates(
   const refs = git("for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads")
     .split("\n")
     .filter(Boolean);
-  const longLived = (branch: string) =>
-    /^refs\/heads\/(main|master|develop|dev|production|staging|release)(\/|$)/.test(branch);
   const possibleTree = worktrees
     .slice(1)
     .some(

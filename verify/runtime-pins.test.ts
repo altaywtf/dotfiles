@@ -102,17 +102,18 @@ test("mise and Renovate agree on CLI age exemptions without exempting runtimes o
   }
 });
 
+const matches = (names: string[] | undefined, name: string) =>
+  names === undefined ||
+  ((names.some((pattern) => pattern === name) ||
+    names.every((pattern) => pattern.startsWith("!"))) &&
+    !names.includes(`!${name}`));
+
 test("both pnpm pins share one Renovate release gate and schedule", () => {
   type Rule = Record<string, unknown> & {
     matchManagers?: string[];
     matchDepNames?: string[];
     matchPackageNames?: string[];
   };
-  const matches = (names: string[] | undefined, name: string) =>
-    names === undefined ||
-    ((names.some((pattern) => pattern === name) ||
-      names.every((pattern) => pattern.startsWith("!"))) &&
-      !names.includes(`!${name}`));
   const settle = (manager: string) =>
     (JSON.parse(read("renovate.json")).packageRules as Rule[])
       .filter(

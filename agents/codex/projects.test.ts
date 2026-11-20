@@ -76,6 +76,8 @@ test("adds missing checkouts, keeps existing entries, and prunes only vanished c
   );
 });
 
+const mode = (path: string) => statSync(path).mode & 0o777;
+
 test("restricts loose Codex state the devbox audit checks and leaves other files alone", () => {
   const home = join(temporary(), ".codex");
   for (const path of ["sessions/2026", "shell_snapshots", "log", "skills"])
@@ -91,7 +93,6 @@ test("restricts loose Codex state the devbox audit checks and leaves other files
   chmodSync(join(home, "sessions"), 0o755);
 
   const changed = restrictCodexState(home);
-  const mode = (path: string) => statSync(path).mode & 0o777;
   for (const path of ["", "sessions", "shell_snapshots", "log"])
     assert.equal(mode(join(home, path)), 0o700, path);
   assert.equal(mode(files.state), 0o600);

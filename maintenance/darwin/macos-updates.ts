@@ -318,17 +318,18 @@ export function compareVersions(left: string, right: string): number {
   return 0;
 }
 
-export function compareBuilds(left: string, right: string): number {
-  const parse = (value: string) => {
-    const match = /^(\d+)([A-Za-z]+)(\d+)([A-Za-z0-9]*)$/.exec(value);
-    if (!match) throw new Error(`invalid Apple build ${value}`);
-    return {
-      train: Number(match[1]),
-      branch: match[2].toUpperCase(),
-      revision: Number(match[3]),
-      suffix: match[4].toUpperCase(),
-    };
+const parse = (value: string) => {
+  const match = /^(\d+)([A-Za-z]+)(\d+)([A-Za-z0-9]*)$/.exec(value);
+  if (!match) throw new Error(`invalid Apple build ${value}`);
+  return {
+    train: Number(match[1]),
+    branch: match[2].toUpperCase(),
+    revision: Number(match[3]),
+    suffix: match[4].toUpperCase(),
   };
+};
+
+export function compareBuilds(left: string, right: string): number {
   const a = parse(left);
   const b = parse(right);
   if (a.train !== b.train) return Math.sign(a.train - b.train);

@@ -49,13 +49,14 @@ const clean = (
 const inspect = (f: Fixture, roots = f.roots, open: string[] = []) =>
   candidates(f.repo, roots, open, runner);
 
+const git = (cwd: string, ...args: string[]) => {
+  const result = runner(cwd, "git", args);
+  assert.equal(result.status, 0, `git ${args.join(" ")}`);
+  return result.stdout.trim();
+};
+
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "host-hygiene-")));
-  const git = (cwd: string, ...args: string[]) => {
-    const result = runner(cwd, "git", args);
-    assert.equal(result.status, 0, `git ${args.join(" ")}`);
-    return result.stdout.trim();
-  };
   const remote = join(root, "remote.git");
   git(root, "init", "--bare", "--initial-branch=main", remote);
   const repo = join(root, "projects/org/repo");

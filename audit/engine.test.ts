@@ -150,13 +150,14 @@ test("typed checks reject unsafe npm auth and SSH key modes", (t) => {
   assert.equal(result.status, 1);
 });
 
+const write = (path: string, text: string) => {
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, text);
+  chmodSync(path, 0o644);
+};
+
 test("workstation flags readable env files, compromised roots, and a disabled firewall", (t) => {
   const { home, root } = fixture(t);
-  const write = (path: string, text: string) => {
-    mkdirSync(join(path, ".."), { recursive: true });
-    writeFileSync(path, text);
-    chmodSync(path, 0o644);
-  };
   write(join(home, "projects/app/.env"), "TOKEN=fixture\n");
   write(join(home, "projects/app/.env.example"), "TOKEN=\n");
   write(join(home, "projects/app/.env.scripts.example"), "TOKEN=\n");

@@ -379,16 +379,17 @@ test("drift detection compares the loaded job against the rendered plist defensi
   assert.equal(comparePlist(loaded, null).comparable, false);
 });
 
+const receipt = (finishedAt: string) =>
+  JSON.stringify({
+    version: 1,
+    job: "software-update",
+    startedAt: finishedAt,
+    finishedAt,
+    exitCode: 0,
+  });
+
 test("stale, missing, and unreadable receipts are flagged while fresh ones pass", () => {
   const now = Date.parse("2026-09-07T12:00:00Z");
-  const receipt = (finishedAt: string) =>
-    JSON.stringify({
-      version: 1,
-      job: "software-update",
-      startedAt: finishedAt,
-      finishedAt,
-      exitCode: 0,
-    });
   assert.equal(receiptWarning(receipt("2026-09-07T06:30:00Z"), now), undefined);
   assert.match(receiptWarning(receipt("2026-09-06T22:00:00Z"), now) ?? "", /older than 13 hours/);
   assert.equal(

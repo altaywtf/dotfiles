@@ -326,28 +326,30 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   await Promise.all(kept.map((path) => access(path)));
 });
 
+const install = async (path: string, days: number, directory = false) => {
+  await mkdir(directory ? path : join(path, ".."), { recursive: true });
+  if (directory) await writeFile(join(path, "server"), "fixture");
+  else await writeFile(path, "fixture");
+  const when = new Date(Date.now() - days * 86_400_000);
+  await utimes(path, when, when);
+};
+
+const present = (path: string) =>
+  access(path).then(
+    () => true,
+    () => false,
+  );
+
 test("superseded Claude remote installs go, keeping the newest and any still running", async (t) => {
   const { home, run } = await fixture(t);
   const cli = join(home, ".claude/remote/ccd-cli");
   const srv = join(home, ".claude/remote/srv");
-  const install = async (path: string, days: number, directory = false) => {
-    await mkdir(directory ? path : join(path, ".."), { recursive: true });
-    if (directory) await writeFile(join(path, "server"), "fixture");
-    else await writeFile(path, "fixture");
-    const when = new Date(Date.now() - days * 86_400_000);
-    await utimes(path, when, when);
-  };
   await install(join(cli, "2.1.304-old"), 20);
   await install(join(cli, "2.1.309 (running)"), 10);
   await install(join(cli, "2.1.317-new"), 0);
   await install(join(srv, "old"), 20, true);
   await install(join(srv, "new"), 0, true);
   const running = [join(cli, "2.1.309 (running)")];
-  const present = (path: string) =>
-    access(path).then(
-      () => true,
-      () => false,
-    );
 
   await run(false, { running });
   assert.equal(await present(join(cli, "2.1.304-old")), true);

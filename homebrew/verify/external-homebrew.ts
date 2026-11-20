@@ -29,6 +29,15 @@ const xml = (capabilities: readonly Capability[]) => {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">${value({ version: 1, capabilities })}</plist>\n`;
 };
 
+const bundle = (name: string, path: string, identifier: string, team: string): Capability => ({
+  packageType: "cask",
+  name,
+  validator: "bundle",
+  path,
+  bundleIdentifier: identifier,
+  teamIdentifier: team,
+});
+
 const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -51,14 +60,6 @@ const program = Effect.scoped(
       name: string,
       args: readonly string[],
     ): Capability => ({ packageType, name, validator: "command", path: managed, arguments: args });
-    const bundle = (name: string, path: string, identifier: string, team: string): Capability => ({
-      packageType: "cask",
-      name,
-      validator: "bundle",
-      path,
-      bundleIdentifier: identifier,
-      teamIdentifier: team,
-    });
     const write = Effect.fn("writeExternalHomebrewFixture")(function* (
       capabilities: readonly Capability[],
     ) {

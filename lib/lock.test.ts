@@ -137,6 +137,8 @@ test("an unreleased lock fails loudly after the wait budget", (t) => {
   assert.ok(messages.some((message) => message.includes("waiting up to 15 minutes")));
 });
 
+const alive = (pid: number) => pid === process.pid;
+
 test("two contenders reclaiming the same dead owner yield exactly one holder", (t) => {
   // Interleaving: B reads the dead owner metadata, then A reclaims and
   // acquires before B acts on its verdict. B must not evict A.
@@ -146,7 +148,6 @@ test("two contenders reclaiming the same dead owner yield exactly one holder", (
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  const alive = (pid: number) => pid === process.pid;
   let releaseA: (() => void) | undefined;
   let injected = false;
   const probeB = (pid: number) => {

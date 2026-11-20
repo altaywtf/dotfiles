@@ -193,12 +193,13 @@ test("Chrome profiles seed Default and reject malformed preferences", async () =
   }
 });
 
+const run = (path: string, mode: "enable" | "disable") =>
+  Effect.runPromise(
+    updateChromeLocalStatePreferencesEffect(path, mode).pipe(Effect.provide(NodeServices.layer)),
+  );
+
 test("Chrome Local State turns off the quit prompt and restores it", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-quit-"));
-  const run = (path: string, mode: "enable" | "disable") =>
-    Effect.runPromise(
-      updateChromeLocalStatePreferencesEffect(path, mode).pipe(Effect.provide(NodeServices.layer)),
-    );
   try {
     const path = join(root, "Local State");
     writeFileSync(path, '{"browser":{"confirm_to_quit":true,"enabled_labs_experiments":["a@1"]}}');

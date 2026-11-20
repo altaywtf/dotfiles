@@ -65,6 +65,12 @@ export const resolveLaunchdNamespaceContract = Effect.fn("resolveLaunchdNamespac
   },
 );
 
+const escape = (value: string) =>
+  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+const item = (key: string, value: string) =>
+  `    <key>${key}</key>\n    <string>${escape(value)}</string>`;
+
 export function plistXml(options: {
   label: string;
   user: string;
@@ -78,10 +84,6 @@ export function plistXml(options: {
   environment?: Readonly<Record<string, string>>;
   calendar?: readonly { hour: number; minute: number }[];
 }): string {
-  const escape = (value: string) =>
-    value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  const item = (key: string, value: string) =>
-    `    <key>${key}</key>\n    <string>${escape(value)}</string>`;
   const args = options.arguments
     .map((argument) => `      <string>${escape(argument)}</string>`)
     .join("\n");
