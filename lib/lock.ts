@@ -141,7 +141,7 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
         // holder released; the wait path observes either outcome.
       }
       const remaining = deadline - now();
-      if (remaining <= 0) throw new Error(`lock is held by an active process: ${lock}`);
+      if (remaining <= 0) throw new Error(`lock is held by an active process: ${lock}`, { cause });
       if (!announced) {
         announced = true;
         log(`waiting up to ${Math.ceil(remaining / 60_000)} minutes for ${lock}`);
