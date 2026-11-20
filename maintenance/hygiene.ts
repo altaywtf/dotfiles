@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { CommandRunner } from "../lib/command.ts";
 import { cacheCleanup } from "./cache-cleanup.ts";
 import { acquireDirectoryLock } from "../lib/lock.ts";
@@ -33,7 +33,7 @@ export function readState(statePath: string): { state: State; recovered: boolean
     // Only a missing file is an empty state. Any other read failure (EACCES,
     // EIO, EISDIR) must not silently restart grace periods or bypass the
     // scheduled interval, so it propagates and fails the run.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+    if (Predicate.hasProperty(error, "code") && error.code === "ENOENT")
       return { state: empty, recovered: false };
     throw error;
   }

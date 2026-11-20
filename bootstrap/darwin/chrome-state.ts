@@ -2,18 +2,23 @@
 
 import { realpathSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, FileSystem, Option, Schema } from "effect";
+import { Effect, FileSystem, Option, Predicate, Schema } from "effect";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
 
-function object(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error(`${label} must be a JSON object`);
-  return value as Record<string, unknown>;
-}
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+type JsonObject = typeof JsonObject.Type;
+
+const decodeObject = (schema: Schema.Codec<JsonObject, unknown>, value: unknown, label: string) =>
+  Schema.decodeUnknownEffect(schema)(value).pipe(
+    Effect.mapError(() => new Error(`${label} must be a JSON object`)),
+  );
+const object = (value: unknown, label: string) => decodeObject(JsonObject, value, label);
+const jsonObject = (source: string, label: string) =>
+  decodeObject(Schema.fromJsonString(JsonObject), source, label);
 
 const Arguments = Schema.Tuple([
   Schema.NonEmptyString,
@@ -56,45 +61,50 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function* 
     Effect.map(Option.some),
     Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(Option.none())),
   );
-  let data: Record<string, unknown> = {};
-  if (Option.isSome(source)) {
-    data = yield* Effect.try({
-      try: () => object(JSON.parse(source.value), `${path} contents`),
-      catch: (error) => error,
-    });
-  }
-  const browser = data.browser === undefined ? {} : object(data.browser, '"browser"');
-  const current = browser.enabled_labs_experiments ?? [];
-  if (!Array.isArray(current))
-    return yield* Effect.fail(new Error('"browser.enabled_labs_experiments" must be a JSON array'));
+  const data = Option.isSome(source) ? yield* jsonObject(source.value, `${path} contents`) : {};
+  const browser = data.browser === undefined ? {} : yield* object(data.browser, '"browser"');
+  const current = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Unknown))(
+    browser.enabled_labs_experiments ?? [],
+  ).pipe(
+    Effect.mapError(() => new Error('"browser.enabled_labs_experiments" must be a JSON array')),
+  );
   const prefix = `${flagName}@`;
   const experiments = current.filter(
-    (item) => typeof item !== "string" || (item !== flagName && !item.startsWith(prefix)),
+    (item) => !Predicate.isString(item) || (item !== flagName && !item.startsWith(prefix)),
   );
-  if (mode === "enable") experiments.push(flagValue);
-  browser.enabled_labs_experiments = experiments;
-  data.browser = browser;
-  yield* writeAtomically(path, `${JSON.stringify(data)}\n`);
+  const updated = {
+    ...data,
+    browser: {
+      ...browser,
+      enabled_labs_experiments: mode === "enable" ? [...experiments, flagValue] : experiments,
+    },
+  };
+  yield* writeAtomically(path, `${JSON.stringify(updated)}\n`);
 });
 
 type Preference = { group: string; key: string; value: boolean };
 
-function applyPreferences(
-  data: Record<string, unknown>,
+const applyPreferences = Effect.fnUntraced(function* (
+  data: JsonObject,
   preferences: readonly Preference[],
   mode: Mode,
-): boolean {
+) {
+  let updated = data;
   let changed = false;
   for (const { group, key, value } of preferences) {
-    const section = data[group] === undefined ? {} : object(data[group], `"${group}"`);
-    if (mode === "enable" ? section[key] === value : !(key in section)) continue;
-    if (mode === "enable") section[key] = value;
-    else delete section[key];
-    data[group] = section;
+    const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);
+    if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) continue;
+    updated = {
+      ...updated,
+      [group]:
+        mode === "enable"
+          ? { ...section, [key]: value }
+          : Object.fromEntries(Object.entries(section).filter(([name]) => name !== key)),
+    };
     changed = true;
   }
-  return changed;
-}
+  return changed ? Option.some(updated) : Option.none();
+});
 
 // prefs::kConfirmToQuitEnabled is browser-wide; turning it off drops the
 // hold-Command-Q-to-quit prompt.
@@ -105,12 +115,13 @@ export const updateChromeLocalStatePreferencesEffect = Effect.fn(
 )(function* (path: string, mode: Mode) {
   const fs = yield* FileSystem.FileSystem;
   const source = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "{}";
-  const data = yield* Effect.try({
-    try: () => object(JSON.parse(source), `${path} contents`),
-    catch: (error) => error,
-  });
-  if (!applyPreferences(data, localStatePreferences, mode)) return false;
-  yield* writeAtomically(path, `${JSON.stringify(data)}\n`);
+  const updated = yield* applyPreferences(
+    yield* jsonObject(source, `${path} contents`),
+    localStatePreferences,
+    mode,
+  );
+  if (Option.isNone(updated)) return false;
+  yield* writeAtomically(path, `${JSON.stringify(updated.value)}\n`);
   return true;
 });
 
@@ -141,12 +152,13 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
   let updated = 0;
   for (const path of profiles.sort()) {
     const source = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "{}";
-    const data = yield* Effect.try({
-      try: () => object(JSON.parse(source), `${path} contents`),
-      catch: (error) => error,
-    });
-    if (!applyPreferences(data, profilePreferences, mode)) continue;
-    yield* writeAtomically(path, JSON.stringify(data));
+    const profile = yield* applyPreferences(
+      yield* jsonObject(source, `${path} contents`),
+      profilePreferences,
+      mode,
+    );
+    if (Option.isNone(profile)) continue;
+    yield* writeAtomically(path, JSON.stringify(profile.value));
     updated += 1;
   }
   return { checked: profiles.length, updated };

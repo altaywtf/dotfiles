@@ -1,29 +1,39 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Option, Schema } from "effect";
 
 import { type McpOAuth } from "./catalog.ts";
+
+const ClaudeConfig = Schema.fromJsonString(
+  Schema.Struct({ mcpServers: Schema.Record(Schema.String, Schema.Unknown) }),
+);
+
+const ClaudeServer = Schema.Struct({
+  headersHelper: Schema.optionalKey(Schema.Unknown),
+  oauth: Schema.optionalKey(Schema.Unknown),
+});
+
+const ClaudeOAuth = Schema.Struct({ clientId: Schema.String, callbackPort: Schema.Number });
 
 function claudeConfigPath(env: NodeJS.ProcessEnv): string | undefined {
   const dir = env.CLAUDE_CONFIG_DIR || env.HOME;
   return dir ? join(dir, ".claude.json") : undefined;
 }
 
-function userEntry(env: NodeJS.ProcessEnv, name: string): object | undefined {
+function userEntry(env: NodeJS.ProcessEnv, name: string): typeof ClaudeServer.Type | undefined {
   const path = claudeConfigPath(env);
   if (path === undefined) return undefined;
-  let parsed: unknown;
+  let contents: string;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    contents = readFileSync(path, "utf8");
   } catch {
     return undefined;
   }
-  if (typeof parsed !== "object" || parsed === null || !("mcpServers" in parsed)) return undefined;
-  const servers = parsed.mcpServers;
-  if (typeof servers !== "object" || servers === null || !Object.hasOwn(servers, name)) {
-    return undefined;
-  }
-  const entry: unknown = Object.getOwnPropertyDescriptor(servers, name)?.value;
-  return typeof entry === "object" && entry !== null ? entry : undefined;
+  return Schema.decodeUnknownOption(ClaudeConfig)(contents).pipe(
+    Option.filter(({ mcpServers }) => Object.hasOwn(mcpServers, name)),
+    Option.flatMap(({ mcpServers }) => Schema.decodeUnknownOption(ClaudeServer)(mcpServers[name])),
+    Option.getOrUndefined,
+  );
 }
 
 export function claudeAuthMatches(
@@ -33,22 +43,16 @@ export function claudeAuthMatches(
   oauth: McpOAuth | undefined,
 ): boolean {
   const entry = userEntry(env, name);
-  const configuredHelper =
-    entry !== undefined && "headersHelper" in entry && typeof entry.headersHelper === "string"
-      ? entry.headersHelper
-      : undefined;
+  const configuredHelper = Option.getOrUndefined(
+    Schema.decodeUnknownOption(Schema.String)(entry?.headersHelper),
+  );
   if (configuredHelper !== headersHelper) return false;
 
-  const configuredOAuth: unknown =
-    entry !== undefined && "oauth" in entry ? entry.oauth : undefined;
-  if (oauth === undefined) return configuredOAuth === undefined;
-  return (
-    typeof configuredOAuth === "object" &&
-    configuredOAuth !== null &&
-    Object.keys(configuredOAuth).length === 2 &&
-    "clientId" in configuredOAuth &&
-    configuredOAuth.clientId === oauth.clientId &&
-    "callbackPort" in configuredOAuth &&
-    configuredOAuth.callbackPort === oauth.callbackPort
+  if (oauth === undefined) return entry?.oauth === undefined;
+  return Schema.decodeUnknownOption(ClaudeOAuth, { onExcessProperty: "error" })(entry?.oauth).pipe(
+    Option.exists(
+      (configured) =>
+        configured.clientId === oauth.clientId && configured.callbackPort === oauth.callbackPort,
+    ),
   );
 }

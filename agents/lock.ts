@@ -3,26 +3,21 @@ import {
   realpathSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { acquireDirectoryLock } from "../lib/lock.ts";
 import { dirname, join } from "node:path";
+import { Option, Schema } from "effect";
 
-import { errorMessage } from "./runtime.ts";
+import { decodeOr, readJsonFile } from "./decode.ts";
 
 export function readLockFile(lockPath: string, label: string): unknown {
   if (!existsSync(lockPath)) {
     return undefined;
   }
-
-  try {
-    return JSON.parse(readFileSync(lockPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid managed ${label} lock at ${lockPath}: ${errorMessage(error)}`);
-  }
+  return readJsonFile(lockPath, `Invalid managed ${label} lock at ${lockPath}`);
 }
 
 export function writeLockFile(lockPath: string, value: unknown): void {
@@ -65,23 +60,22 @@ export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync:
 }
 
 // Overlay-owned names per checkout that installed them.
-export type OverlayOwnership = Readonly<Record<string, readonly string[]>>;
+const OverlayOwnership = Schema.Record(Schema.String, Schema.Array(Schema.String));
+export type OverlayOwnership = typeof OverlayOwnership.Type;
+
+const OverlayLock = Schema.Struct({ overlays: Schema.Unknown });
 
 export function readOverlayOwnership(lockPath: string): OverlayOwnership | undefined {
-  const parsed = readLockFile(lockPath, "overlay");
-  if (typeof parsed !== "object" || parsed === null || !("overlays" in parsed)) return undefined;
-  const overlays = parsed.overlays;
-  if (
-    typeof overlays !== "object" ||
-    overlays === null ||
-    Array.isArray(overlays) ||
-    !Object.values(overlays).every(
-      (names) => Array.isArray(names) && names.every((name) => typeof name === "string"),
-    )
-  ) {
-    throw new Error(`Invalid managed lock at ${lockPath}: overlays must map checkouts to names`);
-  }
-  return overlays as OverlayOwnership;
+  return Schema.decodeUnknownOption(OverlayLock)(readLockFile(lockPath, "overlay")).pipe(
+    Option.map(({ overlays }) =>
+      decodeOr(
+        OverlayOwnership,
+        overlays,
+        `Invalid managed lock at ${lockPath}: overlays must map checkouts to names`,
+      ),
+    ),
+    Option.getOrUndefined,
+  );
 }
 
 // The local overlay is checkout-local while the lock is per user: a sync keeps

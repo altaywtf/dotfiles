@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Schema } from "effect";
+import { DateTime, Effect, Option, Predicate, Schema, SchemaTransformation } from "effect";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -146,7 +146,19 @@ const SofaMacOSFeed = Schema.Struct({
         Schema.Struct({
           Identifiers: Schema.Union([
             Schema.Array(Schema.NonEmptyString),
-            Schema.Record(Schema.String, Schema.String),
+            Schema.Record(Schema.String, Schema.String).pipe(
+              Schema.decodeTo(
+                Schema.Array(Schema.String),
+                SchemaTransformation.transform<
+                  ReadonlyArray<string>,
+                  { readonly [x: string]: string }
+                >({
+                  decode: (identifiers) => Object.keys(identifiers),
+                  encode: (identifiers) =>
+                    Object.fromEntries(identifiers.map((identifier) => [identifier, identifier])),
+                }),
+              ),
+            ),
           ]),
         }),
       ),
@@ -219,9 +231,7 @@ function classifyHttp(status: number): FailureKind {
   return status >= 400 ? "validation" : "unknown";
 }
 
-function parseJson(contents: string): unknown {
-  return JSON.parse(contents) as unknown;
-}
+const JsonPayload = Schema.fromJsonString(Schema.Unknown);
 
 function parseDateTime(value: string): DateTime.Utc | undefined {
   const parsed = Option.getOrUndefined(DateTime.make(value));
@@ -374,11 +384,7 @@ export function selectSofaMacOSBaseline(
 ): ReleaseBaseline {
   const feed = Schema.decodeUnknownSync(SofaMacOSFeed)(payload);
   const candidates = feed.OSVersions.filter((release) =>
-    release.SupportedModels.some((group) =>
-      Array.isArray(group.Identifiers)
-        ? group.Identifiers.includes(modelIdentifier)
-        : Object.hasOwn(group.Identifiers, modelIdentifier),
-    ),
+    release.SupportedModels.some((group) => group.Identifiers.includes(modelIdentifier)),
   ).map((release) => ({
     version: release.Latest.ProductVersion,
     build: release.Latest.Build,
@@ -474,7 +480,7 @@ function selectPayload(
 function parseCache(contents: string | undefined): { record?: CacheRecord; error?: string } {
   if (contents === undefined) return {};
   try {
-    return { record: Schema.decodeUnknownSync(CacheRecord)(parseJson(contents)) };
+    return { record: Schema.decodeUnknownSync(Schema.fromJsonString(CacheRecord))(contents) };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -486,7 +492,7 @@ function parseLiveScanRecord(contents: string | undefined): {
 } {
   if (contents === undefined) return {};
   try {
-    return { record: Schema.decodeUnknownSync(LiveScanRecord)(parseJson(contents)) };
+    return { record: Schema.decodeUnknownSync(Schema.fromJsonString(LiveScanRecord))(contents) };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -558,7 +564,7 @@ async function appleSource(
     };
   } else {
     try {
-      payload = parseJson(response.body);
+      payload = Schema.decodeUnknownSync(JsonPayload)(response.body);
     } catch (error) {
       failure = {
         error: error instanceof Error ? error.message : String(error),
@@ -656,7 +662,14 @@ async function sofaSource(
     );
   }
   try {
-    return selectPayload(source, parseJson(response.body), nowIso, "live", select, 0);
+    return selectPayload(
+      source,
+      Schema.decodeUnknownSync(JsonPayload)(response.body),
+      nowIso,
+      "live",
+      select,
+      0,
+    );
   } catch (error) {
     return sourceFailure(
       source,
@@ -825,7 +838,7 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
   const identifiers =
     device.status === "ok"
       ? [device.software_update_id, device.board_identifier, device.model_identifier].filter(
-          (value): value is string => value !== undefined,
+          Predicate.isNotUndefined,
         )
       : [];
   const cachePath =
@@ -1029,7 +1042,7 @@ export const defaultMacOSUpdateIO: MacOSUpdateIO = {
     try {
       return await readFile(path, { encoding: "utf8", signal });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") return undefined;
       throw error;
     }
   },

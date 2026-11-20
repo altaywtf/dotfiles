@@ -1,9 +1,13 @@
+import { Effect, Schema, SchemaTransformation } from "effect";
+
 import { type AgentLayer } from "../profiles/model.ts";
 import { type Runtime, writeLine } from "./runtime.ts";
 
 export const HARNESSES = ["claude", "codex"] as const;
 
-export type Harness = (typeof HARNESSES)[number];
+export const Harness = Schema.Literals(HARNESSES);
+
+export type Harness = typeof Harness.Type;
 
 export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = {
   claude: { binary: "claude", label: "Claude Code" },
@@ -13,27 +17,43 @@ export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = 
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const RESERVED_NAMES = new Set(["__proto__", "constructor", "prototype"]);
 
-export function isSafeName(value: string): boolean {
-  return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
+export function safeName(message: string) {
+  return Schema.String.annotate({ message }).check(
+    Schema.isPattern(NAME_PATTERN, { message }),
+    Schema.makeFilter((name: string) => !RESERVED_NAMES.has(name), { message }),
+  );
 }
 
-function isHarness(value: unknown): value is Harness {
-  return typeof value === "string" && (HARNESSES as readonly string[]).includes(value);
-}
+export const SafeName = safeName("must be a safe name");
 
 // Selection uses membership, never order; normalize so composition compares
 // manifests by meaning rather than authoring order.
-export function readHarnesses(value: unknown, invalidMessage: string): readonly Harness[] {
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(isHarness) ||
-    new Set(value).size !== value.length
-  ) {
-    throw new Error(invalidMessage);
-  }
-  return HARNESSES.filter((harness) => value.includes(harness));
+function harnessSet(message: string) {
+  return Schema.Array(Harness.annotate({ message }))
+    .annotate({ message })
+    .check(Schema.isMinLength(1, { message }), Schema.isUnique({ message }))
+    .pipe(
+      Schema.decodeTo(
+        Schema.Array(Harness),
+        SchemaTransformation.transform({
+          decode: (selected: readonly Harness[]): readonly Harness[] =>
+            HARNESSES.filter((harness) => selected.includes(harness)),
+          encode: (harnesses: readonly Harness[]) => harnesses,
+        }),
+      ),
+    )
+    .annotateKey({ messageMissingKey: message });
 }
+
+const HARNESS_LIST = HARNESSES.join(", ");
+
+export const ManifestHarnesses = harnessSet(
+  `harnesses must be a unique non-empty subset of ${HARNESS_LIST}`,
+).pipe(Schema.withDecodingDefaultKey(Effect.succeed(HARNESSES)));
+
+export const LockedHarnesses = harnessSet(
+  `harnesses must be an explicit unique non-empty subset of ${HARNESS_LIST}`,
+);
 
 export function harnessPresent(runtime: Runtime): boolean {
   return HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));

@@ -4,19 +4,20 @@ import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import { decodeOr, decodeOrThrow } from "./decode.ts";
 import {
   type Harness,
   HARNESS_INFO,
   HARNESSES,
   harnessPresent,
-  isSafeName,
+  LockedHarnesses,
   parseSyncArgs,
-  readHarnesses,
   reportSyncFailures,
+  SafeName,
   type SyncFailure,
 } from "./harness.ts";
 import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
@@ -42,10 +43,16 @@ import {
 
 type McpFailure = SyncFailure;
 
-type LockedMcp = {
-  name: string;
-  harnesses: readonly Harness[];
-};
+const LockedMcpIdentity = Schema.Struct({ name: SafeName });
+
+const LockedMcp = Schema.Struct({ name: SafeName, harnesses: LockedHarnesses });
+type LockedMcp = typeof LockedMcp.Type;
+
+const McpLockDocument = Schema.Struct({
+  version: Schema.Literal(1),
+  mcps: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+  servers: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+});
 
 type McpLock = {
   version: 1;
@@ -59,48 +66,27 @@ function readMcpLock(lockPath: string): LockedMcp[] | undefined {
     return undefined;
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1
-  ) {
-    throw new Error(
-      `Invalid managed MCP lock at ${lockPath}: expected version 1 and an mcps array`,
-    );
-  }
+  const label = `Invalid managed MCP lock at ${lockPath}`;
+  const shapeMessage = `${label}: expected version 1 and an mcps array`;
+  const lock = decodeOr(McpLockDocument, parsed, shapeMessage);
   // Locks written before the rename keep their entries under `servers`; the
   // next write stores them as `mcps`.
-  const entries = "mcps" in parsed ? parsed.mcps : "servers" in parsed ? parsed.servers : undefined;
-  if (!Array.isArray(entries)) {
-    throw new Error(
-      `Invalid managed MCP lock at ${lockPath}: expected version 1 and an mcps array`,
-    );
+  const entries = lock.mcps ?? lock.servers;
+  if (entries === undefined) {
+    throw new Error(shapeMessage);
   }
 
-  const mcps = entries.map((mcp: unknown, index) => {
-    if (
-      typeof mcp !== "object" ||
-      mcp === null ||
-      !("name" in mcp) ||
-      typeof mcp.name !== "string" ||
-      !isSafeName(mcp.name)
-    ) {
-      throw new Error(
-        `Invalid managed MCP lock at ${lockPath}: mcps[${index}] must have a safe name`,
-      );
-    }
-    return {
-      name: mcp.name,
-      harnesses: readHarnesses(
-        "harnesses" in mcp ? mcp.harnesses : undefined,
-        `Invalid managed MCP lock at ${lockPath}: ${mcp.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
-      ),
-    };
+  const mcps = entries.map((mcp, index) => {
+    const { name } = decodeOr(
+      LockedMcpIdentity,
+      mcp,
+      `${label}: mcps[${index}] must have a safe name`,
+    );
+    return decodeOrThrow(LockedMcp, mcp, (detail) => `${label}: ${name} ${detail}`);
   });
   const names = mcps.map((mcp) => mcp.name);
   if (new Set(names).size !== names.length) {
-    throw new Error(`Invalid managed MCP lock at ${lockPath}: MCP names must be unique`);
+    throw new Error(`${label}: MCP names must be unique`);
   }
   return mcps;
 }

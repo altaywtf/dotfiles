@@ -1,10 +1,17 @@
 import { readFileSync, realpathSync } from "node:fs";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { isAbsolute, relative, resolve } from "node:path";
 
-type Finding = Record<string, unknown>;
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const Severity = Schema.Literals(["low", "medium", "high", "critical"]);
+type Severity = typeof Severity.Type;
+const PolicyHeader = Schema.Struct({
+  version: Schema.Literal(1),
+  defaultSeverity: Severity,
+  failureThreshold: Severity,
+});
+const Findings = Schema.Array(JsonObject);
 type RuleCounts = Record<string, number>;
-type Severity = "low" | "medium" | "high" | "critical";
 
 export type FindingSummary = {
   findingCount: number;
@@ -16,49 +23,53 @@ export type FindingSummary = {
 
 const severityRank: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
+const decodeJsonObject = Schema.decodeUnknownOption(Schema.fromJsonString(JsonObject));
+const decodeJsonFindings = Schema.decodeUnknownOption(Schema.fromJsonString(Findings));
+const decodePolicyHeader = Schema.decodeUnknownOption(PolicyHeader);
+const decodeJsonObjectValue = Schema.decodeUnknownOption(JsonObject);
+const isSeverity = Schema.is(Severity);
+const isCount = Schema.is(Schema.Natural);
+
 function readPolicy(path: string): {
   defaultSeverity: Severity;
   failureThreshold: Severity;
   rules: Record<string, Severity>;
 } {
-  const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("invalid Gitleaks policy");
-  const policy = value as Record<string, unknown>;
-  if (
-    policy.version !== 1 ||
-    !isSeverity(policy.defaultSeverity) ||
-    !isSeverity(policy.failureThreshold)
-  ) {
-    throw new Error("invalid Gitleaks policy header");
-  }
-  if (typeof policy.rules !== "object" || policy.rules === null || Array.isArray(policy.rules)) {
-    throw new Error("invalid Gitleaks policy rules");
-  }
+  const policy = Option.getOrThrowWith(
+    decodeJsonObject(readFileSync(path, "utf8")),
+    () => new Error("invalid Gitleaks policy"),
+  );
+  const header = Option.getOrThrowWith(
+    decodePolicyHeader(policy),
+    () => new Error("invalid Gitleaks policy header"),
+  );
+  const ruleEntries = Option.getOrThrowWith(
+    decodeJsonObjectValue(policy.rules),
+    () => new Error("invalid Gitleaks policy rules"),
+  );
   const rules: Record<string, Severity> = {};
-  for (const [rule, severity] of Object.entries(policy.rules)) {
+  for (const [rule, severity] of Object.entries(ruleEntries)) {
     if (!isSeverity(severity)) throw new Error(`invalid severity for ${rule}`);
     rules[rule] = severity;
   }
   return {
-    defaultSeverity: policy.defaultSeverity,
-    failureThreshold: policy.failureThreshold,
+    defaultSeverity: header.defaultSeverity,
+    failureThreshold: header.failureThreshold,
     rules,
   };
 }
 
-function isSeverity(value: unknown): value is Severity {
-  return typeof value === "string" && Object.hasOwn(severityRank, value);
-}
-
-function readFindings(path: string): readonly Finding[] {
+function readFindings(path: string): typeof Findings.Type {
+  let contents: string;
   try {
-    const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-    if (Schema.is(Schema.Array(Schema.Record(Schema.String, Schema.Unknown)))(value)) return value;
+    contents = readFileSync(path, "utf8");
   } catch {
     throw new Error("Gitleaks report is missing or invalid");
   }
-  throw new Error("Gitleaks report is missing or invalid");
+  return Option.getOrThrowWith(
+    decodeJsonFindings(contents),
+    () => new Error("Gitleaks report is missing or invalid"),
+  );
 }
 
 function rootVariants(root: string): string[] {
@@ -95,20 +106,13 @@ export function findingLocators(scanRoot: string, reportPath: string): string[] 
 }
 
 function readRuleCounts(existingJson: string): RuleCounts {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(existingJson || "{}");
-  } catch {
-    throw new Error("invalid persisted count map");
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("invalid persisted count map");
-  }
+  const parsed = Option.getOrThrowWith(
+    decodeJsonObject(existingJson || "{}"),
+    () => new Error("invalid persisted count map"),
+  );
   const counts: RuleCounts = {};
   for (const [key, value] of Object.entries(parsed)) {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-      throw new Error(`invalid count for ${key}`);
-    }
+    if (!isCount(value)) throw new Error(`invalid count for ${key}`);
     counts[key] = value;
   }
   return counts;

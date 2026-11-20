@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { parse as parseToml } from "smol-toml";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -20,6 +20,7 @@ import {
 } from "./darwin/macos-updates.ts";
 
 import { probe, runProbe, runProcess, type Probe, type ProbeResult } from "./probes.ts";
+import { dropInvalid } from "./schema.ts";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
 export type { CommandRunner, RawCommandResult } from "./command.ts";
 
@@ -42,15 +43,19 @@ export type MaintenanceContext = {
   verify: boolean;
 };
 
-type BrewItem = {
-  name: string;
-  installed_versions: string[];
-  current_version: string;
-};
+const BrewItem = Schema.Struct({
+  name: Schema.String,
+  installed_versions: Schema.Array(Schema.String),
+  current_version: Schema.String,
+});
+type BrewItem = typeof BrewItem.Type;
 
-type BrewBacklog = {
-  formulae: BrewItem[];
-  casks: BrewItem[];
+const BrewOutdated = Schema.Struct({
+  formulae: Schema.Array(BrewItem),
+  casks: Schema.Array(BrewItem),
+});
+
+type BrewBacklog = typeof BrewOutdated.Type & {
   record_lag?: BrewItem[];
   cask_verification?: Array<{
     name: string;
@@ -59,14 +64,18 @@ type BrewBacklog = {
   }>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
 
-function parseJsonObject(contents: string, label: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(contents || "{}");
-  if (!isRecord(parsed)) throw new Error(`${label} did not return a JSON object`);
-  return parsed;
+function decodeJsonOutput<S extends Schema.Decoder<unknown>>(
+  schema: S,
+  contents: string,
+  message: string,
+): S["Type"] {
+  try {
+    return Schema.decodeUnknownSync(Schema.fromJsonString(schema))(contents);
+  } catch (cause) {
+    throw new Error(message, { cause });
+  }
 }
 
 const NpmBacklog = Schema.Record(
@@ -77,14 +86,6 @@ const NpmBacklog = Schema.Record(
     latest: Schema.String,
   }),
 );
-
-function parseNpmBacklog(contents: string): Record<string, unknown> {
-  try {
-    const value: unknown = JSON.parse(contents);
-    if (Schema.is(NpmBacklog)(value)) return value;
-  } catch {}
-  throw new Error("npm returned an invalid update inventory");
-}
 
 const MiseConfig = Schema.Struct({
   tools: Schema.Record(
@@ -109,7 +110,7 @@ function misePins(path: string): Record<string, string> {
     return Object.fromEntries(
       Object.entries(config.tools).map(([tool, pin]) => [
         tool,
-        typeof pin === "string" ? pin : pin.version,
+        Predicate.isString(pin) ? pin : pin.version,
       ]),
     );
   } catch (cause) {
@@ -129,7 +130,9 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   );
   let inventory: typeof MiseInstallInventory.Type;
   try {
-    inventory = Schema.decodeUnknownSync(MiseInstallInventory)(JSON.parse(result.stdout));
+    inventory = Schema.decodeUnknownSync(Schema.fromJsonString(MiseInstallInventory))(
+      result.stdout,
+    );
   } catch (cause) {
     throw new Error("mise returned an invalid installed pin inventory", { cause });
   }
@@ -155,32 +158,12 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   return pending;
 }
 
-function parseBrewItem(value: unknown): BrewItem {
-  if (
-    !isRecord(value) ||
-    typeof value.name !== "string" ||
-    !Array.isArray(value.installed_versions) ||
-    !value.installed_versions.every((item) => typeof item === "string") ||
-    typeof value.current_version !== "string"
-  ) {
-    throw new Error("Homebrew returned an invalid package record");
-  }
-  return {
-    name: value.name,
-    installed_versions: value.installed_versions,
-    current_version: value.current_version,
-  };
-}
-
 export function parseBrewBacklog(contents: string): BrewBacklog {
-  const value = parseJsonObject(contents, "Homebrew");
-  if (!Array.isArray(value.formulae) || !Array.isArray(value.casks)) {
-    throw new Error("Homebrew backlog is missing formulae or casks");
-  }
-  return {
-    formulae: value.formulae.map(parseBrewItem),
-    casks: value.casks.map(parseBrewItem),
-  };
+  return decodeJsonOutput(
+    BrewOutdated,
+    contents,
+    "Homebrew returned an invalid outdated inventory",
+  );
 }
 
 const CaskInventory = Schema.Struct({
@@ -235,14 +218,26 @@ function parseDisk(result: RawCommandResult) {
   };
 }
 
+const TailscaleNode = Schema.Struct({ Online: Schema.optionalKey(dropInvalid(Schema.Boolean)) });
+
+const TailscaleStatus = Schema.Struct({
+  BackendState: Schema.optionalKey(dropInvalid(Schema.String)),
+  MagicDNSSuffix: Schema.optionalKey(dropInvalid(Schema.String)),
+  Self: Schema.optionalKey(dropInvalid(TailscaleNode)),
+  Peer: Schema.optionalKey(dropInvalid(Schema.Record(Schema.String, dropInvalid(TailscaleNode)))),
+});
+
 function parseTailscale(result: RawCommandResult) {
-  const value = parseJsonObject(result.stdout, "Tailscale");
-  const self = isRecord(value.Self) ? value.Self : {};
-  const peers = isRecord(value.Peer) ? Object.values(value.Peer).filter(isRecord) : [];
+  const value = decodeJsonOutput(
+    TailscaleStatus,
+    result.stdout || "{}",
+    "Tailscale did not return a JSON object",
+  );
+  const peers = Object.values(value.Peer ?? {});
   return {
-    backend_state: typeof value.BackendState === "string" ? value.BackendState : "unknown",
-    magic_dns_suffix: typeof value.MagicDNSSuffix === "string" ? value.MagicDNSSuffix : "",
-    self_online: self.Online === true,
+    backend_state: value.BackendState ?? "unknown",
+    magic_dns_suffix: value.MagicDNSSuffix ?? "",
+    self_online: value.Self?.Online === true,
     peers_total: peers.length,
     peers_online: peers.filter((peer) => peer.Online === true).length,
   };
@@ -263,7 +258,7 @@ const CacheLocator = Schema.Struct({
 function parseContentCaches(result: RawCommandResult) {
   let locator: typeof CacheLocator.Type;
   try {
-    locator = Schema.decodeUnknownSync(CacheLocator)(JSON.parse(result.stdout));
+    locator = Schema.decodeUnknownSync(Schema.fromJsonString(CacheLocator))(result.stdout);
   } catch (cause) {
     throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause });
   }
@@ -351,14 +346,16 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       "mise_outdated",
       "mise",
       ["outdated", "--json"],
-      (result) => parseJsonObject(result.stdout, "mise"),
+      (result) =>
+        decodeJsonOutput(JsonObject, result.stdout || "{}", "mise did not return a JSON object"),
       { allowedStatuses: [0, 1] },
     ),
     probe(
       "npm_outdated",
       "npm",
       ["outdated", "-g", "--json"],
-      (result) => parseNpmBacklog(result.stdout),
+      (result) =>
+        decodeJsonOutput(NpmBacklog, result.stdout, "npm returned an invalid update inventory"),
       { allowedStatuses: [0, 1] },
     ),
     ...agentProbes(context),
@@ -476,14 +473,14 @@ async function runBrewBacklogProbe(
     runner,
   );
   if (backlog.status === "ok" && context.platform === "darwin") {
-    const value = parseBrewBacklog(JSON.stringify(backlog.value));
+    const value = Schema.decodeUnknownSync(BrewOutdated)(backlog.value);
     if (value.casks.length > 0) {
       const inventory = await runProbe(
         probe(
           "brew_cask_apps",
           "brew",
           ["info", "--json=v2", "--cask", ...value.casks.map((item) => item.name)],
-          (result) => Schema.decodeUnknownSync(CaskInventory)(JSON.parse(result.stdout)),
+          (result) => Schema.decodeUnknownSync(Schema.fromJsonString(CaskInventory))(result.stdout),
         ),
         context,
         runner,
@@ -497,23 +494,23 @@ async function runBrewBacklogProbe(
   return { ...backlog, duration_ms: Math.round(performance.now() - started) };
 }
 
+const PendingKeys = Schema.Record(Schema.String, Schema.Unknown);
+const PendingList = Schema.Array(Schema.Unknown);
+
 function backlogCount(probes: Record<string, ProbeResult>): number {
   let count = 0;
-  const brew = probes.brew_outdated_greedy?.value;
-  if (isRecord(brew)) {
-    count += Array.isArray(brew.formulae) ? brew.formulae.length : 0;
-    count += Array.isArray(brew.casks) ? brew.casks.length : 0;
-  }
+  const brew = Schema.decodeUnknownOption(BrewOutdated)(probes.brew_outdated_greedy?.value);
+  if (Option.isSome(brew)) count += brew.value.formulae.length + brew.value.casks.length;
   const misePending = new Set<string>();
   for (const id of ["mise_outdated", "mise_convergence"]) {
-    const value = probes[id]?.value;
-    if (isRecord(value)) for (const tool of Object.keys(value)) misePending.add(tool);
+    const value = Schema.decodeUnknownOption(PendingKeys)(probes[id]?.value);
+    if (Option.isSome(value)) for (const tool of Object.keys(value.value)) misePending.add(tool);
   }
   count += misePending.size;
-  const npm = probes.npm_outdated?.value;
-  if (isRecord(npm)) count += Object.keys(npm).length;
-  const mas = probes.mas_outdated?.value;
-  if (Array.isArray(mas)) count += mas.length;
+  const npm = Schema.decodeUnknownOption(PendingKeys)(probes.npm_outdated?.value);
+  if (Option.isSome(npm)) count += Object.keys(npm.value).length;
+  const mas = Schema.decodeUnknownOption(PendingList)(probes.mas_outdated?.value);
+  if (Option.isSome(mas)) count += mas.value.length;
   return count;
 }
 
@@ -570,9 +567,8 @@ export async function collectMaintenanceSnapshot(
   const required_failures = Object.values(probes).filter(
     (result) => result.required && result.status !== "ok",
   ).length;
-  const software = macosUpdates as MacOSUpdateInventory | undefined;
-  const software_update_status = software?.applicability.status ?? "not_applicable";
-  const software_update_available = software?.applicability.status === "updates_available";
+  const software_update_status = macosUpdates?.applicability.status ?? "not_applicable";
+  const software_update_available = macosUpdates?.applicability.status === "updates_available";
   return {
     schema_version: 2,
     collected_at: new Date().toISOString(),

@@ -3,7 +3,7 @@
 import { accessSync, constants, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect } from "effect";
+import { Array, Effect, Option, Result, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
@@ -23,6 +23,13 @@ const USAGE = `Usage: ./agents/doctor.ts [--profile PROFILE]
 Reports the MCP authentication state of every managed MCP in each installed
 harness, including headers helpers, and the command that repairs it. Exits 1
 when an MCP needs a login or a working headers helper.`;
+
+const CodexMcpList = Schema.fromJsonString(Schema.Unknown);
+
+const CodexMcpEntry = Schema.Struct({
+  name: Schema.String,
+  auth_status: Schema.optionalKey(Schema.Unknown),
+});
 
 type Status = "ok" | "needs_login" | "unknown" | "failed";
 
@@ -142,24 +149,26 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair: "mise run agents:sync",
     };
   }
-  let entries: unknown;
-  try {
-    entries = JSON.parse(result.stdout);
-  } catch (error) {
+  const entries = Schema.decodeUnknownResult(CodexMcpList)(result.stdout);
+  if (Result.isFailure(entries)) {
     return {
       harness: "codex",
       mcp: mcp.name,
       status: "failed",
-      detail: `unparseable mcp list: ${errorMessage(error)}`,
+      detail: `unparseable mcp list: ${entries.failure.message}`,
       repair,
     };
   }
-  const entry = Array.isArray(entries)
-    ? entries.find(
-        (item) =>
-          typeof item === "object" && item !== null && "name" in item && item.name === mcp.name,
-      )
-    : undefined;
+  const entry = Schema.decodeUnknownOption(Schema.Array(Schema.Unknown))(entries.success).pipe(
+    Option.flatMap((items) =>
+      Array.findFirst(items, (item) =>
+        Schema.decodeUnknownOption(CodexMcpEntry)(item).pipe(
+          Option.filter(({ name }) => name === mcp.name),
+        ),
+      ),
+    ),
+    Option.getOrUndefined,
+  );
   if (entry === undefined) {
     return {
       harness: "codex",
@@ -169,10 +178,10 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair: "mise run agents:sync",
     };
   }
-  const auth =
-    typeof entry === "object" && entry !== null && "auth_status" in entry
-      ? String(entry.auth_status)
-      : "unknown";
+  const auth = Option.getOrElse(
+    Schema.decodeUnknownOption(Schema.String)(entry.auth_status),
+    () => "unknown",
+  );
   return {
     harness: "codex",
     mcp: mcp.name,

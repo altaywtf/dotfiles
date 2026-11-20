@@ -199,6 +199,11 @@ test.each([
     { marketplace: "https://git.fixture.test/m.git", name: "one" },
     /one needs a marketplaceId because its marketplace is not owner\/repo/,
   ],
+  [
+    "a repository name that is a reserved marketplaceId",
+    { marketplace: "fixture/constructor", name: "one" },
+    /one marketplaceId must be a safe name/,
+  ],
   ["an unknown harness", { marketplace: "f/m", name: "one", harnesses: ["windsurf"] }, HARNESS_SET],
   [
     "a duplicated harness",

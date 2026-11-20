@@ -1,13 +1,24 @@
-import { lstatSync, readFileSync } from "node:fs";
+import { lstatSync } from "node:fs";
 import { join } from "node:path";
+import { Schema } from "effect";
 
-import { errorMessage } from "./runtime.ts";
+import { ClosedStruct, decodeOrThrow, readJsonFile } from "./decode.ts";
 
-const LOCAL_OVERLAY_KEYS = ["skills", "mcps", "plugins"] as const;
+const LOCAL_OVERLAY_FIELDS = {
+  skills: Schema.optionalKey(Schema.Unknown),
+  mcps: Schema.optionalKey(Schema.Unknown),
+  plugins: Schema.optionalKey(Schema.Unknown),
+};
+
+const LocalOverlayDocument = ClosedStruct(LOCAL_OVERLAY_FIELDS, {
+  notObject: "expected an object",
+  unsupported: (keys) =>
+    `unsupported keys ${keys}; expected ${Object.keys(LOCAL_OVERLAY_FIELDS).join(", ")}`,
+});
 
 export type LocalOverlay = {
   path: string;
-  document: Partial<Record<(typeof LOCAL_OVERLAY_KEYS)[number], unknown>>;
+  document: typeof LocalOverlayDocument.Type;
 };
 
 // The overlay is trusted checkout-local configuration applied after every
@@ -27,22 +38,13 @@ export function readLocalOverlay(repoDir: string): LocalOverlay | undefined {
     throw new Error(`Unsafe local agent overlay: ${path} must not be group or world writable`);
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid local agent overlay at ${path}: ${errorMessage(error)}`);
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Invalid local agent overlay at ${path}: expected an object`);
-  }
-  const unknownKeys = Object.keys(parsed).filter(
-    (key) => !(LOCAL_OVERLAY_KEYS as readonly string[]).includes(key),
-  );
-  if (unknownKeys.length > 0) {
-    throw new Error(
-      `Invalid local agent overlay at ${path}: unsupported keys ${unknownKeys.join(", ")}; expected ${LOCAL_OVERLAY_KEYS.join(", ")}`,
-    );
-  }
-  return { path, document: parsed };
+  const label = `Invalid local agent overlay at ${path}`;
+  return {
+    path,
+    document: decodeOrThrow(
+      LocalOverlayDocument,
+      readJsonFile(path, label),
+      (detail) => `${label}: ${detail}`,
+    ),
+  };
 }

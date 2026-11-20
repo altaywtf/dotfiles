@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { Option, Schema } from "effect";
 import { AuditReport, type AuditFormat, type FindingSeverity } from "./report.ts";
 import {
   type AuditDependencies as BaseDependencies,
@@ -353,6 +354,10 @@ function systemResolves(run: AuditRun, name: string): boolean {
   return false;
 }
 
+const decodeTailscaleStatus = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Struct({ Self: Schema.Struct({ DNSName: Schema.String }) })),
+);
+
 function checkTailscaleMagicDns(run: AuditRun): void {
   const status = run.command("tailscale", ["status", "--peers=false"]);
   if (status.error?.message.includes("ENOENT")) return run.finding("fail", "tailscale is missing");
@@ -361,20 +366,10 @@ function checkTailscaleMagicDns(run: AuditRun): void {
 
   const json = run.command("tailscale", ["status", "--json"]);
   if (!commandWorked(json)) return run.finding("fail", "tailscale JSON status failed");
-  let dnsName = "";
-  try {
-    const parsed: unknown = JSON.parse(json.stdout);
-    if (typeof parsed === "object" && parsed !== null && "Self" in parsed) {
-      const self = parsed.Self;
-      if (
-        typeof self === "object" &&
-        self !== null &&
-        "DNSName" in self &&
-        typeof self.DNSName === "string"
-      )
-        dnsName = self.DNSName.replace(/\.$/, "");
-    }
-  } catch {}
+  const dnsName = Option.match(decodeTailscaleStatus(json.stdout), {
+    onNone: () => "",
+    onSome: (status) => status.Self.DNSName.replace(/\.$/, ""),
+  });
   const shortName = dnsName.split(".")[0];
   if (!dnsName || shortName === dnsName)
     return run.finding("fail", "tailscale self DNS name is unavailable");
