@@ -6,12 +6,11 @@ import { test } from "vite-plus/test";
 import type { TestContext } from "vite-plus/test";
 import { closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Exit, FileSystem } from "effect";
+import { Effect, Exit, FileSystem, Schema } from "effect";
 import { CommandRunner } from "../lib/command.ts";
 import { BoundedCommand, BoundedCommandError } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
 import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
-import type { Schema } from "effect";
 
 const alertConfig = {
   endpoint: "https://mail.example/v4/accounts/fixture/email/sending/send",
@@ -34,6 +33,16 @@ const accepted = (overrides: Record<string, Schema.Json> = {}) =>
     { status: 200 },
   );
 
+const JsonRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
+const AlertBody = Schema.fromJsonString(
+  Schema.Struct({
+    from: Schema.Json,
+    to: Schema.Json,
+    subject: Schema.String,
+    text: Schema.String,
+  }),
+);
+
 type SentAlert = { url: string; token: string | undefined; subject: string; text: string };
 
 const recordingSender = (sent: SentAlert[], respond: () => Response = () => accepted()) =>
@@ -42,7 +51,7 @@ const recordingSender = (sent: SentAlert[], respond: () => Response = () => acce
     assert.equal(init?.redirect, "error");
     assert.ok(init?.signal);
     assert.equal(typeof init?.body, "string");
-    const body = JSON.parse(init.body as string);
+    const body = Schema.decodeUnknownSync(AlertBody)(init?.body);
     assert.equal(body.from, alertConfig.from);
     assert.equal(body.to, alertConfig.to);
     sent.push({
@@ -56,7 +65,8 @@ const recordingSender = (sent: SentAlert[], respond: () => Response = () => acce
 
 const receiptPath = (home: string) =>
   join(home, ".local/state/dotfiles/updates/software-update.json");
-const readReceipt = async (home: string) => JSON.parse(await readFile(receiptPath(home), "utf8"));
+const readReceipt = async (home: string) =>
+  Schema.decodeUnknownSync(JsonRecord)(await readFile(receiptPath(home), "utf8"));
 
 async function tempHome(t: TestContext, prefix: string) {
   const home = await mkdtemp(join(tmpdir(), prefix));
@@ -147,7 +157,7 @@ for (const scenario of [
     const records = history
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => Schema.decodeUnknownSync(JsonRecord)(line));
     assert.equal(records.length, 3);
     assert.equal(records[0].state, "running");
     assert.equal(records[0].cleanupComplete, false);

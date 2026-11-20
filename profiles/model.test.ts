@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
 import { parseProfileModel, readProfileModel, requireProfile } from "./model.ts";
-import type { Schema } from "effect";
+import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
@@ -22,8 +22,25 @@ const profileNames = [
 type RawProfile = Record<string, Schema.Json> & { capabilities: Record<string, Schema.Json> };
 type RawModel = Record<string, Schema.Json> & { profiles: Record<string, RawProfile> };
 
+const JsonRecord = Schema.Record(Schema.String, Schema.Json);
+const isRawDocument = Schema.is(
+  Schema.Struct({
+    profileModel: Schema.StructWithRest(
+      Schema.Struct({
+        profiles: Schema.Record(
+          Schema.String,
+          Schema.StructWithRest(Schema.Struct({ capabilities: JsonRecord }), [JsonRecord]),
+        ),
+      }),
+      [JsonRecord],
+    ),
+  }),
+);
+
 function rawModel(): RawModel {
-  return JSON.parse(readFileSync(modelPath, "utf8")).profileModel;
+  const document: unknown = JSON.parse(readFileSync(modelPath, "utf8"));
+  assert.ok(isRawDocument(document));
+  return document.profileModel;
 }
 
 // Chezmoi reads the model from a data file, as in production; --override-data
