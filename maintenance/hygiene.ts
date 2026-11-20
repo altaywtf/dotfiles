@@ -61,11 +61,11 @@ export async function hygiene(
   const statePath = join(directory, "hygiene.json");
   const { state, recovered } = readState(statePath);
   if (recovered)
-    console.error(
-      `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}`,
+    process.stderr.write(
+      `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}\n`,
     );
   if (scheduled && now >= state.lastRun && now - state.lastRun < interval) {
-    console.log("Host hygiene: next run is not due.");
+    process.stdout.write("Host hygiene: next run is not due.\n");
     return;
   }
   mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -111,7 +111,7 @@ export async function hygiene(
           { signal },
         )
       : { status: 0, stdout: "Cache cleanup is not due." };
-    console.log(cache.stdout);
+    process.stdout.write(`${cache.stdout}\n`);
     failed ||= cache.status !== 0;
     const logs = apply ? capLogs(logDirectory(home)) : [];
     failed ||= logs.some((entry) => entry.result.startsWith("log cap failed"));
@@ -127,7 +127,7 @@ export async function hygiene(
       null,
       2,
     );
-    console.log(report);
+    process.stdout.write(`${report}\n`);
     if (apply) {
       writeFileSync(dailyLog(home, "hygiene", now), `${cache.stdout}\n${report}\n`, {
         flag: "a",
@@ -178,7 +178,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     );
   } catch (error) {
     if (!interrupted) {
-      console.error(error instanceof Error ? error.message : "hygiene failed");
+      process.stderr.write(`${error instanceof Error ? error.message : "hygiene failed"}\n`);
       process.exitCode = 1;
     }
   } finally {

@@ -104,7 +104,7 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
   const log =
     options.log ??
     ((message: string) => {
-      console.error(message);
+      process.stderr.write(`${message}\n`);
     });
   const deadline = now() + (options.waitMs ?? 0);
   let announced = false;

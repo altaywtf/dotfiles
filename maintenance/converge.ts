@@ -71,7 +71,7 @@ export function syncCheckout(
       break;
     } catch (error) {
       if (!(error instanceof UpdateFailure) || delay === undefined) throw error;
-      console.warn(`${label} ${error.message}; retrying in ${delay / 1000}s`);
+      process.stderr.write(`${label} ${error.message}; retrying in ${delay / 1000}s\n`);
       sleep(delay);
     }
   }
@@ -166,7 +166,7 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
       revision = syncCheckout(repo, undefined, options.sleep);
     } catch (error) {
       if (!(error instanceof LocalWork)) throw error;
-      console.warn(`Kept ${repo}: ${error.message}; convergence skipped`);
+      process.stderr.write(`Kept ${repo}: ${error.message}; convergence skipped\n`);
       return;
     }
     const failed: string[] = [];
@@ -175,18 +175,19 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
         const advanced = privately(() =>
           syncCheckout(checkout, "agent rule checkout", options.sleep),
         );
-        console.log(`Agent rule checkout ${checkout} at ${advanced}`);
+        process.stdout.write(`Agent rule checkout ${checkout} at ${advanced}\n`);
       } catch (error) {
-        if (error instanceof LocalWork) console.warn(`Kept ${checkout}: ${error.message}`);
+        if (error instanceof LocalWork)
+          process.stderr.write(`Kept ${checkout}: ${error.message}\n`);
         else if (error instanceof UpdateFailure) failed.push(`${checkout}: ${error.message}`);
         else throw error;
       }
     }
-    console.log(`Converging dotfiles ${revision}`);
+    process.stdout.write(`Converging dotfiles ${revision}\n`);
     run(repo, "mise", ["trust", join(repo, "mise.toml")]);
     // The shell bootstrap selects the new repository Node pin before loading dependencies.
     run(repo, join(repo, "dotfiles"), ["maintain"]);
-    console.log(`Dotfiles converged at ${revision}`);
+    process.stdout.write(`Dotfiles converged at ${revision}\n`);
     if (failed.length > 0)
       throw new UpdateFailure(`agent rule checkouts not updated:\n${failed.join("\n")}`);
   } finally {
@@ -200,7 +201,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       throw new UpdateFailure("run dotfiles convergence as the enrolled user, without arguments");
     converge(resolve(import.meta.dirname, ".."));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = error instanceof UpdateFailure ? error.exitCode : 1;
   }
 }

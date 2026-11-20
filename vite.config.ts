@@ -35,7 +35,6 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       "@nkzw/no-instanceof": "off",
       curly: "off",
-      "no-console": "off",
       "quality/no-conditional-empty-object-spread": "off",
       "quality/no-known-value-widening": "off",
       "quality/no-unknown-returns": "off",
@@ -58,7 +57,6 @@ export default defineConfig({
         rules: {
           "@nkzw/no-instanceof": "off",
           curly: "off",
-          "no-console": "off",
           "quality/no-conditional-empty-object-spread": "off",
           "quality/no-known-value-widening": "off",
           "quality/no-unknown-returns": "off",

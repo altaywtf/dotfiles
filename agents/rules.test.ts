@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "vite-plus/test";
+import { test, vi } from "vite-plus/test";
 import type { FileSystem } from "effect";
 import { Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
@@ -57,14 +57,13 @@ function run<A>(
 
 async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): Promise<A> {
   const warnings: string[] = [];
-  const originalWarn = console.warn;
-  console.warn = (...values: unknown[]) => {
+  const warn = vi.spyOn(console, "warn").mockImplementation((...values: unknown[]) => {
     warnings.push(values.map(String).join(" "));
-  };
+  });
   try {
     return await action(warnings);
   } finally {
-    console.warn = originalWarn;
+    warn.mockRestore();
   }
 }
 

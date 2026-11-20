@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test } from "vite-plus/test";
+import { test, vi } from "vite-plus/test";
 import type { TestContext } from "vite-plus/test";
 import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
@@ -59,12 +59,16 @@ function fixture(t: TestContext) {
 
 function withWarnings(action: () => void): unknown[][] {
   const warnings: unknown[][] = [];
-  const warn = console.warn;
-  console.warn = (...args: unknown[]) => void warnings.push(args);
+  const stderr = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk: string | Uint8Array) => {
+      warnings.push([String(chunk)]);
+      return true;
+    });
   try {
     action();
   } finally {
-    console.warn = warn;
+    stderr.mockRestore();
   }
   return warnings;
 }
