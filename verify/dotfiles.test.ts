@@ -13,13 +13,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
+import { Schema } from "effect";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
+const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const profiles = Object.keys(readProfileModel(modelPath).profiles);
 
@@ -43,7 +44,7 @@ test("operator command validates and delegates every profile", async () => {
   const fixture = mkdtempSync(join(tmpdir(), "dotfiles-command-"));
   const home = join(fixture, "home");
   const command = join(repoRoot, "bootstrap/cli.ts");
-  const run = (args: string[], log: string, exit = 0): Promise<RunResult> =>
+  const run = (args: Array<string>, log: string, exit = 0): Promise<RunResult> =>
     new Promise((resolvePromise, rejectPromise) => {
       const child = spawn(process.execPath, [command, ...args], {
         env: {
@@ -115,8 +116,6 @@ test("operator command validates and delegates every profile", async () => {
     assert.equal((await run(["apply", "unknown"], log)).status, 2);
     assert.equal((await run(["unknown", "workstation"], log)).status, 2);
     assert.equal(readFileSync(log, "utf8"), "");
-    // No profile: a fresh home converges developer; a stored marker wins; an
-    // unsafe marker still refuses rather than defaulting.
     const defaulted = await run(["apply"], log);
     assert.equal(defaulted.status, 0, defaulted.stderr);
     assert.equal(readFileSync(log, "utf8"), "install.ts --profile developer\n");
@@ -173,7 +172,7 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     const nodeVersion = "24.99.1";
     writeFileSync(join(root, ".node-version"), `${nodeVersion}\n`);
     cpSync(join(repoRoot, "package.json"), join(root, "package.json"));
-    const pnpmVersion = JSON.parse(
+    const pnpmVersion = Schema.decodeUnknownSync(PackageManifest)(
       readFileSync(join(root, "package.json"), "utf8"),
     ).packageManager.replace(/^pnpm@/, "");
     const bin = join(root, "bin");

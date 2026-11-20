@@ -1,9 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
-const verifyDir = dirname(fileURLToPath(import.meta.url));
+const verifyDir = import.meta.dirname;
 const hook = resolve(verifyDir, "pre-push.ts");
 export const installer = resolve(verifyDir, "install-pre-push-hook.ts");
 
@@ -13,7 +12,7 @@ export type Repository = {
   zeroOid: string;
 };
 
-export function run(path: string, args: string[], allowFailure = false): string {
+export function run(path: string, args: Array<string>, allowFailure = false): string {
   const result = spawnSync(args[0], args.slice(1), {
     cwd: path,
     encoding: "utf8",

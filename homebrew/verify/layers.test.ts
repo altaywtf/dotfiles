@@ -11,7 +11,6 @@ import { composeBrewfile, profileBrewfiles, removeComposedBrewfile } from "../ho
 
 const repoRoot = resolve(import.meta.dirname, "../..");
 const model = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
-// Evaluate the DSL without Homebrew, package installation, or a profile model.
 const evaluator = `require "json"
 entries = []
 %w[brew cask tap].each do |kind|
@@ -21,7 +20,7 @@ ARGV.each { |path| load path }
 puts entries.uniq.map { |entry| JSON.generate(entry) }.sort
 `;
 
-function evaluate(files: readonly string[]): string[] {
+function evaluate(files: ReadonlyArray<string>): Array<string> {
   const result = spawnSync("ruby", ["-e", evaluator, ...files], {
     encoding: "utf8",
     env: { ...process.env, HOMEBREW_BUNDLE_DOTFILES_PROFILE: undefined },

@@ -67,7 +67,7 @@ const normalizeRuleSource = Effect.fn("normalizeRuleSource")(function* (
 });
 
 export const composeRuleSources = Effect.fn("composeRuleSources")(function* (
-  sources: readonly { readonly contents: string; readonly source: string }[],
+  sources: ReadonlyArray<{ readonly contents: string; readonly source: string }>,
 ) {
   const fragments = yield* Effect.forEach(sources, ({ contents, source }) =>
     normalizeRuleSource(source, contents),
@@ -88,7 +88,9 @@ const fetchRuleSource = Effect.fn("fetchRuleSource")((url: string) =>
         headers: { "user-agent": "dotfiles-agent-rules" },
         signal,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       return response.text();
     },
     catch: (error) =>
@@ -163,8 +165,9 @@ const readRequiredFile = Effect.fn("readRequiredAgentRuleFile")(function* (
 
 const readCachedRules = Effect.fn("readCachedAgentRules")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(path))) return Option.none<string>();
-  // Only trust state this account alone could have written, as writeCache creates it.
+  if (!(yield* fs.exists(path))) {
+    return Option.none<string>();
+  }
   const untrusted = new RuleConfigurationFailure({
     message: `agent rule cache is not an owner-only regular file: ${path}`,
   });
@@ -172,7 +175,9 @@ const readCachedRules = Effect.fn("readCachedAgentRules")(function* (path: strin
     Effect.as(true),
     Effect.catch(() => Effect.succeed(false)),
   );
-  if (symlink) return yield* untrusted;
+  if (symlink) {
+    return yield* untrusted;
+  }
   const info = yield* fs
     .stat(path)
     .pipe(
@@ -267,7 +272,9 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function* (
       });
     }
     yield* validateCachedRules(cachePath, existing.value);
-    if (error) yield* Console.warn(`${error.message}; using the machine-local cache`);
+    if (error) {
+      yield* Console.warn(`${error.message}; using the machine-local cache`);
+    }
     return "offline" as const;
   });
 
@@ -280,15 +287,21 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function* (
       useCache(error).pipe(Effect.as(Option.none())),
     ),
   );
-  if (Option.isNone(fetched)) return "offline" as const;
+  if (Option.isNone(fetched)) {
+    return "offline" as const;
+  }
 
   const contents = yield* composeRuleSources(fetched.value);
   const scanned = yield* runtime.scan(contents).pipe(
     Effect.as(true),
     Effect.catchTag("RuleRefreshUnavailable", (error) => useCache(error).pipe(Effect.as(false))),
   );
-  if (!scanned) return "offline" as const;
-  if (Option.isSome(existing) && contents === existing.value) return "current" as const;
+  if (!scanned) {
+    return "offline" as const;
+  }
+  if (Option.isSome(existing) && contents === existing.value) {
+    return "current" as const;
+  }
 
   const written = yield* writeCache(cachePath, contents).pipe(
     Effect.as(true),

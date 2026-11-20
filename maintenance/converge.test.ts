@@ -14,10 +14,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test, vi } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
-function git(cwd: string, ...args: string[]) {
+function git(cwd: string, ...args: Array<string>) {
   const result = spawnSync(
     "git",
     ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args],
@@ -56,19 +57,22 @@ function fixture(t: TestContext) {
   return { root, repo, upstream, advance };
 }
 
-function withWarnings(action: () => void): unknown[][] {
-  const warnings: unknown[][] = [];
-  const warn = console.warn;
-  console.warn = (...args: unknown[]) => void warnings.push(args);
+function withWarnings(action: () => void): Array<Array<unknown>> {
+  const warnings: Array<Array<unknown>> = [];
+  const stderr = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk: string | Uint8Array) => {
+      warnings.push([String(chunk)]);
+      return true;
+    });
   try {
     action();
   } finally {
-    console.warn = warn;
+    stderr.mockRestore();
   }
   return warnings;
 }
 
-// Publishes a `dotfiles` bootstrap script and puts a no-op `mise` first on PATH.
 function publishBootstrap(t: TestContext, f: ReturnType<typeof fixture>, script: string) {
   const bin = join(f.root, "bin");
   mkdirSync(bin);
@@ -96,22 +100,36 @@ test("clean default checkout advances and repeat convergence preserves the revis
 for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diverged", "rebase"]) {
   test(`preserves ${state} work without updating the checkout`, (t) => {
     const { repo, advance } = fixture(t);
-    if (state !== "ahead") advance();
-    if (state === "dirty") writeFileSync(join(repo, "policy"), "local\n");
-    if (state === "untracked") writeFileSync(join(repo, "notes"), "keep\n");
-    if (state === "branch") git(repo, "checkout", "-b", "feature");
-    if (state === "detached") git(repo, "checkout", "--detach");
+    if (state !== "ahead") {
+      advance();
+    }
+    if (state === "dirty") {
+      writeFileSync(join(repo, "policy"), "local\n");
+    }
+    if (state === "untracked") {
+      writeFileSync(join(repo, "notes"), "keep\n");
+    }
+    if (state === "branch") {
+      git(repo, "checkout", "-b", "feature");
+    }
+    if (state === "detached") {
+      git(repo, "checkout", "--detach");
+    }
     if (state === "ahead" || state === "diverged") {
       writeFileSync(join(repo, "policy"), "local\n");
       git(repo, "commit", "-am", "local work");
     }
-    if (state === "rebase") mkdirSync(join(repo, ".git/rebase-merge"));
+    if (state === "rebase") {
+      mkdirSync(join(repo, ".git/rebase-merge"));
+    }
     const before = git(repo, "rev-parse", "HEAD");
     const content = readFileSync(join(repo, "policy"), "utf8");
     assert.throws(() => syncCheckout(repo));
     assert.equal(git(repo, "rev-parse", "HEAD"), before);
     assert.equal(readFileSync(join(repo, "policy"), "utf8"), content);
-    if (state === "untracked") assert.equal(readFileSync(join(repo, "notes"), "utf8"), "keep\n");
+    if (state === "untracked") {
+      assert.equal(readFileSync(join(repo, "notes"), "utf8"), "keep\n");
+    }
   });
 }
 
@@ -131,14 +149,14 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   const { repo, upstream } = fixture(t);
   const before = git(repo, "rev-parse", "HEAD");
   rmSync(upstream, { recursive: true });
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   withWarnings(() =>
     assert.throws(() => syncCheckout(repo, undefined, (ms) => void slept.push(ms))),
   );
-  assert.deepEqual(slept, [5_000, 20_000]);
+  assert.deepEqual(slept, [5000, 20_000]);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
-  mkdirSync(lock); // metadata-free lock: the owner is unknown, so it is kept
+  mkdirSync(lock);
   assert.throws(() => converge(repo, { waitMs: 0, log: () => {} }), /lock unavailable/);
   assert.ok(existsSync(lock));
 });
@@ -167,7 +185,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
   mkdirSync(lock);
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const waited = acquireCheckoutLock(repo, {
     now: () => time,
     uptimeMs: () => time,
@@ -176,10 +194,12 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
     sleep: (ms) => {
       slept.push(ms);
       time += ms;
-      if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
+      if (time >= 30_000) {
+        rmSync(lock, { recursive: true, force: true });
+      }
     },
   });
-  assert.deepEqual(slept, [5_000, 10_000, 20_000]);
+  assert.deepEqual(slept, [5000, 10_000, 20_000]);
   waited();
   assert.equal(existsSync(lock), false);
 });
@@ -203,8 +223,12 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
     symlinkSync(join(rules.repo, "policy"), join(home, ".config/dotfiles/agents.end.md"));
     chmodSync(join(rules.repo, "policy"), 0o600);
     const next = rules.advance();
-    if (state === "dirty") writeFileSync(join(rules.repo, "notes"), "keep\n");
-    if (state === "unreachable") rmSync(rules.upstream, { recursive: true });
+    if (state === "dirty") {
+      writeFileSync(join(rules.repo, "notes"), "keep\n");
+    }
+    if (state === "unreachable") {
+      rmSync(rules.upstream, { recursive: true });
+    }
     const before = git(rules.repo, "rev-parse", "HEAD");
     const rendered = join(root, "AGENTS.md");
     const previous = { RULES: process.env.RULES, RENDERED: process.env.RENDERED };
@@ -212,13 +236,16 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
       RULES: join(home, ".config/dotfiles/agents.end.md"),
       RENDERED: rendered,
     });
-    // Git writes changed files under the umask of an interactive shell.
     const umask = process.umask(0o022);
     t.onTestFinished(() => {
       process.umask(umask);
-      for (const [key, value] of Object.entries(previous))
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
     });
     if (state === "unreachable") {
       withWarnings(() =>
@@ -244,7 +271,7 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
   });
 }
 
-function runInstall(t: TestContext, args: string[], failure = false) {
+function runInstall(t: TestContext, args: Array<string>, failure = false) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-install."));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const source = resolve(import.meta.dirname, "..");
@@ -271,9 +298,12 @@ function runInstall(t: TestContext, args: string[], failure = false) {
     "trust-agent-worktrees.ts",
     "install-gh-extensions.ts",
     "configure-codex.ts",
-  ])
+  ]) {
     stub(join(root, "bootstrap", name), name);
-  for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
+  }
+  for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
+    stub(join(root, "agents", name), name);
+  }
   stub(join(bin, "mise"), "mise");
   const result = spawnSync(process.execPath, [join(source, "bootstrap/install.ts"), ...args], {
     encoding: "utf8",
@@ -296,12 +326,15 @@ for (const failure of [false, true]) {
       failure,
     );
     assert.equal(status, failure ? 19 : 0, stderr);
-    if (process.platform === "darwin")
+    if (process.platform === "darwin") {
       assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
-    else assert.doesNotMatch(steps, /brew-bundle/);
+    } else {
+      assert.doesNotMatch(steps, /brew-bundle/);
+    }
     assert.doesNotMatch(steps, /--retire-auth/);
-    if (failure) assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
-    else {
+    if (failure) {
+      assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
+    } else {
       assert.match(steps, /^mise install$/m);
       assert.match(steps, /^mise run dotfiles:runtime-packages$/m);
       assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);

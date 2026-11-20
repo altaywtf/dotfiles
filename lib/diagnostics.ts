@@ -1,22 +1,22 @@
+import { stripVTControlCharacters } from "node:util";
+
 const MAX_DIAGNOSTIC_LENGTH = 600;
 const MAX_DIAGNOSTIC_LINES = 3;
 
 export function sanitizeDiagnostic(stderr: string): string {
-  const lines = stderr
-    // oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences before printing diagnostics.
-    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "")
+  const lines = stripVTControlCharacters(stderr)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .slice(-MAX_DIAGNOSTIC_LINES)
     .map((line) =>
       line
-        .replace(/\/\/[^/\s:@]+:[^/\s@]+@/g, "//[REDACTED]@")
-        .replace(
+        .replaceAll(/\/\/[^/\s:@]+:[^/\s@]+@/g, "//[REDACTED]@")
+        .replaceAll(
           /((?:authorization|api[-_ ]?key|password|secret|token)\s*[=:]\s*).+$/gi,
           "$1[REDACTED]",
         )
-        .replace(
+        .replaceAll(
           /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,})\b/g,
           "[REDACTED]",
         ),

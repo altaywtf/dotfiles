@@ -24,8 +24,8 @@ const Scalar = Schema.Union([
 type Scalar = typeof Scalar.Type;
 const LocalSettings = Schema.fromJsonString(Schema.Record(Schema.String, Scalar));
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
-type UserConfig = { projects: Readonly<Record<string, unknown>> };
-type PlanEdits = (user: UserConfig) => readonly ConfigEdit[];
+type UserConfig = { projects: Readonly<Record<string, Schema.Json>> };
+type PlanEdits = (user: UserConfig) => ReadonlyArray<ConfigEdit>;
 
 const ConfigRead = Schema.Struct({
   layers: Schema.Array(
@@ -33,14 +33,15 @@ const ConfigRead = Schema.Struct({
       name: Schema.Struct({ type: Schema.String, file: Schema.optional(Schema.String) }),
       version: Schema.String,
       config: Schema.Struct({
-        projects: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+        projects: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
       }),
     }),
   ),
 });
 
+const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+
 function userLayer(result: unknown, configPath: string) {
-  const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
   const layer = Schema.decodeUnknownSync(ConfigRead)(result).layers.find(
     (candidate) =>
       candidate.name.type === "user" &&
@@ -53,14 +54,12 @@ function userLayer(result: unknown, configPath: string) {
   };
 }
 
-function managedEdits(): ConfigEdit[] {
+function managedEdits(): Array<ConfigEdit> {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6.2-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
-    // Auto review needs interactive approvals and a sandbox to escalate from.
-    // Permission profiles replace sandbox_mode; Codex rejects combining them.
     { keyPath: "approval_policy", value: "on-request", mergeStrategy: "replace" },
     { keyPath: "approvals_reviewer", value: "auto_review", mergeStrategy: "replace" },
     { keyPath: "default_permissions", value: ":workspace", mergeStrategy: "replace" },
@@ -74,17 +73,14 @@ function managedEdits(): ConfigEdit[] {
       value: true,
       mergeStrategy: "upsert",
     },
-    // Every wait_agent poll re-sends the parent context. Codex defaults the
-    // floor to 10 s and the default to 30 s; two minutes cuts empty polls
-    // without stopping a worker from returning early on completion.
     {
       keyPath: "features.multi_agent_v2.min_wait_timeout_ms",
-      value: 120000,
+      value: 120_000,
       mergeStrategy: "upsert",
     },
     {
       keyPath: "features.multi_agent_v2.default_wait_timeout_ms",
-      value: 120000,
+      value: 120_000,
       mergeStrategy: "upsert",
     },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
@@ -92,14 +88,15 @@ function managedEdits(): ConfigEdit[] {
   ];
 }
 
-// ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
-function localEdits(path: string): ConfigEdit[] {
-  if (!existsSync(path)) return [];
+function localEdits(path: string): Array<ConfigEdit> {
+  if (!existsSync(path)) {
+    return [];
+  }
   let settings: typeof LocalSettings.Type;
   try {
     settings = Schema.decodeUnknownSync(LocalSettings)(readFileSync(path, "utf8"));
-  } catch (cause) {
-    throw new Error(`${path} must be a JSON object of Codex key paths to values`, { cause });
+  } catch (error) {
+    throw new Error(`${path} must be a JSON object of Codex key paths to values`, { cause: error });
   }
   return Object.entries(settings).map(([keyPath, value]) => ({
     keyPath,
@@ -112,13 +109,17 @@ const Gateway = Schema.fromJsonString(
   Schema.Struct({ baseUrl: Schema.String, keyCommand: Schema.String }),
 );
 
-function gatewayEdits(path: string): ConfigEdit[] {
-  if (!existsSync(path)) return [];
+function gatewayEdits(path: string): Array<ConfigEdit> {
+  if (!existsSync(path)) {
+    return [];
+  }
   let gateway: typeof Gateway.Type;
   try {
     gateway = Schema.decodeUnknownSync(Gateway)(readFileSync(path, "utf8"));
-  } catch (cause) {
-    throw new Error(`${path} must be a JSON object with baseUrl and keyCommand strings`, { cause });
+  } catch (error) {
+    throw new Error(`${path} must be a JSON object with baseUrl and keyCommand strings`, {
+      cause: error,
+    });
   }
   const provider = "model_providers.gateway";
   return [
@@ -134,7 +135,7 @@ function gatewayEdits(path: string): ConfigEdit[] {
       mergeStrategy: "replace",
     },
     { keyPath: `${provider}.auth.command`, value: gateway.keyCommand, mergeStrategy: "replace" },
-    { keyPath: `${provider}.auth.timeout_ms`, value: 10000, mergeStrategy: "replace" },
+    { keyPath: `${provider}.auth.timeout_ms`, value: 10_000, mergeStrategy: "replace" },
     { keyPath: `${provider}.auth.refresh_interval_ms`, value: 0, mergeStrategy: "replace" },
   ];
 }
@@ -143,9 +144,9 @@ function codexHomePath(): string {
   return resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
 }
 
-// A planner reads the user layer first and writes against its version, so a
-// concurrent Codex edit fails the write instead of being overwritten.
-export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits): Promise<string> {
+export async function writeConfigEdits(
+  edits: ReadonlyArray<ConfigEdit> | PlanEdits,
+): Promise<string> {
   const codexHome = codexHomePath();
   const configPath = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
@@ -165,7 +166,9 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
     let completed = false;
     let settled = false;
     const fail = (error: Error) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       lines.close();
       child.stdin.end();
@@ -174,10 +177,15 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
     };
     child.once("error", (error) => fail(error));
     child.once("close", (status) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
-      if (completed && status === 0) finish();
-      else reject(new Error(stderr.trim() || `Codex app-server exited ${status ?? 1}`));
+      if (completed && status === 0) {
+        finish();
+      } else {
+        reject(new Error(stderr.trim() || `Codex app-server exited ${status ?? 1}`));
+      }
     });
     lines.on("line", (line) => {
       let message: RpcMessage;
@@ -188,16 +196,20 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
         return;
       }
       if (message.id === 0) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex app-server initialization failed"));
+        }
         send({ method: "initialized", params: {} });
-        if (!Predicate.isFunction(edits))
+        if (!Predicate.isFunction(edits)) {
           send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
-        else send({ method: "config/read", id: 2, params: { includeLayers: true } });
+        } else {
+          send({ method: "config/read", id: 2, params: { includeLayers: true } });
+        }
       }
       if (message.id === 2 && Predicate.isFunction(edits)) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex config read failed"));
+        }
         let current: ReturnType<typeof userLayer>;
         try {
           current = userLayer(message.result, configPath);
@@ -210,13 +222,14 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
           params: {
             edits: edits(current.user),
             filePath: configPath,
-            ...(current.version ? { expectedVersion: current.version } : {}),
+            expectedVersion: current.version || undefined,
           },
         });
       }
       if (message.id === 1) {
-        if (message.error)
+        if (message.error) {
           return fail(new Error(message.error.message || "Codex config update failed"));
+        }
         completed = true;
         child.stdin.end();
       }
@@ -233,9 +246,8 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
   return configPath;
 }
 
-export type CodexDefaults = { configPath: string; restricted: readonly string[] };
+export type CodexDefaults = { configPath: string; restricted: ReadonlyArray<string> };
 
-// projectRoot opts into trusting every checkout directly under it.
 export async function configureDefaults(
   projectRoot?: string,
   gateway = false,

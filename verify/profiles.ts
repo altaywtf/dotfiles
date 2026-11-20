@@ -5,7 +5,8 @@ import { Cause, Console, Effect, FileSystem } from "effect";
 import assert from "node:assert/strict";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner } from "../lib/command.ts";
+import type { CommandResult } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect } from "../profiles/model.ts";
@@ -24,7 +25,7 @@ const program = Effect.scoped(
     const profiles = Object.keys(model.profiles);
     const run = (
       command: string,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
       options: { env?: Readonly<Record<string, string>>; cwd?: string } = {},
     ): Effect.Effect<CommandResult, unknown> =>
       runner.run(command, args, { env: options.env, cwd: options.cwd });
@@ -142,14 +143,13 @@ const program = Effect.scoped(
       linuxMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-linux-/m,
     );
-    for (const rendered of [darwinMise.stdout, linuxMise.stdout])
+    for (const rendered of [darwinMise.stdout, linuxMise.stdout]) {
       assert.equal(
         rendered.match(/^\[tools\]$/gm)?.length,
         1,
         "one [tools] table per rendered config",
       );
-    // Each template part must stay plain TOML so Renovate's mise manager can
-    // parse it; a Go-template directive here silently stops every pin update.
+    }
     for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
       const parsed = yield* run("python3", [
         "-c",

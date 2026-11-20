@@ -17,9 +17,12 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
   ]) {
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
-    if (Option.isSome(link) && !exists)
+    if (Option.isSome(link) && !exists) {
       return yield* fail(`local agent rules link is broken: ${path}`);
-    if (!exists) continue;
+    }
+    if (!exists) {
+      continue;
+    }
     const info = yield* fs
       .stat(path)
       .pipe(
@@ -28,16 +31,15 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
             new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` }),
         ),
       );
-    if (info.type !== "File")
+    if (info.type !== "File") {
       return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
+    }
     if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
       return yield* fail(`local agent rules must be owned by the current user: ${path}`);
     }
     if ((info.mode & 0o022) !== 0) {
       return yield* fail(`local agent rules must not grant group or other write access: ${path}`);
     }
-    // A Git checkout updated under umask 022 widens a linked fragment to 0644;
-    // write access by others would be an integrity problem, read access is not yet.
     if ((info.mode & 0o077) !== 0) {
       if (dryRun) {
         yield* Console.warn(`would restrict local agent rules to owner-only access: ${path}`);

@@ -7,10 +7,12 @@ import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CliFailure, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const script = join(repoRoot, "identity/configure-sops-age-identity.ts");
+
+const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 const program = Effect.scoped(
   Effect.gen(function* () {
@@ -57,8 +59,10 @@ cat "$input"
     );
     const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
     const base = { HOME: home, XDG_CONFIG_HOME: join(home, ".config"), PATH: path };
-    const execute = (args: readonly string[] = [], extra: Readonly<Record<string, string>> = {}) =>
-      runner.run(process.execPath, [script, ...args], { env: { ...base, ...extra } });
+    const execute = (
+      args: ReadonlyArray<string> = [],
+      extra: Readonly<Record<string, string>> = {},
+    ) => runner.run(process.execPath, [script, ...args], { env: { ...base, ...extra } });
     const provision = yield* execute();
     assert.equal(provision.status, 0, provision.stderr);
     const identity = join(home, ".config/sops/age/keys.txt");
@@ -69,7 +73,7 @@ cat "$input"
     assert.match(
       provision.stdout,
       new RegExp(
-        `^SOPS age identity ready: ${identity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+        `^SOPS age identity ready: ${identity.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}$`,
         "m",
       ),
     );
@@ -78,7 +82,6 @@ cat "$input"
       provision.stdout,
       /^backup required: save the private identity in the approved human recovery system before use$/m,
     );
-    const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
     const before = digest(yield* fs.readFile(identity));
     assert.equal((yield* execute()).status, 0);
     assert.equal(digest(yield* fs.readFile(identity)), before);
@@ -144,7 +147,13 @@ cat "$input"
       "ok SOPS age identity provisioning, recovery output, path overrides, and rejection cases",
     );
   }).pipe(
-    Effect.catch((error) => fail(error instanceof Error ? error.message : String(error))),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({
+          exitCode: 1,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    ),
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   ),

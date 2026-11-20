@@ -1,28 +1,22 @@
 #!/usr/bin/env node
 
 import { constants, existsSync, statSync } from "node:fs";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
-import { AuditReport, type AuditFormat } from "./report.ts";
-import {
-  type AuditDependencies,
-  canAccess,
-  type CommandResult,
-  type CommandRunner,
-  runCommand,
-} from "./runtime.ts";
-import { classifyTrufflehogFindings, type TrufflehogFindings } from "./secrets/trufflehog.ts";
+import { AuditReport } from "./report.ts";
+import type { AuditFormat } from "./report.ts";
+import { canAccess, runCommand } from "./runtime.ts";
+import type { AuditDependencies, CommandResult, CommandRunner } from "./runtime.ts";
+import { classifyTrufflehogFindings } from "./secrets/trufflehog.ts";
+import type { TrufflehogFindings } from "./secrets/trufflehog.ts";
 
-const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const trufflehogAllowlist = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "secrets/trufflehog-allowlist.json",
-);
+const defaultRepoRoot = resolve(import.meta.dirname, "..");
+const trufflehogAllowlist = resolve(import.meta.dirname, "secrets/trufflehog-allowlist.json");
 
 export type RepoAuditOptions = {
   format: AuditFormat;
@@ -51,7 +45,7 @@ This command never runs mSCP remediation. It only runs --check.
 `;
 
 export function parseRepoArgs(
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   env: NodeJS.ProcessEnv = process.env,
 ): RepoAuditOptions | "help" {
   const { values } = parseArgs({
@@ -67,7 +61,9 @@ export function parseRepoArgs(
       help: { type: "boolean", short: "h" },
     },
   });
-  if (values.help) return "help";
+  if (values.help) {
+    return "help";
+  }
   return {
     format: values.json ? "json" : "text",
     mscp: !(values["skip-mscp"] ?? false),
@@ -96,16 +92,19 @@ function scannerResult(
   if (result.error?.message.includes("ENOENT")) {
     report.warn(missing);
     return false;
-  } else if (result.error) report.fail(`${failure}: ${result.error.message}`);
-  else {
+  } else if (result.error) {
+    report.fail(`${failure}: ${result.error.message}`);
+  } else {
     report.output(result);
-    if (result.status === 0) report.ok(success);
-    else report.fail(failure);
+    if (result.status === 0) {
+      report.ok(success);
+    } else {
+      report.fail(failure);
+    }
   }
   return true;
 }
 
-// --json output carries raw secrets, so only finding locations are reported.
 function trufflehogHistoryResult(report: AuditReport, result: CommandResult): boolean {
   if (result.error?.message.includes("ENOENT")) {
     report.warn("trufflehog is not installed");
@@ -126,18 +125,22 @@ function trufflehogHistoryResult(report: AuditReport, result: CommandResult): bo
     );
     return true;
   }
-  for (const finding of findings.unexpected) report.fail(`trufflehog finding: ${finding}`);
-  if (findings.unexpected.length === 0)
+  for (const finding of findings.unexpected) {
+    report.fail(`trufflehog finding: ${finding}`);
+  }
+  if (findings.unexpected.length === 0) {
     report.ok(
       `trufflehog found no verified or unknown leaks${findings.allowed ? ` (${findings.allowed} allowlisted)` : ""}`,
     );
+  }
   return true;
 }
 
 function trufflehogSource(repoRoot: string, command: CommandRunner): string {
-  try {
-    if (statSync(join(repoRoot, ".git")).isDirectory()) return repoRoot;
-  } catch {}
+  const git = Option.liftThrowable(() => statSync(join(repoRoot, ".git")))();
+  if (Option.exists(git, (info) => info.isDirectory())) {
+    return repoRoot;
+  }
   const worktrees = command("git", ["-C", repoRoot, "worktree", "list", "--porcelain"]);
   const source = worktrees.stdout
     .split("\n")
@@ -146,17 +149,15 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
   return source && existsSync(join(source, ".git")) ? source : repoRoot;
 }
 
-// The filesystem pass covers what Git would commit: tracked and unignored
-// files. Ignored dependency trees such as node_modules carry third-party
-// test fixtures that look like credentials. A path that does not decode as
-// UTF-8 fails the listing instead of dropping out of the scan.
-function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | undefined {
+function worktreeFiles(repoRoot: string, command: CommandRunner): Array<string> | undefined {
   const listed = command(
     "git",
     ["-C", repoRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
     { strictUtf8: true },
   );
-  if (listed.error || listed.status !== 0) return undefined;
+  if (listed.error || listed.status !== 0) {
+    return undefined;
+  }
   return listed.stdout
     .split("\0")
     .filter(Boolean)
@@ -210,8 +211,9 @@ export function runRepoAudit(
   );
   if (source !== repoRoot && trufflehogAvailable) {
     const files = worktreeFiles(repoRoot, command);
-    if (files === undefined) report.fail("cannot list linked worktree files");
-    else if (files.length > 0) {
+    if (files === undefined) {
+      report.fail("cannot list linked worktree files");
+    } else if (files.length > 0) {
       scannerResult(
         report,
         command(
@@ -235,8 +237,9 @@ export function runRepoAudit(
   }
 
   report.section("macOS compliance baseline");
-  if (!options.mscp) report.ok("mSCP audit skipped");
-  else if (!existsSync(join(options.mscpDir, ".git"))) {
+  if (!options.mscp) {
+    report.ok("mSCP audit skipped");
+  } else if (!existsSync(join(options.mscpDir, ".git"))) {
     report.warn(`mSCP checkout missing at ${options.mscpDir}`);
     report.warn(
       "clone https://github.com/usnistgov/macos_security.git and generate a compliance script before running this audit",
@@ -247,41 +250,47 @@ export function runRepoAudit(
       version.status === 0 && !version.error
         ? mscpPlatformVersion(version.stdout.trim())
         : undefined;
-    if (version.status !== 0 || version.error)
+    if (version.status !== 0 || version.error) {
       report.warn("cannot determine the macOS version for the generated mSCP script");
-    else if (!platform)
+    } else if (!platform) {
       report.warn(`cannot map macOS ${version.stdout.trim()} to an mSCP platform version`);
+    }
     const artifact = platform ? `${options.mscpBaseline}_macos_${platform}` : "";
     const script =
       options.mscpScript ||
       (artifact ? join(options.mscpDir, "build", artifact, `${artifact}_compliance.sh`) : "");
-    if (!script)
+    if (!script) {
       report.warn("pass --mscp-script because the default generated path could not be determined");
-    else if (!existsSync(script)) {
+    } else if (!existsSync(script)) {
       report.warn(`generated mSCP compliance script missing: ${script}`);
       report.warn(
         "generate it with the mSCP 2.0 baseline and guidance commands in docs/security-audits.md",
       );
-    } else if (!canAccess(script, constants.X_OK))
+    } else if (!canAccess(script, constants.X_OK)) {
       report.warn(`generated mSCP compliance script is not executable: ${script}`);
-    else {
+    } else {
       let result: CommandResult | undefined;
-      if (uid === 0) result = command("zsh", [script, "--check"], output);
-      else if (options.allowSudoPrompt)
+      if (uid === 0) {
+        result = command("zsh", [script, "--check"], output);
+      } else if (options.allowSudoPrompt) {
         result = command("sudo", ["zsh", script, "--check"], output);
-      else {
+      } else {
         const sudo = command("sudo", ["-n", "true"], { output: "discard" });
-        if (sudo.status === 0 && !sudo.error)
+        if (sudo.status === 0 && !sudo.error) {
           result = command("sudo", ["-n", "zsh", script, "--check"], output);
-        else
+        } else {
           report.warn(
             `mSCP check needs sudo; rerun with --allow-sudo-prompt or run sudo zsh ${script} --check`,
           );
+        }
       }
       if (result) {
         report.output(result);
-        if (result.status === 0 && !result.error) report.ok("mSCP check passed");
-        else report.fail("mSCP check reported non-compliance");
+        if (result.status === 0 && !result.error) {
+          report.ok("mSCP check passed");
+        } else {
+          report.fail("mSCP check reported non-compliance");
+        }
       }
     }
   }
@@ -291,7 +300,7 @@ export function runRepoAudit(
   });
 }
 
-function main(args: readonly string[]): number {
+function main(args: ReadonlyArray<string>): number {
   try {
     const options = parseRepoArgs(args);
     if (options === "help") {

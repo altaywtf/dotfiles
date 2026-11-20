@@ -1,17 +1,19 @@
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import { Predicate } from "effect";
+import { Option, Predicate } from "effect";
+
+const stat = Option.liftThrowable((path: string) => statSync(path));
 
 export type PathSource =
   | { kind: "path"; path: string }
-  | { kind: "home-dotfiles"; exclude?: readonly string[] }
+  | { kind: "home-dotfiles"; exclude?: ReadonlyArray<string> }
   | {
       kind: "files";
       path: string;
       maxDepth?: number;
       namePrefix?: string;
       pathPattern?: RegExp;
-      skipDirectories?: readonly string[];
+      skipDirectories?: ReadonlyArray<string>;
       ignoreDirectoryLinks?: boolean;
     };
 
@@ -28,15 +30,17 @@ function present(path: string, skipped: SkippedPath): boolean {
     lstatSync(path);
     return true;
   } catch (error) {
-    if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) skipped(path);
+    if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) {
+      skipped(path);
+    }
     return false;
   }
 }
 
 function discoveredFile(path: string, skipped: SkippedPath): boolean {
-  try {
-    if (statSync(path).isFile()) return true;
-  } catch {}
+  if (Option.exists(stat(path), (info) => info.isFile())) {
+    return true;
+  }
   skipped(path);
   return false;
 }
@@ -54,26 +58,35 @@ export function walkFiles(
   maxDepth = Number.POSITIVE_INFINITY,
   skipped: SkippedPath,
   options: WalkOptions = {},
-): string[] {
-  if (!present(root, skipped)) return [];
+): Array<string> {
+  if (!present(root, skipped)) {
+    return [];
+  }
   try {
     const info = statSync(root);
-    if (info.isFile()) return [root];
+    if (info.isFile()) {
+      return [root];
+    }
     if (!info.isDirectory()) {
       skipped(root);
       return [];
     }
     return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
       const path = join(root, entry.name);
-      if (entry.isDirectory())
+      if (entry.isDirectory()) {
         return maxDepth > 0 && !options.skipDirectories?.has(entry.name)
           ? walkFiles(path, maxDepth - 1, skipped, options)
           : [];
-      if (entry.isFile()) return [path];
-      // Follow file links; directory links are reported instead of recursively
-      // expanding arbitrary trees or cycles outside the selected audit scope.
-      if (!entry.isSymbolicLink()) return [];
-      if (options.ignoreDirectoryLinks && linkedDirectory(path)) return [];
+      }
+      if (entry.isFile()) {
+        return [path];
+      }
+      if (!entry.isSymbolicLink()) {
+        return [];
+      }
+      if (options.ignoreDirectoryLinks && linkedDirectory(path)) {
+        return [];
+      }
       return discoveredFile(path, skipped) ? [path] : [];
     });
   } catch {
@@ -84,17 +97,18 @@ export function walkFiles(
 
 export function resolveSources(
   home: string,
-  sources: readonly PathSource[],
+  sources: ReadonlyArray<PathSource>,
   skipped: SkippedPath,
-): string[] {
+): Array<string> {
   const paths = sources.flatMap((source) => {
     if (source.kind === "path") {
       const path = homePath(home, source.path);
-      if (!present(path, skipped)) return [];
-      try {
-        const info = statSync(path);
-        if (info.isFile() || info.isDirectory()) return [path];
-      } catch {}
+      if (!present(path, skipped)) {
+        return [];
+      }
+      if (Option.exists(stat(path), (info) => info.isFile() || info.isDirectory())) {
+        return [path];
+      }
       skipped(path);
       return [];
     }

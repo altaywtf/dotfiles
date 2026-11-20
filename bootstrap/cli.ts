@@ -3,15 +3,14 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { saveAgentSource } from "../agents/agent-source.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
 const defaultProfile = "developer";
 const usage = `Usage: ./dotfiles diff|check [PROFILE]
@@ -28,7 +27,7 @@ Homebrew packages, identities, secrets, and host-wide settings remain separate.`
 
 const delegate = Effect.fn("delegateDotfilesCommand")(function* (
   owner: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   commandName: string,
   profile: string,
 ) {
@@ -72,7 +71,6 @@ const program = Effect.gen(function* () {
     return yield* fail("invalid operator arguments", 2);
   }
   const commandName = args[0];
-  // A stored marker wins; only a missing marker falls back to the default.
   const requestedProfile =
     args[1] ??
     (yield* resolveProfile(undefined, { ...process.env, DOTFILES_PROFILE: defaultProfile }).pipe(
@@ -113,8 +111,9 @@ const program = Effect.gen(function* () {
         profile,
       );
     case "apply":
-      if (agentSource !== undefined)
+      if (agentSource !== undefined) {
         yield* saveAgentSource(resolve(homedir(), ".config/dotfiles"), agentSource);
+      }
       return yield* delegate(
         "bootstrap/install.ts",
         ["--profile", profile, ...(switchProfile ? ["--switch-profile"] : [])],

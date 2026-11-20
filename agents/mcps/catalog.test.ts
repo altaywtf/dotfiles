@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
 import { HARNESSES } from "../harness.ts";
 import { readLayeredMcps, readMcps } from "./catalog.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const temporaryDirectories: string[] = [];
+const repoRoot = resolve(import.meta.dirname, "../..");
+const temporaryDirectories: Array<string> = [];
 const fixtureSharedMcps = [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }];
 
 afterEach(() => {
@@ -18,7 +17,9 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string } {
+type Fixture = { repoDir: string };
+
+function createFixture(): Fixture {
   const repoDir = mkdtempSync(join(tmpdir(), "dotfiles-mcp-catalog-"));
   temporaryDirectories.push(repoDir);
   mkdirSync(join(repoDir, "agents", "mcps"), { recursive: true });
@@ -87,7 +88,7 @@ test.each([
   ],
   [
     "an out-of-range oauth callback port",
-    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 65536 } }],
+    [{ name: "one", url, oauth: { clientId: "abc", callbackPort: 65_536 } }],
     /oauth callbackPort must be an integer from 1024 to 65535/,
   ],
   [

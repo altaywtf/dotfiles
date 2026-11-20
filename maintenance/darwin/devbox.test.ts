@@ -66,7 +66,6 @@ test("system updates keep packages and tools in one headless owner job", async (
   ]);
 });
 
-// Both devbox profiles must enroll; the refusals do not depend on the profile.
 const enrollments = [
   ["devbox", "headless"],
   ["personal-devbox", "headless"],
@@ -87,7 +86,7 @@ for (const [profile, scenario] of enrollments) {
       mode: 0o600,
     });
     await writeFile(join(home, ".config/topgrade.toml"), "", { mode: 0o600 });
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const oldLabel = "local.dotfiles.homebrew-update.fixture";
     const oldPlist = `/Library/LaunchDaemons/${oldLabel}.plist`;
     const runner = CommandRunner.of({
@@ -132,7 +131,6 @@ for (const [profile, scenario] of enrollments) {
         );
       }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)),
     );
-    // The prefix owner can edit brew, so root must never execute it directly.
     assert.equal(
       calls.some((call) => call[0]?.endsWith("/brew")),
       false,

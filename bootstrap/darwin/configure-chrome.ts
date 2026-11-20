@@ -7,18 +7,12 @@ import {
   updateChromeLocalStatePreferencesEffect,
   updateChromeProfilesEffect,
 } from "./chrome-state.ts";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const policyDomain = "com.google.Chrome";
 const flagOverrides = [{ name: "vertical-tabs", value: "vertical-tabs@1" }] as const;
-// Chrome reads this preference domain as mandatory platform policy on macOS, so
-// these apply to every Chrome profile without an MDM. The chrome://flags override
-// for the Lens "Ask Google" chip expired in Chrome 145 and is ignored since.
-// SearchContentSharingSettings replaced LensOverlaySettings in Chrome 147; the
-// older policies stay set for Chrome builds that still honor them.
 const policies = [
   { key: "SearchContentSharingSettings", type: "-int", value: "1" },
   { key: "LensOverlaySettings", type: "-int", value: "1" },
@@ -54,7 +48,9 @@ const program = Effect.gen(function* () {
     const argument = args[index];
     if (argument === "--state") {
       const value = args[index + 1];
-      if (!value) return yield* fail("--state requires a value", 2);
+      if (!value) {
+        return yield* fail("--state requires a value", 2);
+      }
       statePath = value;
       index += 1;
     } else if (argument === "--disable") {

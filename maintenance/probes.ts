@@ -1,11 +1,12 @@
 import { Predicate } from "effect";
+import type { Schema } from "effect";
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 import { spawn } from "node:child_process";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
 
 type ProbeStatus = "ok" | "failed" | "timed_out" | "unavailable";
 
-export type ProbeResult<Value = unknown> = {
+export type ProbeResult<Value = Schema.Json> = {
   status: ProbeStatus;
   required: boolean;
   duration_ms: number;
@@ -16,12 +17,12 @@ export type ProbeResult<Value = unknown> = {
 export type Probe = {
   id: string;
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
   required: boolean;
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
-  allowedStatuses?: readonly number[];
-  parse: (result: RawCommandResult) => unknown;
+  allowedStatuses?: ReadonlyArray<number>;
+  parse: (result: RawCommandResult) => Schema.Json;
 };
 
 const defaultTimeoutMs = 15_000;
@@ -29,7 +30,7 @@ const defaultTimeoutMs = 15_000;
 export function probe(
   id: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   parse: Probe["parse"],
   options: Partial<Pick<Probe, "required" | "timeoutMs" | "env" | "allowedStatuses">> = {},
 ): Probe {
@@ -51,13 +52,14 @@ export async function runProbe(
     timeoutMs: spec.timeoutMs ?? defaultTimeoutMs,
   });
   const duration_ms = Math.round(performance.now() - started);
-  if (result.timedOut)
+  if (result.timedOut) {
     return {
       status: "timed_out",
       required: spec.required,
       duration_ms,
       error: `timed out after ${spec.timeoutMs ?? defaultTimeoutMs}ms`,
     };
+  }
   if (Predicate.hasProperty(result.error, "code") && result.error.code === "ENOENT") {
     return {
       status: "unavailable",
@@ -90,7 +92,7 @@ export async function runProbe(
 
 export function runProcess(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null; signal?: AbortSignal },
 ): Promise<RawCommandResult> {
   return new Promise((finish) => {
@@ -103,8 +105,8 @@ export function runProcess(
       env: options.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
+    const stdout: Array<Buffer> = [];
+    const stderr: Array<Buffer> = [];
     let settled = false;
     let timedOut = false;
     let canceled = false;
@@ -114,7 +116,9 @@ export function runProcess(
     let drainTimer: ReturnType<typeof setTimeout> | undefined;
     let exitStatus: number | null = null;
     const complete = (result: RawCommandResult) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
@@ -122,12 +126,15 @@ export function runProcess(
       options.signal?.removeEventListener("abort", cancel);
       child.stdout.destroy();
       child.stderr.destroy();
-      // A timed-out child must not retain the collector if it cannot be reaped yet.
-      if (timedOut) child.unref();
+      if (timedOut) {
+        child.unref();
+      }
       finish(canceled ? { ...result, error: new Error("maintenance probe canceled") } : result);
     };
     const cancel = () => {
-      if (settled || canceled) return;
+      if (settled || canceled) {
+        return;
+      }
       canceled = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
@@ -144,9 +151,9 @@ export function runProcess(
           200,
         );
       };
-      if (exited) drain();
-      else {
-        // Wait for the owned child to be reaped before finishing cancellation.
+      if (exited) {
+        drain();
+      } else {
         child.once("exit", drain);
         child.kill("SIGTERM");
         killTimer = setTimeout(() => child.kill("SIGKILL"), 200);
@@ -157,8 +164,6 @@ export function runProcess(
       timer = setTimeout(() => {
         timedOut = true;
         killTimer = setTimeout(() => {
-          // Own only the direct ChildProcess; descendants may still hold its pipes.
-          // Never signal a saved PID after Node has reaped the direct child.
           drainTimer = setTimeout(() => {
             complete({
               status: exitStatus ?? 1,
@@ -186,7 +191,9 @@ export function runProcess(
     child.on("exit", (status) => {
       exitStatus = status;
       exited = true;
-      if (canceled) clearTimeout(killTimer);
+      if (canceled) {
+        clearTimeout(killTimer);
+      }
     });
     child.on("close", (status) =>
       complete({

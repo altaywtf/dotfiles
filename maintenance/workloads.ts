@@ -3,7 +3,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, Schema } from "effect";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
@@ -23,16 +22,20 @@ type Finding = {
 
 function elapsedSeconds(value: string): number {
   const match = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(value);
-  if (!match) return NaN;
+  if (!match) {
+    return Number.NaN;
+  }
   const [, days, hours, minutes, seconds] = match;
-  if (Number(minutes) > 59 || Number(seconds) > 59) return NaN;
+  if (Number(minutes) > 59 || Number(seconds) > 59) {
+    return Number.NaN;
+  }
   return (
-    Number(days ?? 0) * 86400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
+    Number(days ?? 0) * 86_400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
   );
 }
 
 export const parseProcesses = Effect.fn("parseProcesses")(function* (output: string) {
-  const rows: ProcessRow[] = [];
+  const rows: Array<ProcessRow> = [];
   let skipped = 0;
   for (const line of output.split("\n").filter((value) => value.trim())) {
     const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line);
@@ -42,14 +45,17 @@ export const parseProcesses = Effect.fn("parseProcesses")(function* (output: str
       ageSeconds: elapsedSeconds(match?.[3] ?? ""),
       command: match?.[4],
     }).pipe(Effect.option);
-    if (decoded._tag === "Some") rows.push(decoded.value);
-    else skipped++;
+    if (decoded._tag === "Some") {
+      rows.push(decoded.value);
+    } else {
+      skipped++;
+    }
   }
   return { rows, skipped };
 });
 
-export function classifyWorkloads(rows: readonly ProcessRow[]): Finding[] {
-  const findings: Finding[] = [];
+export function classifyWorkloads(rows: ReadonlyArray<ProcessRow>): Array<Finding> {
+  const findings: Array<Finding> = [];
   for (const row of rows) {
     const executable = /^(?:\S*\/)?([^/\s]+)(?:\s|$)/.exec(row.command)?.[1];
     const arguments_ = row.command.split(/\s+/).slice(1);
@@ -96,7 +102,9 @@ export function classifyWorkloads(rows: readonly ProcessRow[]): Finding[] {
       name = "Watchman";
       evidence = "observed: file watcher; watched roots and client use unknown";
     }
-    if (name) findings.push({ pid: row.pid, ageSeconds: row.ageSeconds, name, evidence });
+    if (name) {
+      findings.push({ pid: row.pid, ageSeconds: row.ageSeconds, name, evidence });
+    }
   }
   return findings;
 }
@@ -105,13 +113,15 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
   platform: NodeJS.Platform = process.platform,
   uid: number = process.getuid?.() ?? -1,
 ) {
-  if (platform !== "darwin")
+  if (platform !== "darwin") {
     return {
       lines: ["unsupported: workload diagnostics currently require macOS"],
       complete: false,
     };
-  if (!Number.isSafeInteger(uid) || uid <= 0)
+  }
+  if (!Number.isSafeInteger(uid) || uid <= 0) {
     return { lines: ["unknown: run workload diagnostics as a non-root user"], complete: false };
+  }
   const runner = yield* CommandRunner;
   const result = yield* runner
     .run("/bin/ps", ["-U", String(uid), "-ww", "-o", "pid=,ppid=,etime=,args="], {
@@ -119,20 +129,26 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
       timeoutMs: 5000,
     })
     .pipe(Effect.option);
-  if (result._tag === "None" || result.value.status !== 0)
+  if (result._tag === "None" || result.value.status !== 0) {
     return {
       lines: ["unknown: process inspection failed; no workload conclusion available"],
       complete: false,
     };
+  }
   const { rows, skipped } = yield* parseProcesses(result.value.stdout);
   const findings = classifyWorkloads(rows);
   const lines = findings.map(
     (finding) =>
       `${finding.name}: PID ${finding.pid}, age ${Math.floor(finding.ageSeconds / 60)}m — ${finding.evidence}`,
   );
-  if (!rows.length) lines.push("unknown: no usable process rows returned");
-  else if (!findings.length) lines.push("No matching development workload processes observed.");
-  if (skipped) lines.push(`unknown: ${skipped} process rows could not be inspected`);
+  if (!rows.length) {
+    lines.push("unknown: no usable process rows returned");
+  } else if (!findings.length) {
+    lines.push("No matching development workload processes observed.");
+  }
+  if (skipped) {
+    lines.push(`unknown: ${skipped} process rows could not be inspected`);
+  }
   lines.push(
     "Current-user process snapshot only; age does not prove abandonment. No daemon clients contacted, services started, or processes stopped. Container/device/client state remains unknown.",
   );
@@ -140,11 +156,18 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
 });
 
 const program = Effect.gen(function* () {
-  if (process.argv.length > 2) return yield* fail("Usage: node maintenance/workloads.ts", 2);
+  if (process.argv.length > 2) {
+    return yield* fail("Usage: node maintenance/workloads.ts", 2);
+  }
   const report = yield* inspectWorkloads();
-  for (const line of report.lines) yield* Console.log(line);
-  if (!report.complete) return yield* fail("workload inspection incomplete");
+  for (const line of report.lines) {
+    yield* Console.log(line);
+  }
+  if (!report.complete) {
+    return yield* fail("workload inspection incomplete");
+  }
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]))
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(program);
+}

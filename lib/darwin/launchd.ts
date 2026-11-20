@@ -19,8 +19,12 @@ export function resolveLaunchdNamespace(requested = ""): string {
 }
 
 export function launchdLabel(service: string, user: string, namespace = ""): string {
-  if (!service || !component.test(service)) throw new Error("invalid LaunchDaemon service");
-  if (!user || !component.test(user)) throw new Error("invalid LaunchDaemon user");
+  if (!service || !component.test(service)) {
+    throw new Error("invalid LaunchDaemon service");
+  }
+  if (!user || !component.test(user)) {
+    throw new Error("invalid LaunchDaemon user");
+  }
   return `${resolveLaunchdNamespace(namespace)}.${service}.${user}`;
 }
 
@@ -37,8 +41,9 @@ export const resolveLaunchdNamespaceContract = Effect.fn("resolveLaunchdNamespac
     const exists = yield* fs.exists(namespaceFile);
     const link = yield* fs.readLink(namespaceFile).pipe(Effect.option);
     if (exists || Option.isSome(link)) {
-      if (Option.isSome(link))
+      if (Option.isSome(link)) {
         return yield* fail(`unsafe stored LaunchDaemon namespace: ${namespaceFile}`);
+      }
       const info = yield* fs.stat(namespaceFile);
       if (info.type !== "File" || (info.mode & 0o777) !== 0o600) {
         return yield* fail(`unsafe stored LaunchDaemon namespace: ${namespaceFile}`);
@@ -47,8 +52,9 @@ export const resolveLaunchdNamespaceContract = Effect.fn("resolveLaunchdNamespac
         return yield* fail(`unsafe stored LaunchDaemon namespace owner: ${namespaceFile}`);
       }
       const contents = yield* fs.readFileString(namespaceFile);
-      if (!/^[^\r\n]+(?:\r?\n)?$/.test(contents))
+      if (!/^[^\r\n]+(?:\r?\n)?$/.test(contents)) {
         return yield* fail(`invalid stored LaunchDaemon namespace: ${namespaceFile}`);
+      }
       const stored = yield* Effect.try({
         try: () => resolveLaunchdNamespace(contents.trim()),
         catch: (error) => error,
@@ -65,6 +71,12 @@ export const resolveLaunchdNamespaceContract = Effect.fn("resolveLaunchdNamespac
   },
 );
 
+const escape = (value: string) =>
+  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+const item = (key: string, value: string) =>
+  `    <key>${key}</key>\n    <string>${escape(value)}</string>`;
+
 export function plistXml(options: {
   label: string;
   user: string;
@@ -72,16 +84,12 @@ export function plistXml(options: {
   workingDirectory: string;
   stdout: string;
   stderr: string;
-  arguments: readonly string[];
+  arguments: ReadonlyArray<string>;
   keepAlive?: boolean;
   processType?: string;
   environment?: Readonly<Record<string, string>>;
-  calendar?: readonly { hour: number; minute: number }[];
+  calendar?: ReadonlyArray<{ hour: number; minute: number }>;
 }): string {
-  const escape = (value: string) =>
-    value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  const item = (key: string, value: string) =>
-    `    <key>${key}</key>\n    <string>${escape(value)}</string>`;
   const args = options.arguments
     .map((argument) => `      <string>${escape(argument)}</string>`)
     .join("\n");

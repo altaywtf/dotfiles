@@ -10,7 +10,7 @@ test("System Capabilities distinguish a full wake from DarkWake", () => {
   assert.equal(parseFullWake("unexpected layout"), undefined);
 });
 
-const wait = (states: readonly (boolean | undefined)[], maxWaitMs: number) => {
+const wait = (states: ReadonlyArray<boolean | undefined>, maxWaitMs: number) => {
   let probes = 0;
   const probe = Effect.sync(() => states[Math.min(probes++, states.length - 1)]);
   return Effect.runPromise(

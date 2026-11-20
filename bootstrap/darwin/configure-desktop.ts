@@ -3,11 +3,10 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const wallpaperIndex = join(
   process.env.HOME || "",
   "Library/Application Support/com.apple.wallpaper/Store/Index.plist",
@@ -32,7 +31,9 @@ const defaultEquals = Effect.fn("defaultEquals")(function* (
 
 const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(wallpaperIndex))) return false;
+  if (!(yield* fs.exists(wallpaperIndex))) {
+    return false;
+  }
   const runner = yield* CommandRunner;
   const provider = yield* runner.run("plutil", [
     "-extract",
@@ -42,8 +43,9 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
     "-",
     wallpaperIndex,
   ]);
-  if (provider.status !== 0 || provider.stdout.trim() !== "com.apple.wallpaper.choice.color")
+  if (provider.status !== 0 || provider.stdout.trim() !== "com.apple.wallpaper.choice.color") {
     return false;
+  }
   const configuration = yield* runner.run("plutil", [
     "-extract",
     "AllSpacesAndDisplays.Linked.Content.Choices.0.Configuration",
@@ -52,7 +54,9 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
     "-",
     wallpaperIndex,
   ]);
-  if (configuration.status !== 0) return false;
+  if (configuration.status !== 0) {
+    return false;
+  }
   const decodedPath = yield* fs.makeTempFileScoped({
     prefix: "wallpaper-configuration.",
     suffix: ".plist",
@@ -69,15 +73,19 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
 const dockHasOnlyChrome = Effect.fn("dockHasOnlyChrome")(function* () {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["read", "com.apple.dock", "persistent-apps"]);
-  if (result.status !== 0) return false;
+  if (result.status !== 0) {
+    return false;
+  }
   const bundleCount = result.stdout.match(/"bundle-identifier"/g)?.length ?? 0;
   const chromeCount =
     result.stdout.match(/"bundle-identifier" = "com\.google\.Chrome"/g)?.length ?? 0;
-  if (bundleCount !== 1 || chromeCount !== 1) return false;
-  // `defaults read` prints a string "15" and an integer 15 identically; the Dock
-  // only resolves the integer and shows a question mark otherwise.
+  if (bundleCount !== 1 || chromeCount !== 1) {
+    return false;
+  }
   const exported = yield* runner.run("defaults", ["export", "com.apple.dock", "-"]);
-  if (exported.status !== 0) return false;
+  if (exported.status !== 0) {
+    return false;
+  }
   const urlType = yield* runner.run(
     "plutil",
     [
@@ -117,18 +125,20 @@ const stateIsCorrect = Effect.fn("desktopStateIsCorrect")(function* () {
   );
 });
 
-const writeDefault = Effect.fn("writeDefault")(function* (args: readonly string[]) {
+const writeDefault = Effect.fn("writeDefault")(function* (args: ReadonlyArray<string>) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["write", ...args], { output: "inherit" });
-  if (result.status !== 0)
+  if (result.status !== 0) {
     return yield* fail(`defaults write ${args[0]} ${args[1]} exited ${result.status}`);
+  }
 });
 
 const program = Effect.gen(function* () {
   let checkOnly = false;
   for (const argument of process.argv.slice(2)) {
-    if (argument === "--check") checkOnly = true;
-    else if (argument === "-h" || argument === "--help") {
+    if (argument === "--check") {
+      checkOnly = true;
+    } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
     } else {
@@ -136,15 +146,20 @@ const program = Effect.gen(function* () {
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
-  if (process.platform !== "darwin") return yield* fail("desktop baseline requires macOS");
+  if (process.platform !== "darwin") {
+    return yield* fail("desktop baseline requires macOS");
+  }
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists("/Applications/Google Chrome.app")))
+  if (!(yield* fs.exists("/Applications/Google Chrome.app"))) {
     return yield* fail("Google Chrome is not installed");
+  }
   if (yield* stateIsCorrect()) {
     yield* Console.log("desktop baseline ok");
     return;
   }
-  if (checkOnly) return yield* fail("desktop baseline drift detected");
+  if (checkOnly) {
+    return yield* fail("desktop baseline drift detected");
+  }
 
   yield* writeDefault(["com.apple.dock", "autohide", "-bool", "true"]);
   yield* writeDefault(["com.apple.dock", "tilesize", "-int", "31"]);
@@ -153,7 +168,6 @@ const program = Effect.gen(function* () {
     "com.apple.dock",
     "persistent-apps",
     "-array",
-    // XML keeps _CFURLStringType an integer; the old-style plist syntax makes it a string.
     `<dict>
   <key>tile-data</key>
   <dict>
@@ -177,7 +191,9 @@ const program = Effect.gen(function* () {
 
   const runner = yield* CommandRunner;
   const lint = yield* runner.run("plutil", ["-lint", wallpaperSource]);
-  if (lint.status !== 0) return yield* fail("black wallpaper plist is invalid");
+  if (lint.status !== 0) {
+    return yield* fail("black wallpaper plist is invalid");
+  }
   yield* fs.makeDirectory(dirname(wallpaperIndex), { recursive: true });
   yield* fs.copyFile(wallpaperSource, wallpaperIndex);
   yield* fs.chmod(wallpaperIndex, 0o644);
@@ -187,7 +203,9 @@ const program = Effect.gen(function* () {
     { concurrency: "unbounded" },
   );
   yield* Effect.sleep("1 second");
-  if (!(yield* stateIsCorrect())) return yield* fail("desktop baseline did not converge");
+  if (!(yield* stateIsCorrect())) {
+    return yield* fail("desktop baseline did not converge");
+  }
   yield* Console.log("desktop baseline applied");
 }).pipe(Effect.scoped, Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

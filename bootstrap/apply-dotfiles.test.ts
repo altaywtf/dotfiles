@@ -3,10 +3,10 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
-const script = resolve(dirname(fileURLToPath(import.meta.url)), "apply-dotfiles.ts");
+const script = resolve(import.meta.dirname, "apply-dotfiles.ts");
 
 function applyFixture(t: TestContext, prefix: string, tool: string, shim: string) {
   const root = mkdtempSync(join(tmpdir(), prefix));

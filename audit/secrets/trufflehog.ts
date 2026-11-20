@@ -21,10 +21,8 @@ const Finding = Schema.Struct({
   }),
 });
 
-export type TrufflehogFindings = { allowed: number; unexpected: string[] };
+export type TrufflehogFindings = { allowed: number; unexpected: Array<string> };
 
-// History cannot be rewritten to drop a reviewed fixture, so known findings are
-// pinned by commit and line. A verified secret is never allowed.
 export function classifyTrufflehogFindings(
   stdout: string,
   allowlistPath: string,
@@ -34,7 +32,9 @@ export function classifyTrufflehogFindings(
   );
   const result: TrufflehogFindings = { allowed: 0, unexpected: [] };
   for (const line of stdout.split("\n")) {
-    if (!line.trim()) continue;
+    if (!line.trim()) {
+      continue;
+    }
     const finding = Schema.decodeUnknownSync(Finding)(JSON.parse(line));
     const { commit, file, line: number } = finding.SourceMetadata.Data.Git;
     const allowed =
@@ -46,11 +46,13 @@ export function classifyTrufflehogFindings(
           entry.line === number &&
           entry.detector === finding.DetectorName,
       );
-    if (allowed) result.allowed += 1;
-    else
+    if (allowed) {
+      result.allowed += 1;
+    } else {
       result.unexpected.push(
         `${finding.DetectorName}${finding.Verified ? " (verified)" : ""} ${file}:${number} in ${commit.slice(0, 12)}`,
       );
+    }
   }
   return result;
 }

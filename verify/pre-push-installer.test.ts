@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
 
-import { commit, init, installer, invoke, run, type Repository } from "./pre-push-fixture.ts";
+import { commit, init, installer, invoke, run } from "./pre-push-fixture.ts";
+import type { Repository } from "./pre-push-fixture.ts";
 
 test.for([
   ["a missing Node runtime", "/usr/bin/false", /missing node; run mise install .* before pushing/],

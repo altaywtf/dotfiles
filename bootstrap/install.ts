@@ -2,14 +2,14 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { guardProfileSwitch, profileModelFile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile, type InstallStep } from "../profiles/model.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import type { InstallStep } from "../profiles/model.ts";
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
   bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation [--switch-profile]
@@ -25,7 +25,7 @@ Codex and Claude logins.`;
 const execute = Effect.fn("executeInstallCommand")(function* (
   label: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const runner = yield* CommandRunner;
   const result = yield* runner
@@ -35,15 +35,18 @@ const execute = Effect.fn("executeInstallCommand")(function* (
         (error) => new CliFailure({ exitCode: 1, message: `${label}: ${error.message}` }),
       ),
     );
-  if (result.status !== 0) return yield* fail(`${label} exited ${result.status}`, result.status);
+  if (result.status !== 0) {
+    return yield* fail(`${label} exited ${result.status}`, result.status);
+  }
 });
+
+const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
 
 const runStep = Effect.fn("runInstallStep")(function* (
   step: InstallStep,
   profile: string,
   maintenance: boolean,
 ) {
-  const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
   switch (step) {
     case "apply-dotfiles":
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
@@ -84,14 +87,13 @@ const runStep = Effect.fn("runInstallStep")(function* (
   }
 });
 
-// Steps after install-runtimes call tools mise just installed (gh, chezmoi on
-// Linux), and the launching shell may predate any mise activation.
 const miseShims = join(
   process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"),
   "shims",
 );
-if (!(process.env.PATH || "").split(":").includes(miseShims))
+if (!(process.env.PATH || "").split(":").includes(miseShims)) {
   process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
+}
 
 const program = Effect.gen(function* () {
   let profileInput: string | undefined;
@@ -140,21 +142,23 @@ const program = Effect.gen(function* () {
     yield* Console.log(steps.join("\n"));
     return;
   }
-  if (!switchProfile)
+  if (!switchProfile) {
     yield* guardProfileSwitch(profile).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
     );
+  }
   if (selected.capabilities.workstation && process.platform !== "darwin") {
     return yield* fail(
       `${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`,
       2,
     );
   }
-  if (maintenance && process.platform === "darwin")
+  if (maintenance && process.platform === "darwin") {
     yield* execute("converge packages", resolve(repoRoot, "homebrew/brew-bundle.ts"), [
       "--maintenance",
       profile,
     ]);
+  }
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

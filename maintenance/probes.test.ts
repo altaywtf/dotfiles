@@ -27,7 +27,6 @@ test("finite probes kill a child that ignores TERM and preserve output", async (
   assert.equal(result.timedOut, true);
   assert.match(result.stdout, /^progress:\d+$/);
   const pid = Number(result.stdout.slice("progress:".length));
-  // Signal zero only checks existence; never clean fixtures up by a saved PID.
   assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
   assert.equal(result.stderr, "warning");
   assert.ok(elapsed < 1000, `finite probe took ${elapsed}ms`);
@@ -39,16 +38,21 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
   const done = join(directory, "done");
   t.onTestFinished(async () => {
     try {
-      // The descendant self-expires; wait for its exit using only read-only PID existence checks.
       const deadline = performance.now() + 5000;
       while (true) {
         try {
           const pid = Number(await readFile(done, "utf8"));
           process.kill(pid, 0);
         } catch (error) {
-          if (!(error instanceof Error) || !("code" in error)) throw error;
-          if (error.code === "ESRCH") break;
-          if (error.code !== "ENOENT") throw error;
+          if (!(error instanceof Error) || !("code" in error)) {
+            throw error;
+          }
+          if (error.code === "ESRCH") {
+            break;
+          }
+          if (error.code !== "ENOENT") {
+            throw error;
+          }
         }
         assert.ok(performance.now() < deadline, "descendant did not finish");
         await delay(20);
@@ -159,7 +163,9 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
     try {
       pid = Number(await readFile(ready, "utf8"));
     } catch (error) {
-      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
+        throw error;
+      }
       assert.ok(performance.now() < deadline, "probe did not start");
       await delay(20);
     }

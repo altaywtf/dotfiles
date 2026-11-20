@@ -3,12 +3,11 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { main } from "./doctor.ts";
-import { type Runtime } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 
 class BufferWriter {
   value = "";
@@ -42,20 +41,25 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]) {
-    if (command.endsWith("/resolve-profile.ts"))
+  run(command: string, args: ReadonlyArray<string>) {
+    if (command.endsWith("/resolve-profile.ts")) {
       return { status: 0, stdout: "workstation\n", stderr: "" };
+    }
     const reply = this.replies.get(`${command} ${args.join(" ")}`) ?? {};
     return { status: reply.status ?? 0, stdout: reply.stdout ?? "", stderr: reply.stderr ?? "" };
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 afterEach(() => {
-  for (const path of temporaryDirectories.splice(0)) rmSync(path, { force: true, recursive: true });
+  for (const path of temporaryDirectories.splice(0)) {
+    rmSync(path, { force: true, recursive: true });
+  }
 });
 
-function createFixture(): { repoDir: string; home: string } {
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-doctor-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");

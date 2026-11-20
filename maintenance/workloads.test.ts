@@ -33,12 +33,12 @@ test("workload classification needs specific evidence and never emits argv", asy
     findings.map((finding) => finding.pid),
     [11, 13, 17, 19, 20, 21, 26, 27],
   );
-  assert.equal(findings[0]?.ageSeconds, 21 * 86400 + 3723);
+  assert.equal(findings[0]?.ageSeconds, 21 * 86_400 + 3723);
   assert.doesNotMatch(JSON.stringify(findings), /secret-value|\/home|\/tmp|\/sdk|token/);
 });
 
 test("partial parse retains safe findings and reports incomplete inspection", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = [], options) => {
       calls.push([command, ...args]);

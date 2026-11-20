@@ -19,7 +19,7 @@ const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function* (
   roots: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const configs: string[] = [];
+  const configs: Array<string> = [];
   for (const root of roots) {
     if (!(yield* fs.exists(root))) {
       continue;

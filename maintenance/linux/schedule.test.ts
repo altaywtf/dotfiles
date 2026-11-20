@@ -7,14 +7,15 @@ import { manageSchedule } from "./schedule.ts";
 function fixture(
   options: { missing?: string; linger?: boolean; failure?: string; spawnFailure?: boolean } = {},
 ) {
-  const calls: string[][] = [];
-  const inspected: string[] = [];
+  const calls: Array<Array<string>> = [];
+  const inspected: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
       const failing = args.includes(options.failure ?? "never");
-      if (failing && options.spawnFailure)
+      if (failing && options.spawnFailure) {
         return Effect.fail(new CommandError({ command, message: "spawn failed" }));
+      }
       return Effect.succeed({
         status: failing ? 9 : 0,
         stdout: command === "loginctl" ? (options.linger === false ? "no\n" : "yes\n") : "",

@@ -4,11 +4,10 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
-import { Effect, FileSystem, Result } from "effect";
+import { Effect, FileSystem, Result, Schema } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import {
   comparePlist,
   manageSchedule,
@@ -17,10 +16,21 @@ import {
   updateLabel,
 } from "./schedule.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
+const RenderedJob = Schema.fromJsonString(
+  Schema.Struct({
+    Label: Schema.String,
+    Disabled: Schema.Boolean,
+    RunAtLoad: Schema.Boolean,
+    KeepAlive: Schema.optionalKey(Schema.Json),
+    StartCalendarInterval: Schema.Json,
+    ProgramArguments: Schema.Json,
+    EnvironmentVariables: Schema.Record(Schema.String, Schema.String),
+  }),
+);
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
@@ -39,7 +49,6 @@ test("on-demand updates reuse the loaded service without killing its current wor
     [`gui/501/${updateLabel}`],
   );
   assert.equal(kickstarts[0]?.includes("-k"), false);
-  // Only read-only inspection and a plain kickstart leave the running job alone.
   assert.deepEqual(
     calls.filter(([, subcommand]) => subcommand !== "print" && subcommand !== "kickstart"),
     [],
@@ -48,11 +57,13 @@ test("on-demand updates reuse the loaded service without killing its current wor
 
 const systemService = `system/${updateLabel}.fixture`;
 
-function systemRunner(calls: string[][], kickstartStatus = 0, systemLoaded = true) {
+function systemRunner(calls: Array<Array<string>>, kickstartStatus = 0, systemLoaded = true) {
   return CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
-      if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+      if (command === "id") {
+        return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+      }
       const status =
         args[0] === "print"
           ? args[1] === systemService && systemLoaded
@@ -87,7 +98,7 @@ async function runSystemUpdate(
 }
 
 test("a missing job cannot silently run an uncoordinated updater", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const result = await runSystemUpdate(systemRunner(calls, 0, false), {
     devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
     interactive: false,
@@ -120,11 +131,12 @@ test.each([
     argv: ["/usr/bin/sudo", "--", ...kickstart],
   },
 ])("system updater kickstart: $caller", async ({ options, argv, status = 0 }) => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const result = await runSystemUpdate(systemRunner(calls, status), options);
   assert.deepEqual(calls.at(-1), argv);
-  if (status === 0) assert.ok(Result.isSuccess(result));
-  else {
+  if (status === 0) {
+    assert.ok(Result.isSuccess(result));
+  } else {
     assert.ok(Result.isFailure(result));
     assert.ok(String(result.failure).includes(`run: sudo ${kickstart.join(" ")}`));
   }
@@ -146,17 +158,19 @@ test("on-demand launch failures reach the caller", async () => {
       Effect.flip,
     ),
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
 
 for (const loaded of [false, true]) {
   test(`disabling a ${loaded ? "loaded" : "missing"} job persists its disabled state`, async () => {
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        }
         return Effect.succeed({
           status: args[0] === "print" && (!loaded || args[1] === systemService) ? 113 : 0,
           stdout: "",
@@ -182,7 +196,7 @@ for (const loaded of [false, true]) {
 }
 
 test("disabling fails while the system updater stays enrolled", async () => {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const failure = await Effect.runPromise(
     manageSchedule("disable", "/fixture/home", 501).pipe(
       Effect.provideService(CommandRunner, systemRunner(calls)),
@@ -190,7 +204,7 @@ test("disabling fails while the system updater stays enrolled", async () => {
       Effect.flip,
     ),
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.match(failure.message, /system updater still enrolled/);
 });
 
@@ -205,18 +219,24 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     await mkdir(join(home, ".config/dotfiles"), { recursive: true });
     await writeFile(join(home, ".config/dotfiles/profile"), "workstation\n", { mode: 0o600 });
     await writeFile(plist, "fixture: plutil is stubbed at the process boundary", { mode: 0o600 });
-    if (kind === "writable") await chmod(plist, 0o622);
+    if (kind === "writable") {
+      await chmod(plist, 0o622);
+    }
     if (kind === "symlink") {
       await rm(plist);
       await symlink(join(home, ".config/dotfiles/profile"), plist);
     }
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     let loaded = false;
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
-        if (args[0] === "bootstrap") loaded = true;
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        }
+        if (args[0] === "bootstrap") {
+          loaded = true;
+        }
         return Effect.succeed({
           status: args[0] === "print" && !loaded ? 113 : 0,
           stdout: "",
@@ -266,7 +286,6 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
   });
 }
 
-// Captured from `launchctl print gui/501/local.dotfiles.software-update` on macOS 15.
 const launchdPrintFixture = `gui/501/local.dotfiles.software-update = {
 \tactive count = 0
 \tpath = /Users/fixture/Library/LaunchAgents/local.dotfiles.software-update.plist
@@ -380,16 +399,17 @@ test("drift detection compares the loaded job against the rendered plist defensi
   assert.equal(comparePlist(loaded, null).comparable, false);
 });
 
+const receipt = (finishedAt: string) =>
+  JSON.stringify({
+    version: 1,
+    job: "software-update",
+    startedAt: finishedAt,
+    finishedAt,
+    exitCode: 0,
+  });
+
 test("stale, missing, and unreadable receipts are flagged while fresh ones pass", () => {
   const now = Date.parse("2026-09-07T12:00:00Z");
-  const receipt = (finishedAt: string) =>
-    JSON.stringify({
-      version: 1,
-      job: "software-update",
-      startedAt: finishedAt,
-      finishedAt,
-      exitCode: 0,
-    });
   assert.equal(receiptWarning(receipt("2026-09-07T06:30:00Z"), now), undefined);
   assert.match(receiptWarning(receipt("2026-09-06T22:00:00Z"), now) ?? "", /older than 13 hours/);
   assert.equal(
@@ -400,7 +420,6 @@ test("stale, missing, and unreadable receipts are flagged while fresh ones pass"
   assert.match(receiptWarning("not json", now) ?? "", /unreadable/);
   assert.match(receiptWarning(JSON.stringify({ startedAt: 42 }), now) ?? "", /unreadable/);
   assert.match(receiptWarning(undefined, now) ?? "", /no update receipt exists/);
-  // A running receipt has no finishedAt yet; a fresh startedAt is enough.
   assert.equal(
     receiptWarning(JSON.stringify({ state: "running", startedAt: "2026-09-07T11:00:00Z" }), now),
     undefined,
@@ -424,12 +443,13 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
       exitCode: 0,
     }),
   );
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
-      if (command === "plutil")
+      if (command === "plutil") {
         return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+      }
       return Effect.succeed({ status: 0, stdout: launchdPrintFixture, stderr: "" });
     },
   });
@@ -448,7 +468,6 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
 test("rendered profiles keep updater scope, scheduling, and paths valid", async () => {
   const root = await mkdtemp(join(tmpdir(), "dotfiles-updates-"));
   try {
-    // Spaces and XML metacharacters must survive launchd's argument boundary.
     const home = join(root, "home & space");
     await mkdir(home);
     for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {
@@ -479,7 +498,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
         encoding: "utf8",
       });
       assert.equal(parsed.status, 0, parsed.stderr);
-      const job = JSON.parse(parsed.stdout);
+      const job = Schema.decodeUnknownSync(RenderedJob)(parsed.stdout);
       assert.equal(job.Label, "local.dotfiles.software-update");
       assert.equal(job.Disabled, true, "applying dotfiles alone must not enroll a scheduler");
       assert.equal(job.RunAtLoad, true);
@@ -539,13 +558,16 @@ for (const loaded of [true, false]) {
     });
     const service = "system/example.host.software-update.fixture";
     const plist = "/Library/LaunchDaemons/example.host.software-update.fixture.plist";
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
-        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
-        if (command === "plutil")
+        if (command === "id") {
+          return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
+        }
+        if (command === "plutil") {
           return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+        }
         return Effect.succeed({
           status: loaded && args[1] === service ? 0 : 113,
           stdout: launchdPrintFixture,
@@ -562,12 +584,14 @@ for (const loaded of [true, false]) {
         }),
       );
     }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
-    if (loaded) await Effect.runPromise(operation);
-    else
+    if (loaded) {
+      await Effect.runPromise(operation);
+    } else {
       assert.match(
         String(await Effect.runPromise(operation.pipe(Effect.flip))),
         /not loaded in the GUI or system domain/,
       );
+    }
     assert.deepEqual(calls, [
       ["launchctl", "print", `gui/${uid}/${updateLabel}`],
       ["id", "-un", String(uid)],

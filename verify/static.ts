@@ -2,12 +2,11 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const agentlessSigner = resolve(
   repoRoot,
   "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless",
@@ -16,7 +15,7 @@ const blackWallpaper = resolve(repoRoot, "bootstrap/darwin/assets/black-wallpape
 
 const runRequired = Effect.fn("runRequired")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   label: string,
 ) {
   const runner = yield* CommandRunner;
@@ -39,7 +38,9 @@ const program = Effect.gen(function* () {
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.sh"],
     { cwd: repoRoot },
   );
-  if (listed.status !== 0) return yield* fail("cannot discover shell sources");
+  if (listed.status !== 0) {
+    return yield* fail("cannot discover shell sources");
+  }
   const trackedShell = yield* Effect.filter(
     listed.stdout
       .split("\0")
@@ -68,8 +69,9 @@ const program = Effect.gen(function* () {
   }
   yield* runRequired("git", ["diff", "--check"], "working-tree diff hygiene");
   yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
-  if (process.platform === "darwin")
+  if (process.platform === "darwin") {
     yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
+  }
 
   const agentsPath = resolve(repoRoot, "AGENTS.md");
   const claudePath = resolve(repoRoot, "CLAUDE.md");

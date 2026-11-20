@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { parseProfileModel, readProfileModel, requireProfile } from "./model.ts";
+import { Schema } from "effect";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const sourceDir = join(repoRoot, "chezmoi");
 const profileNames = [
@@ -19,14 +19,30 @@ const profileNames = [
   "workstation",
 ];
 
-type RawModel = Record<string, unknown> & { profiles: Record<string, Record<string, unknown>> };
+type RawProfile = Record<string, Schema.Json> & { capabilities: Record<string, Schema.Json> };
+type RawModel = Record<string, Schema.Json> & { profiles: Record<string, RawProfile> };
+
+const JsonRecord = Schema.Record(Schema.String, Schema.Json);
+const isRawDocument = Schema.is(
+  Schema.Struct({
+    profileModel: Schema.StructWithRest(
+      Schema.Struct({
+        profiles: Schema.Record(
+          Schema.String,
+          Schema.StructWithRest(Schema.Struct({ capabilities: JsonRecord }), [JsonRecord]),
+        ),
+      }),
+      [JsonRecord],
+    ),
+  }),
+);
 
 function rawModel(): RawModel {
-  return JSON.parse(readFileSync(modelPath, "utf8")).profileModel;
+  const document: unknown = JSON.parse(readFileSync(modelPath, "utf8"));
+  assert.ok(isRawDocument(document));
+  return document.profileModel;
 }
 
-// Chezmoi reads the model from a data file, as in production; --override-data
-// would turn every number into a float and fail the version check for any model.
 function renderProfile(profile: string, profileData?: string) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-render-"));
   let source = sourceDir;
@@ -82,8 +98,7 @@ test("canonical model covers every profile and renders through chezmoi", () => {
 });
 
 const workstation = (model: RawModel) => model.profiles.workstation;
-const capabilities = (model: RawModel) =>
-  workstation(model).capabilities as Record<string, unknown>;
+const capabilities = (model: RawModel) => workstation(model).capabilities;
 const invalidModels: Array<[string, (model: RawModel) => void, RegExp?]> = [
   ["unsupported version", (model) => (model.version = 2), /Expected 1/],
   ["missing key", (model) => delete capabilities(model).devbox, /Missing key/],

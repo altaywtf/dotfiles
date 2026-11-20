@@ -22,10 +22,10 @@ import {
   discoverRepositories,
   lastChanged,
   openFiles,
-  type Runner,
 } from "./repositories.ts";
+import type { Runner } from "./repositories.ts";
 
-const gracePeriod = 3 * 86400_000;
+const gracePeriod = 3 * 86_400_000;
 const baseline = Date.now();
 
 const runner: Runner = (cwd, command, args) => {
@@ -43,19 +43,20 @@ const clean = (
   f: Fixture,
   previous: Parameters<typeof cleanRepository>[2],
   now: number,
-  { apply = true, activity = (): string[] => [], run = runner } = {},
+  { apply = true, activity = (): Array<string> => [], run = runner } = {},
 ) => cleanRepository(f.repo, f.roots, previous, now, apply, activity, run);
 
-const inspect = (f: Fixture, roots = f.roots, open: string[] = []) =>
+const inspect = (f: Fixture, roots = f.roots, open: Array<string> = []) =>
   candidates(f.repo, roots, open, runner);
+
+const git = (cwd: string, ...args: Array<string>) => {
+  const result = runner(cwd, "git", args);
+  assert.equal(result.status, 0, `git ${args.join(" ")}`);
+  return result.stdout.trim();
+};
 
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "host-hygiene-")));
-  const git = (cwd: string, ...args: string[]) => {
-    const result = runner(cwd, "git", args);
-    assert.equal(result.status, 0, `git ${args.join(" ")}`);
-    return result.stdout.trim();
-  };
   const remote = join(root, "remote.git");
   git(root, "init", "--bare", "--initial-branch=main", remote);
   const repo = join(root, "projects/org/repo");
@@ -124,8 +125,6 @@ test("dirty, ignored, locked and active worktrees are retained", () => {
   }
 });
 
-// A detached worktree has no branch to protect, so remote-default ancestry is
-// the only thing standing between it and removal.
 test("a detached worktree is removable once merged and retained while it is not", () => {
   const f = fixture();
   try {
@@ -180,7 +179,6 @@ test("a worktree beside its owning clone is evaluated, and unpushed work still r
 test("scheduled hygiene reports a stray worktree beside its owning clone", async () => {
   const f = fixture();
   try {
-    // fixture() already owns <root>/projects, which is the tree hygiene scans.
     const home = f.root;
     mkdirSync(join(home, ".local/state/dotfiles"), { recursive: true });
     writeFileSync(
@@ -205,8 +203,6 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", async
   }
 });
 
-// Eligibility is judged against the remote default, `git branch -d` against
-// local HEAD. A lagging checkout makes them disagree on every run.
 test("a branch merged upstream but absent from a lagging local HEAD names the cause", () => {
   const f = fixture();
   try {
@@ -421,8 +417,9 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "branch", "-d", "finished");
     const offline: Runner = (cwd, command, args) => {
-      if (args[0] === "ls-remote" || args[0] === "remote")
+      if (args[0] === "ls-remote" || args[0] === "remote") {
         throw new Error("unexpected network access");
+      }
       return runner(cwd, command, args);
     };
     const result = clean(f, {}, baseline + gracePeriod, { run: offline });
@@ -439,7 +436,7 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
 });
 
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
-  let seen: string[] = [];
+  let seen: Array<string> = [];
   const paths = openFiles("/fixture", (_cwd, command, args) => {
     assert.equal(command, "lsof");
     seen = args;
@@ -447,12 +444,10 @@ test("process inventory suppresses lsof warning-induced exits but stays fail-clo
   });
   assert.equal(seen[0], "-w");
   assert.deepEqual(paths, ["/fixture/file"]);
-  // A warning-free nonzero exit (a real lsof failure) still fails closed.
   assert.throws(
     () => openFiles("/fixture", () => ({ status: 1, stdout: "" })),
     /retained local work/,
   );
-  // No paths at all is indistinguishable from a broken inventory: fail closed.
   assert.throws(
     () => openFiles("/fixture", () => ({ status: 0, stdout: "" })),
     /process activity unavailable/,

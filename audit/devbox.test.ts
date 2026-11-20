@@ -9,30 +9,40 @@ import { test } from "vite-plus/test";
 import { devboxPolicy } from "./devbox.ts";
 import { runPolicy } from "./engine.ts";
 
-function command(command: string, args: readonly string[]) {
+function command(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
-    const values: Record<string, string> = {
-      "user.name": "Fixture",
-      "user.email": "fixture@example.invalid",
-      "user.signingkey": "fixture-key",
-      "commit.gpgsign": "true",
-    };
-    return { status: values[key ?? ""] ? 0 : 1, stdout: values[key ?? ""] ?? "", stderr: "" };
+    const values = new Map([
+      ["user.name", "Fixture"],
+      ["user.email", "fixture@example.invalid"],
+      ["user.signingkey", "fixture-key"],
+      ["commit.gpgsign", "true"],
+    ]);
+    const value = values.get(key ?? "");
+    return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
-  if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
-  if (command === "ssh") return { status: 1, stdout: "", stderr: "successfully authenticated" };
-  if (command === "tailscale" && args.includes("--json"))
+  if (command === "gh") {
+    return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
+  }
+  if (command === "ssh") {
+    return { status: 1, stdout: "", stderr: "successfully authenticated" };
+  }
+  if (command === "tailscale" && args.includes("--json")) {
     return {
       status: 0,
       stdout: JSON.stringify({ Self: { DNSName: "fixture.tail.example." } }),
       stderr: "",
     };
-  if (command === "dig") return { status: 0, stdout: "100.64.0.1\n", stderr: "" };
-  if (command === "dscacheutil")
+  }
+  if (command === "dig") {
+    return { status: 0, stdout: "100.64.0.1\n", stderr: "" };
+  }
+  if (command === "dscacheutil") {
     return { status: 0, stdout: "ip_address: 100.64.0.1\n", stderr: "" };
-  if (command === "gitleaks" && args[0] === "dir")
+  }
+  if (command === "gitleaks" && args[0] === "dir") {
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
+  }
   return { status: 0, stdout: "", stderr: "" };
 }
 

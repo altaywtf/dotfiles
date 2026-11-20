@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../../lib/darwin/launchd.ts";
-import { CliFailure, fail, runMain } from "../../lib/program.ts";
+import { CliFailure, isCliFailure, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const installer = join(repoRoot, "bootstrap/darwin/install-devbox-service-daemons.ts");
@@ -15,7 +15,7 @@ const installer = join(repoRoot, "bootstrap/darwin/install-devbox-service-daemon
 const program = Effect.scoped(
   Effect.gen(function* () {
     const runner = yield* CommandRunner;
-    const runInstaller = (args: readonly string[]) =>
+    const runInstaller = (args: ReadonlyArray<string>) =>
       runner.run(process.execPath, [installer, ...args]);
     const expected = "local.dotfiles.software-update.example";
     const generic = yield* runInstaller(["--user", "example", "--print-labels"]);
@@ -66,7 +66,7 @@ const program = Effect.scoped(
       "local.dotfiles",
       namespaceFile,
     ).pipe(Effect.flip);
-    assert.ok(conflicting instanceof CliFailure);
+    assert.ok(isCliFailure(conflicting));
     assert.equal(conflicting.exitCode, 3);
     yield* fs.chmod(namespaceFile, 0o644);
     assert.equal(
@@ -88,7 +88,13 @@ const program = Effect.scoped(
     );
     yield* Console.log("ok LaunchDaemon labels are vendor-neutral and configurable");
   }).pipe(
-    Effect.catch((error) => fail(error instanceof Error ? error.message : String(error))),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({
+          exitCode: 1,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    ),
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   ),

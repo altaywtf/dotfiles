@@ -8,13 +8,16 @@ export const convergeUserManager = Effect.fn("convergeUserManager")(function* (
   dryRun: boolean,
   platform: NodeJS.Platform = process.platform,
 ) {
-  if (platform !== "linux" || dryRun) return;
+  if (platform !== "linux" || dryRun) {
+    return;
+  }
   const runner = yield* CommandRunner;
-  // Containers and non-systemd sessions can apply without a user manager.
   const environment = yield* runner
     .run("systemctl", ["--user", "show-environment"], { output: "capture" })
     .pipe(Effect.catch(() => Effect.succeed(undefined)));
-  if (!environment || environment.status !== 0) return;
+  if (!environment || environment.status !== 0) {
+    return;
+  }
   const current =
     environment.stdout
       .split("\n")
@@ -37,10 +40,11 @@ export const convergeUserManager = Effect.fn("convergeUserManager")(function* (
             new CliFailure({ exitCode: 1, message: `${operation} failed: ${error.message}` }),
         ),
       );
-    if (result.status !== 0)
+    if (result.status !== 0) {
       return yield* fail(
         `${operation} exited ${result.status}: ${result.stderr.trim()}`,
         result.status,
       );
+    }
   }
 });

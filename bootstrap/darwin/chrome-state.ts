@@ -4,12 +4,11 @@ import { realpathSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Option, Predicate, Schema } from "effect";
 import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
 
-const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const JsonObject = Schema.Record(Schema.String, Schema.Json);
 type JsonObject = typeof JsonObject.Type;
 
 const decodeObject = (schema: Schema.Codec<JsonObject, unknown>, value: unknown, label: string) =>
@@ -86,28 +85,25 @@ type Preference = { group: string; key: string; value: boolean };
 
 const applyPreferences = Effect.fnUntraced(function* (
   data: JsonObject,
-  preferences: readonly Preference[],
+  preferences: ReadonlyArray<Preference>,
   mode: Mode,
 ) {
-  let updated = data;
+  const updated = { ...data };
   let changed = false;
   for (const { group, key, value } of preferences) {
     const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);
-    if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) continue;
-    updated = {
-      ...updated,
-      [group]:
-        mode === "enable"
-          ? { ...section, [key]: value }
-          : Object.fromEntries(Object.entries(section).filter(([name]) => name !== key)),
-    };
+    if (mode === "enable" ? section[key] === value : !Predicate.hasProperty(section, key)) {
+      continue;
+    }
+    updated[group] =
+      mode === "enable"
+        ? { ...section, [key]: value }
+        : Object.fromEntries(Object.entries(section).filter(([name]) => name !== key));
     changed = true;
   }
   return changed ? Option.some(updated) : Option.none();
 });
 
-// prefs::kConfirmToQuitEnabled is browser-wide; turning it off drops the
-// hold-Command-Q-to-quit prompt.
 const localStatePreferences = [{ group: "browser", key: "confirm_to_quit", value: false }] as const;
 
 export const updateChromeLocalStatePreferencesEffect = Effect.fn(
@@ -120,14 +116,13 @@ export const updateChromeLocalStatePreferencesEffect = Effect.fn(
     localStatePreferences,
     mode,
   );
-  if (Option.isNone(updated)) return false;
+  if (Option.isNone(updated)) {
+    return false;
+  }
   yield* writeAtomically(path, `${JSON.stringify(updated.value)}\n`);
   return true;
 });
 
-// Chrome keeps these as per-profile preferences and no enterprise policy sets
-// them: prefs::kVerticalTabsEnabled shows the vertical tab strip, and unpinning
-// prefs::kTabSearchPinnedToTabstrip hides its Tab groups and Tab search buttons.
 const profilePreferences = [
   { group: "vertical_tabs", key: "enabled", value: true },
   { group: "tab_search", key: "pinned_to_tabstrip", value: false },
@@ -138,17 +133,24 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
   mode: Mode,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const profiles: string[] = [];
+  const profiles: Array<string> = [];
   if (yield* fs.exists(root)) {
     for (const name of yield* fs.readDirectory(root)) {
-      if (name === "System Profile" || name === "Guest Profile") continue;
-      if ((yield* fs.stat(join(root, name))).type !== "Directory") continue;
+      if (name === "System Profile" || name === "Guest Profile") {
+        continue;
+      }
+      if ((yield* fs.stat(join(root, name))).type !== "Directory") {
+        continue;
+      }
       const path = join(root, name, "Preferences");
-      if (yield* fs.exists(path)) profiles.push(path);
+      if (yield* fs.exists(path)) {
+        profiles.push(path);
+      }
     }
   }
-  if (profiles.length === 0 && mode === "enable")
+  if (profiles.length === 0 && mode === "enable") {
     profiles.push(join(root, "Default", "Preferences"));
+  }
   let updated = 0;
   for (const path of profiles.sort()) {
     const source = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "{}";
@@ -157,17 +159,16 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
       profilePreferences,
       mode,
     );
-    if (Option.isNone(profile)) continue;
+    if (Option.isNone(profile)) {
+      continue;
+    }
     yield* writeAtomically(path, JSON.stringify(profile.value));
     updated += 1;
   }
   return { checked: profiles.length, updated };
 });
 
-if (
-  process.argv[1] &&
-  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
-) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
   const program = Effect.gen(function* () {
     const [path, mode, flagName, flagValue] = yield* Schema.decodeUnknownEffect(Arguments)(
       process.argv.slice(2),

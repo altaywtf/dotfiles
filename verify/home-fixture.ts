@@ -16,12 +16,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runMain } from "../lib/program.ts";
 
 import { readProfileModel } from "../profiles/model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = resolve(repoRoot, "chezmoi");
 const profiles = Object.keys(
   readProfileModel(join(sourceDir, ".chezmoidata/profiles.json")).profiles,
@@ -86,7 +85,7 @@ export function runApply(
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
-    const output: Buffer[] = [];
+    const output: Array<Buffer> = [];
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => output.push(chunk));
     child.on("error", reject);
@@ -121,14 +120,12 @@ async function verifyProfiles(): Promise<void> {
   }
 }
 
-function filesReferencing(directory: string, needle: string): string[] {
+function filesReferencing(directory: string, needle: string): Array<string> {
   return readdirSync(directory, { recursive: true, encoding: "utf8" })
     .map((entry) => join(directory, entry))
     .filter((path) => lstatSync(path).isFile() && readFileSync(path, "utf8").includes(needle));
 }
 
-// Scoped provisioning applies from a clone it deletes afterwards; nothing it
-// installs may point back into that clone.
 async function verifyTemporarySource(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-temporary-source-"));
   try {
@@ -147,7 +144,7 @@ async function verifyTemporarySource(): Promise<void> {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(
     Effect.tryPromise({
       try: () => Promise.all([verifyProfiles(), verifyTemporarySource()]),

@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 
 import { accessSync, constants, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { Array, Effect, Option, Result, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
-import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { HARNESS_INFO, HARNESSES, parseSyncArgs } from "./harness.ts";
+import type { Harness } from "./harness.ts";
+import { expandHeadersHelper, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Mcp } from "./mcps/catalog.ts";
 import { claudeAuthMatches } from "./mcps/claude-config.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 const USAGE = `Usage: ./agents/doctor.ts [--profile PROFILE]
 
@@ -41,18 +38,19 @@ type Finding = {
   repair?: string;
 };
 
-// oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences from CLI output.
-const stripAnsi = (text: string) => text.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
-
-function capture(runtime: Runtime, command: string, args: readonly string[]) {
+function capture(runtime: Runtime, command: string, args: ReadonlyArray<string>) {
   const result = runtime.run(command, args, { stdout: "capture", stderr: "capture" });
-  return { ...result, text: stripAnsi(`${result.stdout}\n${result.stderr}`) };
+  return { ...result, text: stripVTControlCharacters(`${result.stdout}\n${result.stderr}`) };
 }
 
 function helperProblem(path: string): string | undefined {
   const info = statSync(path, { throwIfNoEntry: false });
-  if (!info) return "is missing";
-  if (!info.isFile()) return "is not a regular file";
+  if (!info) {
+    return "is missing";
+  }
+  if (!info.isFile()) {
+    return "is not a regular file";
+  }
   try {
     accessSync(path, constants.X_OK);
   } catch {
@@ -90,7 +88,9 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
       ? undefined
       : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
   const helperFailure = helper === undefined ? undefined : helperFinding(runtime, mcp, helper);
-  if (helperFailure !== undefined) return helperFailure;
+  if (helperFailure !== undefined) {
+    return helperFailure;
+  }
 
   const result = capture(runtime, "claude", ["mcp", "get", mcp.name]);
   const statusLine =
@@ -135,8 +135,6 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
   };
 }
 
-// `codex mcp list --json` reports the auth mode, not whether the stored OAuth
-// session is still valid; Codex only reveals that when a session starts.
 function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
   const result = capture(runtime, "codex", ["mcp", "list", "--json"]);
   const repair = `codex mcp login ${mcp.name}`;
@@ -191,8 +189,8 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
   };
 }
 
-function collect(runtime: Runtime, mcps: readonly Mcp[]): Finding[] {
-  const findings: Finding[] = [];
+function collect(runtime: Runtime, mcps: ReadonlyArray<Mcp>): Array<Finding> {
+  const findings: Array<Finding> = [];
   const selected = (harness: Harness) => mcps.filter((mcp) => mcp.harnesses.includes(harness));
   for (const harness of HARNESSES) {
     const { binary, label } = HARNESS_INFO[harness];
@@ -223,7 +221,7 @@ const MARK: Record<Status, string> = {
   failed: "FAIL",
 };
 
-function report(runtime: Runtime, findings: readonly Finding[]): number {
+function report(runtime: Runtime, findings: ReadonlyArray<Finding>): number {
   for (const finding of findings) {
     const label = HARNESS_INFO[finding.harness].label;
     writeLine(
@@ -250,7 +248,7 @@ function report(runtime: Runtime, findings: readonly Finding[]): number {
 }
 
 function run(runtime: Runtime, profileOverride: string | undefined): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, profileOverride);
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
@@ -260,7 +258,7 @@ function run(runtime: Runtime, profileOverride: string | undefined): number {
   return report(runtime, collect(runtime, mcps));
 }
 
-export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
+export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, false);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
@@ -279,7 +277,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

@@ -2,9 +2,8 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Clock, Console, Effect, FileSystem, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { availableParallelism } from "node:os";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
@@ -40,7 +39,7 @@ type Options = {
   readonly skipSecurity: boolean;
 };
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const registryPath = resolve(repoRoot, "verify/checks.json");
 const usageText = `Usage:
   verify/run.ts [--skip-security] [--domain NAME ...]
@@ -52,7 +51,7 @@ omits complete-only parity checks; request --domain security explicitly for
 secret scans.
 `;
 
-const parseOptions = Effect.fn("parseOptions")(function* (args: readonly string[]) {
+const parseOptions = Effect.fn("parseOptions")(function* (args: ReadonlyArray<string>) {
   const domains = new Set<string>();
   let json = false;
   let list = false;
@@ -129,7 +128,7 @@ const readRegistry = Effect.fn("readRegistry")(function* () {
 
 const runCheck = Effect.fn("runCheck")(function* (
   check: Check,
-  timeoutMs = 300_000,
+  timeoutMs: number = 300_000,
 ): Effect.fn.Return<Result, never, CommandRunner> {
   const started = yield* Clock.currentTimeMillis;
   const runner = yield* CommandRunner;
@@ -145,13 +144,12 @@ const runCheck = Effect.fn("runCheck")(function* (
   return { check, durationMs: finished - started, ...result };
 });
 
-// Checks can spawn their own workers; reserve capacity for their children and reporting.
 const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
 
 export const runChecks = Effect.fn("runChecks")(function* (
-  checks: readonly Check[],
-  timeoutMs = 300_000,
-  concurrency = checkConcurrency,
+  checks: ReadonlyArray<Check>,
+  timeoutMs: number = 300_000,
+  concurrency: number = checkConcurrency,
 ) {
   const results = yield* Effect.forEach(
     checks,
@@ -166,7 +164,9 @@ export const runChecks = Effect.fn("runChecks")(function* (
             }
             yield* Effect.sync(() => {
               process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
-              if (!result.output.endsWith("\n")) process.stderr.write("\n");
+              if (!result.output.endsWith("\n")) {
+                process.stderr.write("\n");
+              }
               process.stderr.write(
                 `FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`,
               );
@@ -195,9 +195,6 @@ const listRegistry = Effect.fn("listRegistry")(function* (registry: Registry, js
   }
 });
 
-// chezmoi and gitleaks are mise shims. Checks swap HOME and the XDG
-// directories into disposable fixtures, which would otherwise hide mise's
-// install directory and trust store from those shims.
 const home = process.env.HOME || "";
 process.env.MISE_DATA_DIR ||= join(home, ".local/share/mise");
 process.env.MISE_TRUSTED_CONFIG_PATHS ||= join(home, ".config/mise/config.toml");
@@ -250,4 +247,6 @@ const program = Effect.gen(function* () {
   yield* Console.log(`verification ok (${((finished - started) / 1000).toFixed(2)}s)`);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (import.meta.main) runMain(program);
+if (import.meta.main) {
+  runMain(program);
+}

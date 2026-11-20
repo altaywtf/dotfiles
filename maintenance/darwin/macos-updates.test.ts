@@ -9,10 +9,8 @@ import {
   selectGdmfBaseline,
   selectSofaMacOSBaseline,
   selectSofaSafariBaseline,
-  type CommandRunner,
-  type HttpResult,
-  type MacOSUpdateIO,
 } from "./macos-updates.ts";
+import type { CommandRunner, HttpResult, MacOSUpdateIO } from "./macos-updates.ts";
 
 const now = "2026-08-26T12:00:00.000Z";
 const deviceOutput = `+-o Fixture1AP <class IOPlatformExpertDevice>
@@ -52,7 +50,7 @@ const sofaSafari = {
   ],
 };
 
-type Call = { command: string; args: readonly string[]; timeoutMs: number | null };
+type Call = { command: string; args: ReadonlyArray<string>; timeoutMs: number | null };
 
 function commandResult(stdout: string, status = 0) {
   return { status, stdout, stderr: "" };
@@ -69,15 +67,17 @@ function runner(
     safariStatus?: number;
     safariStderr?: string;
     deviceOutput?: string;
-    calls?: Call[];
+    calls?: Array<Call>;
   } = {},
 ): CommandRunner {
   return async (command, args, runOptions) => {
     options.calls?.push({ command, args, timeoutMs: runOptions.timeoutMs });
-    if (command === "sw_vers" && args[0] === "-productVersion")
+    if (command === "sw_vers" && args[0] === "-productVersion") {
       return commandResult(`${options.osVersion ?? "26.6.2"}\n`);
-    if (command === "sw_vers" && args[0] === "-buildVersion")
+    }
+    if (command === "sw_vers" && args[0] === "-buildVersion") {
       return commandResult(`${options.osBuild ?? "25G83"}\n`);
+    }
     if (command === "defaults") {
       return {
         status: options.safariStatus ?? 0,
@@ -85,15 +85,18 @@ function runner(
         stderr: options.safariStderr ?? "",
       };
     }
-    if (command === "ioreg") return commandResult(options.deviceOutput ?? deviceOutput);
+    if (command === "ioreg") {
+      return commandResult(options.deviceOutput ?? deviceOutput);
+    }
     if (command === "softwareupdate" && args.includes("--no-scan")) {
       return commandResult(options.cached ?? "Software Update Tool\nNo new software available.\n");
     }
-    if (command === "softwareupdate")
+    if (command === "softwareupdate") {
       return commandResult(
         options.live ?? "Software Update Tool\nNo new software available.\n",
         options.liveStatus,
       );
+    }
     throw new Error(`unexpected command ${command} ${args.join(" ")}`);
   };
 }
@@ -105,22 +108,26 @@ function io(
     safari?: HttpResult;
     cache?: string;
     applicabilityCache?: string | null;
-    fetches?: string[];
-    writes?: string[];
+    fetches?: Array<string>;
+    writes?: Array<string>;
   } = {},
 ): MacOSUpdateIO {
   return {
     async fetch(url) {
       options.fetches?.push(url);
-      if (url.includes("gdmf.apple.com"))
+      if (url.includes("gdmf.apple.com")) {
         return options.apple ?? { status: 200, body: JSON.stringify(gdmf) };
-      if (url.includes("macos_data_feed"))
+      }
+      if (url.includes("macos_data_feed")) {
         return options.macos ?? { status: 200, body: JSON.stringify(sofaMacOS) };
+      }
       return options.safari ?? { status: 200, body: JSON.stringify(sofaSafari) };
     },
     async readCache(path) {
       if (path.endsWith("softwareupdate-live.json")) {
-        if (options.applicabilityCache === null) return undefined;
+        if (options.applicabilityCache === null) {
+          return undefined;
+        }
         return (
           options.applicabilityCache ?? JSON.stringify({ schema_version: 1, completed_at: now })
         );
@@ -214,7 +221,7 @@ test("softwareupdate parsing distinguishes cached emptiness from a malformed lis
 });
 
 test("routine inventory preserves source and freshness without a live scan", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const inventory = await collect(runner({ calls }), io());
 
   assert.equal(inventory.applicability.status, "current");
@@ -233,7 +240,7 @@ test("routine inventory preserves source and freshness without a live scan", asy
 });
 
 test("routine inventory bounds stale applicability with a daily live scan", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const applicabilityCache = JSON.stringify({
     schema_version: 1,
     completed_at: "2026-08-24T12:00:00.000Z",
@@ -310,7 +317,7 @@ test("missing device identifiers report the supported identifier contract", asyn
 });
 
 test("a fresh daily Apple cache avoids another Apple request", async () => {
-  const fetches: string[] = [];
+  const fetches: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -326,7 +333,7 @@ test("a fresh daily Apple cache avoids another Apple request", async () => {
 });
 
 test("an invalid cached fetch timestamp forces an Apple refresh", async () => {
-  const fetches: string[] = [];
+  const fetches: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -340,7 +347,7 @@ test("an invalid cached fetch timestamp forces an Apple refresh", async () => {
 });
 
 test("a failed Apple refresh does not reuse invalid cached metadata", async () => {
-  const writes: string[] = [];
+  const writes: Array<string> = [];
   const cache = JSON.stringify({
     schema_version: 1,
     checked_at: now,
@@ -390,7 +397,7 @@ test("a stale Apple cache stays visible when SOFA can establish current state", 
 });
 
 test("malformed cached applicability triggers the live path without a timeout", async () => {
-  const calls: Call[] = [];
+  const calls: Array<Call> = [];
   const inventory = await collect(
     runner({ cached: "Software Update Tool\nFinding available software\n", calls }),
     io(),

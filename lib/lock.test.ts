@@ -10,7 +10,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { acquireDirectoryLock, lockOwnerAlive, processAlive } from "./lock.ts";
 
 function fixture(t: TestContext): string {
@@ -39,7 +40,7 @@ test("a dead holder is reclaimed and the lock is reacquired", (t) => {
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  const messages: string[] = [];
+  const messages: Array<string> = [];
   const release = acquireDirectoryLock(lock, {
     processAlive: () => false,
     log: (message) => messages.push(message),
@@ -57,21 +58,20 @@ test("a holder recorded before the current boot is reclaimed even when its pid l
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: process.pid, bootTime: 500 })}\n`,
   );
-  const probe = { now: () => 1_000_000_000, uptimeMs: () => 1_000, processAlive: () => true };
+  const probe = { now: () => 1_000_000_000, uptimeMs: () => 1000, processAlive: () => true };
   assert.equal(lockOwnerAlive(lock, probe), false);
   const release = acquireDirectoryLock(lock, { ...silent, ...probe });
   release();
 });
 
 test("EPERM from the liveness probe means alive", () => {
-  // pid 1 (launchd) rejects signal 0 from an unprivileged user with EPERM.
   assert.equal(processAlive(1), true);
   assert.equal(processAlive(process.pid), true);
 });
 
 test("malformed or missing metadata is treated as a live holder", (t) => {
   const lock = fixture(t);
-  mkdirSync(lock); // bare mkdir lock without metadata
+  mkdirSync(lock);
   assert.equal(lockOwnerAlive(lock, { processAlive: () => false }), true);
   assert.throws(
     () => acquireDirectoryLock(lock, { ...silent, processAlive: () => false }),
@@ -91,7 +91,7 @@ test("contention waits with backoff and acquires after release, without real sle
   mkdirSync(lock);
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const release = acquireDirectoryLock(lock, {
     waitMs: 900_000,
     now: () => time,
@@ -101,10 +101,12 @@ test("contention waits with backoff and acquires after release, without real sle
     sleep: (ms) => {
       slept.push(ms);
       time += ms;
-      if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
+      if (time >= 30_000) {
+        rmSync(lock, { recursive: true, force: true });
+      }
     },
   });
-  assert.deepEqual(slept, [5_000, 10_000, 20_000]);
+  assert.deepEqual(slept, [5000, 10_000, 20_000]);
   release();
   assert.equal(existsSync(lock), false);
 });
@@ -113,8 +115,8 @@ test("an unreleased lock fails loudly after the wait budget", (t) => {
   const lock = fixture(t);
   mkdirSync(lock);
   let time = 0;
-  const slept: number[] = [];
-  const messages: string[] = [];
+  const slept: Array<number> = [];
+  const messages: Array<string> = [];
   assert.throws(
     () =>
       acquireDirectoryLock(lock, {
@@ -136,16 +138,15 @@ test("an unreleased lock fails loudly after the wait budget", (t) => {
   assert.ok(messages.some((message) => message.includes("waiting up to 15 minutes")));
 });
 
+const alive = (pid: number) => pid === process.pid;
+
 test("two contenders reclaiming the same dead owner yield exactly one holder", (t) => {
-  // Interleaving: B reads the dead owner metadata, then A reclaims and
-  // acquires before B acts on its verdict. B must not evict A.
   const lock = fixture(t);
   mkdirSync(lock);
   writeFileSync(
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  const alive = (pid: number) => pid === process.pid;
   let releaseA: (() => void) | undefined;
   let injected = false;
   const probeB = (pid: number) => {
@@ -166,7 +167,7 @@ test("two contenders reclaiming the same dead owner yield exactly one holder", (
     "A's ownership survives B's reclaim attempt",
   );
   assert.deepEqual(readdirSync(lock), ["owner.json"], "no reclaim residue is left inside the lock");
-  releaseA!();
+  releaseA();
   assert.equal(existsSync(lock), false);
   const releaseB = acquireDirectoryLock(lock, { ...silent, processAlive: alive });
   releaseB();
@@ -180,10 +181,8 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  // The owner file vanishes between B's verdict and its rename: another
-  // contender already moved it. B sees ENOENT and waits.
   let vanished = false;
-  const slept: number[] = [];
+  const slept: Array<number> = [];
   const release = acquireDirectoryLock(lock, {
     ...silent,
     waitMs: 60_000,
@@ -199,6 +198,6 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
       rmSync(lock, { recursive: true, force: true });
     },
   });
-  assert.deepEqual(slept, [5_000], "the contender waited instead of claiming the owner-less lock");
+  assert.deepEqual(slept, [5000], "the contender waited instead of claiming the owner-less lock");
   release();
 });

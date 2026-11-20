@@ -1,4 +1,4 @@
-import { Console, Context, Effect, Layer, Schedule, Schema, Stream } from "effect";
+import { Console, Context, Effect, Layer, Option, Schedule, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   constants,
@@ -49,7 +49,7 @@ const gate =
   'read -r _ || exit 125; command -v "$0" >/dev/null 2>&1 || exit 127; exec "$0" "$@" </dev/null';
 const release = new TextEncoder().encode("\n");
 
-function parseProcesses(output: string): ProcessRow[] {
+function parseProcesses(output: string): Array<ProcessRow> {
   return output
     .trim()
     .split("\n")
@@ -75,7 +75,7 @@ export class BoundedCommand extends Context.Service<
   {
     readonly run: (
       command: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
       options: BoundedCommandOptions,
     ) => Effect.Effect<BoundedCommandResult, BoundedCommandError>;
   }
@@ -87,7 +87,7 @@ export class BoundedCommand extends Context.Service<
       const runner = yield* CommandRunner;
       const snapshot = runner
         .run("/bin/ps", ["-axo", "pid=,ppid=,uid=,lstart=,stat=,pcpu="], {
-          timeoutMs: 2_000,
+          timeoutMs: 2000,
           env: { LC_ALL: "C" },
         })
         .pipe(
@@ -96,17 +96,16 @@ export class BoundedCommand extends Context.Service<
               ? Effect.try(() => parseProcesses(result.stdout))
               : Effect.fail(new Error("Process inventory failed")),
           ),
-          // One inventory can catch a process mid-exit; only a persistent failure voids cleanup proof.
           Effect.retry({ times: 2, schedule: Schedule.spaced("50 millis") }),
         );
       const run = Effect.fn("BoundedCommand.run")(function* (
         command: string,
-        args: readonly string[],
+        args: ReadonlyArray<string>,
         options: BoundedCommandOptions,
       ) {
         const timeoutMs = options.timeoutMs ?? 60 * 60_000;
         const graceMs = options.termGraceMs ?? 10_000;
-        const intervalMs = options.pollIntervalMs ?? 2_000;
+        const intervalMs = options.pollIntervalMs ?? 2000;
         const owned = new Map<number, ProcessRow>();
         let rootPid = 0;
         let completed = false;
@@ -125,9 +124,10 @@ export class BoundedCommand extends Context.Service<
           );
           const live = new Map(rows.map((row) => [row.pid, row]));
           const root = live.get(rootPid);
-          if (!rootInspected && root && root.uid === process.getuid?.()) owned.set(rootPid, root);
+          if (!rootInspected && root && root.uid === process.getuid?.()) {
+            owned.set(rootPid, root);
+          }
           rootInspected = true;
-          // Remember identities before descendants can become reparented or start a new session.
           let added = true;
           while (added) {
             added = false;
@@ -154,14 +154,14 @@ export class BoundedCommand extends Context.Service<
         const signal = Effect.fnUntraced(function* (kind: NodeJS.Signals) {
           const rows = yield* observe;
           for (const row of rows.toReversed()) {
-            // Recheck each identity immediately before signaling; never use a process-group kill.
             const current = yield* snapshot;
             if (
               !current.some(
                 (candidate) => sameProcess(candidate, row) && !candidate.state.startsWith("Z"),
               )
-            )
+            ) {
               continue;
+            }
             yield* Effect.try(() => process.kill(row.pid, kind)).pipe(
               Effect.catch(() => Effect.void),
             );
@@ -182,7 +182,6 @@ export class BoundedCommand extends Context.Service<
           ),
         );
         return yield* Effect.gen(function* () {
-          // Hold the command until the first inventory records the root; exec keeps its identity.
           const handle = yield* spawner.spawn(
             ChildProcess.make("/bin/sh", ["-c", gate, command, ...args], {
               stdin: "pipe",
@@ -190,13 +189,12 @@ export class BoundedCommand extends Context.Service<
               stderr: "inherit",
               detached: false,
               killSignal: "SIGKILL",
-              forceKillAfter: 1_000,
+              forceKillAfter: 1000,
             }),
           );
           rootPid = Number(handle.pid);
           yield* Effect.addFinalizer(() => (completed ? Effect.void : cleanup));
           yield* observe.pipe(Effect.catch(() => Effect.void));
-          // A write to a child that already exited never settles.
           yield* Stream.run(Stream.make(release), handle.stdin).pipe(
             Effect.raceFirst(handle.exitCode),
             Effect.catch(() => Effect.void),
@@ -217,26 +215,29 @@ export class BoundedCommand extends Context.Service<
           if (outcome.timedOut) {
             diagnosticPath = yield* Effect.gen(function* () {
               const rows = yield* observe;
-              const stacks: { pid: number; callGraph: string }[] = [];
+              const stacks: Array<{ pid: number; callGraph: string }> = [];
               if (process.platform === "darwin") {
                 for (const row of rows.toReversed().slice(0, 3)) {
                   const current = yield* snapshot;
-                  if (!current.some((candidate) => sameProcess(candidate, row))) continue;
+                  if (!current.some((candidate) => sameProcess(candidate, row))) {
+                    continue;
+                  }
                   const sample = yield* runner
                     .run("/usr/bin/sample", [String(row.pid), "1", "1", "-file", "/dev/stdout"], {
-                      timeoutMs: 2_000,
+                      timeoutMs: 2000,
                     })
                     .pipe(Effect.option);
                   if (sample._tag === "Some") {
                     const start = sample.value.stdout.indexOf("Call graph:");
                     const end = sample.value.stdout.indexOf("Binary Images:", start);
-                    if (start >= 0)
+                    if (start >= 0) {
                       stacks.push({
                         pid: row.pid,
                         callGraph: sample.value.stdout
                           .slice(start, end < 0 ? undefined : end)
                           .slice(0, 64 * 1024),
                       });
+                    }
                   }
                 }
               }
@@ -247,8 +248,9 @@ export class BoundedCommand extends Context.Service<
                   !directory.isDirectory() ||
                   directory.uid !== process.getuid?.() ||
                   (directory.mode & 0o077) !== 0
-                )
+                ) {
                   throw new Error("Unsafe diagnostic directory");
+                }
                 const path = join(options.diagnosticDirectory, "software-update-timeout.json");
                 const temporary = `${path}.${process.pid}.tmp`;
                 const fd = openSync(
@@ -274,9 +276,7 @@ export class BoundedCommand extends Context.Service<
                   }
                   renameSync(temporary, path);
                 } finally {
-                  try {
-                    unlinkSync(temporary);
-                  } catch {}
+                  Option.liftThrowable(unlinkSync)(temporary);
                 }
                 return path;
               });
@@ -287,8 +287,11 @@ export class BoundedCommand extends Context.Service<
             yield* cleanup;
           } else {
             const remaining = yield* observe.pipe(Effect.catch(() => Effect.succeed([])));
-            if (remaining.length > 0) yield* cleanup;
-            else if (inventoryFailed || !owned.has(rootPid)) cleanupComplete = false;
+            if (remaining.length > 0) {
+              yield* cleanup;
+            } else if (inventoryFailed || !owned.has(rootPid)) {
+              cleanupComplete = false;
+            }
           }
           completed = true;
           if (!cleanupComplete) {

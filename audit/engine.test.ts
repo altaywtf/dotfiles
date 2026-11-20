@@ -16,12 +16,16 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
-import { type AuditPolicy, runPolicy } from "./engine.ts";
+import { runPolicy } from "./engine.ts";
+import type { AuditPolicy } from "./engine.ts";
 import { workstationPolicy } from "./workstation.ts";
 
-function fixture(t: TestContext): { home: string; root: string } {
+type Fixture = { home: string; root: string };
+
+function fixture(t: TestContext): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-engine-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, "home");
@@ -39,35 +43,40 @@ function fixture(t: TestContext): { home: string; root: string } {
 
 type AuditCheck = AuditPolicy["sections"][number]["checks"][number];
 
-function policy(...checks: AuditCheck[]): AuditPolicy {
+function policy(...checks: Array<AuditCheck>): AuditPolicy {
   return { name: "fixture", summary: "fixture", sections: [{ title: "fixture", checks }] };
 }
 
 const zshrcScan = policy({ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] });
 const quiet = { stdout: () => {}, stderr: () => {} };
 
-function cleanCommand(command: string, args: readonly string[]) {
+function cleanCommand(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
-    const values: Record<string, string> = {
-      "user.name": "Fixture",
-      "user.email": "fixture@example.invalid",
-      "user.signingkey": "fixture-key",
-      "commit.gpgsign": "true",
-    };
-    return { status: values[key ?? ""] ? 0 : 1, stdout: values[key ?? ""] ?? "", stderr: "" };
+    const values = new Map([
+      ["user.name", "Fixture"],
+      ["user.email", "fixture@example.invalid"],
+      ["user.signingkey", "fixture-key"],
+      ["commit.gpgsign", "true"],
+    ]);
+    const value = values.get(key ?? "");
+    return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
-  if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
-  if (command.endsWith("/socketfilterfw"))
+  if (command === "gh") {
+    return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
+  }
+  if (command.endsWith("/socketfilterfw")) {
     return { status: 0, stdout: "Firewall is enabled. (State = 1)\n", stderr: "" };
-  if (command === "gitleaks" && args[0] === "dir")
+  }
+  if (command === "gitleaks" && args[0] === "dir") {
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
+  }
   return { status: 0, stdout: "", stderr: "" };
 }
 
 test("workstation policy is declarative and passes a clean fixture", (t) => {
   const { home, root } = fixture(t);
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(workstationPolicy(root), "json", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -148,13 +157,14 @@ test("typed checks reject unsafe npm auth and SSH key modes", (t) => {
   assert.equal(result.status, 1);
 });
 
+const write = (path: string, text: string) => {
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, text);
+  chmodSync(path, 0o644);
+};
+
 test("workstation flags readable env files, compromised roots, and a disabled firewall", (t) => {
   const { home, root } = fixture(t);
-  const write = (path: string, text: string) => {
-    mkdirSync(join(path, ".."), { recursive: true });
-    writeFileSync(path, text);
-    chmodSync(path, 0o644);
-  };
   write(join(home, "projects/app/.env"), "TOKEN=fixture\n");
   write(join(home, "projects/app/.env.example"), "TOKEN=\n");
   write(join(home, "projects/app/.env.scripts.example"), "TOKEN=\n");
@@ -168,7 +178,7 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
     join(root, "etc/ssl/cert.pem"),
     "=== /C=IN/OU=emSign PKI/O=eMudhra Technologies Limited/CN=emSign ECC Root CA - G3\n",
   );
-  const errors: string[] = [];
+  const errors: Array<string> = [];
   const result = runPolicy(workstationPolicy(root), "text", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -215,7 +225,7 @@ test("secret scan reports only sanitized locators and removes staging data", (t)
   const { home, root } = fixture(t);
   const scratch = join(root, "tmp");
   mkdirSync(scratch);
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(zshrcScan, "text", {
     home,
     env: { HOME: home, TMPDIR: scratch },
@@ -274,7 +284,7 @@ test("secret scans fail closed on invalid reports and incomplete execution", (t)
     [JSON.stringify([{ RuleID: "generic-api-key" }]), 183, new Error("private scanner diagnostic")],
     [JSON.stringify([{ RuleID: "generic-api-key" }]), 0, undefined],
   ] as const) {
-    const output: string[] = [];
+    const output: Array<string> = [];
     const result = runPolicy(zshrcScan, "json", {
       home,
       env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -302,7 +312,7 @@ test("audit follows file symlinks and reports broken links and directory cycles"
   symlinkSync(key, join(home, ".ssh/id_fixture"));
   symlinkSync(join(root, "missing"), join(home, ".ssh/broken"));
   symlinkSync(join(home, ".ssh"), join(home, ".ssh/cycle"));
-  const output: string[] = [];
+  const output: Array<string> = [];
   const result = runPolicy(policy({ kind: "ssh-private-key-modes", path: ".ssh" }), "text", {
     home,
     stdout: (value) => output.push(value),

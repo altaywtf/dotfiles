@@ -8,6 +8,6 @@ export type RawCommandResult = {
 
 export type CommandRunner = (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null },
 ) => Promise<RawCommandResult>;

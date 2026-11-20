@@ -1,17 +1,15 @@
-import { type Harness, HARNESSES } from "./harness.ts";
+import { HARNESSES } from "./harness.ts";
+import type { Harness } from "./harness.ts";
 
-// Ownership-lock algebra shared by the plugin and MCP syncs. Each lock entry
-// records the harness subset the sync owns for one named thing; apply drops
-// stale ownership, keeps ownership for absent CLIs, and merges the remainder.
-type HarnessOwned = { harnesses: readonly Harness[] };
+type HarnessOwned = { harnesses: ReadonlyArray<Harness> };
 
 function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
-  previous: readonly P[],
-  current: readonly C[],
+  previous: ReadonlyArray<P>,
+  current: ReadonlyArray<C>,
   keyOf: (entry: P | C) => string,
-): P[] {
+): Array<P> {
   const currentByKey = new Map(current.map((entry) => [keyOf(entry), entry]));
-  const stale: P[] = [];
+  const stale: Array<P> = [];
 
   for (const owned of previous) {
     const next = currentByKey.get(keyOf(owned));
@@ -29,25 +27,23 @@ function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
 }
 
 function presentHarnessEntries<T extends HarnessOwned>(
-  available: readonly Harness[],
-  entries: readonly T[],
-): T[] {
-  return entries
-    .map((entry) => ({
-      ...entry,
-      harnesses: entry.harnesses.filter((harness) => available.includes(harness)),
-    }))
-    .filter((entry) => entry.harnesses.length > 0);
+  available: ReadonlyArray<Harness>,
+  entries: ReadonlyArray<T>,
+): Array<T> {
+  return entries.flatMap((entry) => {
+    const harnesses = entry.harnesses.filter((harness) => available.includes(harness));
+    return harnesses.length > 0 ? [{ ...entry, harnesses }] : [];
+  });
 }
 
 function retainAbsentEntries<P extends HarnessOwned, C extends HarnessOwned>(
-  available: readonly Harness[],
-  previous: readonly P[],
-  current: readonly C[],
+  available: ReadonlyArray<Harness>,
+  previous: ReadonlyArray<P>,
+  current: ReadonlyArray<C>,
   keyOf: (entry: P | C) => string,
-): P[] {
+): Array<P> {
   const currentByKey = new Map(current.map((entry) => [keyOf(entry), entry]));
-  const leftover: P[] = [];
+  const leftover: Array<P> = [];
 
   for (const owned of previous) {
     const next = currentByKey.get(keyOf(owned));
@@ -66,10 +62,10 @@ function retainAbsentEntries<P extends HarnessOwned, C extends HarnessOwned>(
 }
 
 function mergeLockEntries<T extends HarnessOwned>(
-  current: readonly T[],
-  leftover: readonly T[],
+  current: ReadonlyArray<T>,
+  leftover: ReadonlyArray<T>,
   keyOf: (entry: T) => string,
-): T[] {
+): Array<T> {
   const byKey = new Map(
     current.map((entry) => [keyOf(entry), { ...entry, harnesses: [...entry.harnesses] }]),
   );
@@ -88,14 +84,14 @@ function mergeLockEntries<T extends HarnessOwned>(
   return [...byKey.values()];
 }
 
-// Inputs are validated manifest/lock entries. Persist nextLock only after all
-// apply/remove operations succeed; deferred removals remain owned for retry.
+type OwnershipPlan<T> = { removals: Array<T>; nextLock: (deferred: ReadonlyArray<T>) => Array<T> };
+
 export function planOwnership<T extends HarnessOwned>(options: {
-  previous: readonly T[];
-  selected: readonly T[];
-  available: readonly Harness[];
+  previous: ReadonlyArray<T>;
+  selected: ReadonlyArray<T>;
+  available: ReadonlyArray<Harness>;
   keyOf: (entry: T) => string;
-}): { removals: T[]; nextLock: (deferred: readonly T[]) => T[] } {
+}): OwnershipPlan<T> {
   const { previous, selected, available, keyOf } = options;
   const applied = presentHarnessEntries(available, selected);
   const retained = retainAbsentEntries(available, previous, selected, keyOf);

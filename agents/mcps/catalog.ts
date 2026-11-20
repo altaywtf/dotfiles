@@ -1,7 +1,7 @@
 import { isAbsolute, join } from "node:path";
 import { Schema } from "effect";
 
-import { type AgentLayer } from "../../profiles/model.ts";
+import type { AgentLayer } from "../../profiles/model.ts";
 import { ClosedStruct, decodeOr, decodeOrThrow, readJsonFile } from "../decode.ts";
 import { composeLayers, ManifestHarnesses, SafeName } from "../harness.ts";
 import { readLocalOverlay } from "../local.ts";
@@ -17,7 +17,7 @@ const McpOAuth = ClosedStruct(
     callbackPort: Schema.Number.annotate({ message: CALLBACK_PORT_MESSAGE })
       .check(
         Schema.isInt({ message: CALLBACK_PORT_MESSAGE }),
-        Schema.isBetween({ minimum: 1024, maximum: 65535 }, { message: CALLBACK_PORT_MESSAGE }),
+        Schema.isBetween({ minimum: 1024, maximum: 65_535 }, { message: CALLBACK_PORT_MESSAGE }),
       )
       .annotateKey({ messageMissingKey: CALLBACK_PORT_MESSAGE }),
   },
@@ -66,7 +66,9 @@ export type Mcp = typeof Mcp.Type;
 const McpManifest = Schema.Struct({ mcps: Schema.Unknown });
 
 export function expandHeadersHelper(path: string, home: string | undefined): string {
-  if (!path.startsWith("~/")) return path;
+  if (!path.startsWith("~/")) {
+    return path;
+  }
   if (home === undefined || home.length === 0) {
     throw new Error(`Cannot expand headers helper ${path}: HOME is not set`);
   }
@@ -79,7 +81,7 @@ function readMcp(value: unknown, manifestPath: string): Mcp {
   return decodeOrThrow(Mcp, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
-function parseMcps(value: unknown, manifestPath: string): Mcp[] {
+function parseMcps(value: unknown, manifestPath: string): Array<Mcp> {
   const entries = decodeOr(
     Schema.Array(Schema.Unknown),
     value,
@@ -98,7 +100,7 @@ function parseMcps(value: unknown, manifestPath: string): Mcp[] {
   return mcps;
 }
 
-export function readMcps(manifestPath: string): Mcp[] {
+export function readMcps(manifestPath: string): Array<Mcp> {
   const label = `Invalid MCP manifest at ${manifestPath}`;
   const { mcps } = decodeOr(
     McpManifest,
@@ -113,23 +115,23 @@ export type McpLayer = AgentLayer | "local";
 export function readLayeredMcps(
   repoDir: string,
   profile: string,
-  layers: readonly AgentLayer[],
+  layers: ReadonlyArray<AgentLayer>,
 ): {
-  layers: readonly McpLayer[];
-  mcps: Mcp[];
+  layers: ReadonlyArray<McpLayer>;
+  mcps: Array<Mcp>;
   localPath?: string;
-  localNames?: string[];
+  localNames?: Array<string>;
 } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage MCPs`);
   }
 
-  const manifests = new Map<McpLayer, Mcp[]>();
+  const manifests = new Map<McpLayer, Array<Mcp>>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readMcps(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
 
-  const selected: McpLayer[] = [...layers];
+  const selected: Array<McpLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
   if (local?.document.mcps !== undefined) {
     manifests.set("local", parseMcps(local.document.mcps, local.path));

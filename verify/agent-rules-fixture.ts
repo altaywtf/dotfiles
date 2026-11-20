@@ -11,14 +11,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = join(repoRoot, "chezmoi");
 export const sharedFixtureRules =
   "## General guidelines\n\nFixture shared rule.\n\n### Delivery\n\nShared fixture delivery rule.\n";
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 export function cleanupFixtures(): void {
   for (const path of temporaryDirectories.splice(0)) {
@@ -30,7 +29,9 @@ export function agentRulesCache(home: string): string {
   return join(home, ".local/state/dotfiles/agent-rules.md");
 }
 
-export function createFixture(): { config: string; home: string; root: string } {
+type AgentRulesFixture = { config: string; home: string; root: string };
+
+export function createFixture(): AgentRulesFixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-local-"));
   temporaryDirectories.push(root);
   const home = join(root, "home");
@@ -92,7 +93,7 @@ export function runChezmoi(
 export function runWrapperResult(
   home: string,
   profile = "workstation",
-  extraArgs: readonly string[] = [],
+  extraArgs: ReadonlyArray<string> = [],
 ) {
   return spawnSync(
     join(repoRoot, "bootstrap/apply-dotfiles.ts"),

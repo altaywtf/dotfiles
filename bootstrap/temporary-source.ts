@@ -2,13 +2,13 @@ import { Console, Effect, FileSystem } from "effect";
 import { join } from "node:path";
 import { fail } from "../lib/program.ts";
 
-const xmlEntities: Record<string, string> = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&apos;": "'",
-};
+const xmlEntities = new Map([
+  ["&amp;", "&"],
+  ["&lt;", "<"],
+  ["&gt;", ">"],
+  ["&quot;", '"'],
+  ["&apos;", "'"],
+]);
 
 const updaterUnits = (home: string) => [
   {
@@ -29,17 +29,17 @@ const updaterUnits = (home: string) => [
                     : entity.slice(2, -1),
                 ),
               )
-            : (xmlEntities[entity] ?? entity),
+            : (xmlEntities.get(entity) ?? entity),
         ),
   },
 ];
 
-// A temporary source renders no updater, so it must not take over a home whose
-// updater still runs from an existing persistent checkout.
 export const checkTemporarySource = Effect.fn("checkTemporarySource")(function* (home: string) {
   const fs = yield* FileSystem.FileSystem;
   for (const unit of updaterUnits(home)) {
-    if (!(yield* fs.exists(unit.path))) continue;
+    if (!(yield* fs.exists(unit.path))) {
+      continue;
+    }
     const checkout = unit.checkout(yield* fs.readFileString(unit.path));
     if (checkout !== undefined && (yield* fs.exists(checkout))) {
       return yield* fail(

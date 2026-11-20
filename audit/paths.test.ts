@@ -11,7 +11,7 @@ test("home discovery includes linked config files and reports broken links", () 
     writeFileSync(join(root, "config"), "fixture");
     symlinkSync(join(root, "config"), join(root, ".zshrc"));
     symlinkSync(join(root, "absent"), join(root, ".broken"));
-    const skipped: string[] = [];
+    const skipped: Array<string> = [];
     assert.deepEqual(
       resolveSources(root, [{ kind: "home-dotfiles" }], (path) => skipped.push(path)),
       [join(root, ".zshrc")],

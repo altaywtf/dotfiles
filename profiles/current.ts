@@ -1,9 +1,8 @@
 import { Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { readProfileModelEffect, requireProfile } from "./model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModelPath = resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 
 export class ProfileResolutionError extends Schema.TaggedError<ProfileResolutionError>()(
@@ -67,7 +66,6 @@ function profileMarkerPath(env: NodeJS.ProcessEnv): string {
   return env.DOTFILES_PROFILE_FILE || join(env.HOME || "", ".config/dotfiles/profile");
 }
 
-// None only when no marker exists; an unsafe marker fails.
 const readRecordedProfile = Effect.fn("readRecordedProfile")(function* (
   env: NodeJS.ProcessEnv,
   expectedUid: number | undefined,
@@ -110,7 +108,9 @@ export const resolveProfile = Effect.fn("resolveProfile")(function* (
   let candidate = requested;
   if (!candidate) {
     const recorded = yield* readRecordedProfile(env, expectedUid);
-    if (Option.isSome(recorded)) return recorded.value;
+    if (Option.isSome(recorded)) {
+      return recorded.value;
+    }
     candidate = env.DOTFILES_PROFILE;
   }
   if (!candidate?.trim()) {

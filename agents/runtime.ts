@@ -17,7 +17,7 @@ type RunOptions = {
 };
 
 export type Writer = {
-  write(message: string): unknown;
+  write(message: string): void;
 };
 
 export type Runtime = {
@@ -26,7 +26,7 @@ export type Runtime = {
   stdout: Writer;
   stderr: Writer;
   commandExists(command: string): boolean;
-  run(command: string, args: readonly string[], options?: RunOptions): CommandResult;
+  run(command: string, args: ReadonlyArray<string>, options?: RunOptions): CommandResult;
 };
 
 function stream(mode: StreamMode | undefined): "ignore" | "inherit" | "pipe" {
@@ -42,7 +42,7 @@ function isExecutable(path: string): boolean {
   }
 }
 
-function executableNames(command: string, env: NodeJS.ProcessEnv): string[] {
+function executableNames(command: string, env: NodeJS.ProcessEnv): Array<string> {
   if (process.platform !== "win32") {
     return [command];
   }

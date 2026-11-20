@@ -13,7 +13,7 @@ import { Option, Schema } from "effect";
 
 import { decodeOr, readJsonFile } from "./decode.ts";
 
-export function readLockFile(lockPath: string, label: string): unknown {
+export function readLockFile(lockPath: string, label: string): Schema.Json | undefined {
   if (!existsSync(lockPath)) {
     return undefined;
   }
@@ -33,19 +33,15 @@ export function writeLockFile(lockPath: string, value: unknown): void {
   }
 }
 
-// Ownership outlives the checkout: provisioning can apply from a temporary clone
-// that is deleted afterwards, and a lost lock would strand retired assets.
 export function managedLockLocation(env: NodeJS.ProcessEnv, kind: LockKind): string {
-  if (!env.HOME) throw new Error(`HOME is required to locate the managed ${kind} lock`);
-  // Fixed under HOME like update receipts: the scheduled updater does not inherit
-  // a shell-only XDG_STATE_HOME, and both must read the same ownership.
+  if (!env.HOME) {
+    throw new Error(`HOME is required to locate the managed ${kind} lock`);
+  }
   return join(env.HOME, ".local/state/dotfiles/agents", `${kind}.lock.json`);
 }
 
 type LockKind = "skills" | "plugins" | "mcps";
 
-// Syncs from different checkouts share the per-user lock, so each holds it for
-// the whole read, host change, and write.
 export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync: () => T): T {
   const directory = dirname(managedLockLocation(env, kind));
   mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -59,7 +55,6 @@ export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync:
   }
 }
 
-// Overlay-owned names per checkout that installed them.
 const OverlayOwnership = Schema.Record(Schema.String, Schema.Array(Schema.String));
 export type OverlayOwnership = typeof OverlayOwnership.Type;
 
@@ -78,18 +73,22 @@ export function readOverlayOwnership(lockPath: string): OverlayOwnership | undef
   );
 }
 
-// The local overlay is checkout-local while the lock is per user: a sync keeps
-// what other existing checkouts' overlays installed and owns only its own.
+type OverlayGuard = {
+  readonly kept: ReadonlySet<string>;
+  readonly next: OverlayOwnership | undefined;
+};
+
 export function guardOverlay(
   previous: OverlayOwnership | undefined,
   repoDir: string,
-  overlayNames: readonly string[] | undefined,
-): { readonly kept: ReadonlySet<string>; readonly next: OverlayOwnership | undefined } {
+  overlayNames: ReadonlyArray<string> | undefined,
+): OverlayGuard {
   const checkout = realpathSync(repoDir);
   const others = Object.entries(previous ?? {}).filter(
     ([path]) => path !== checkout && existsSync(path),
   );
-  const entries = overlayNames === undefined ? others : [...others, [checkout, [...overlayNames]]];
+  const entries =
+    overlayNames === undefined ? others : others.concat([[checkout, [...overlayNames]]]);
   return {
     kept: new Set(others.flatMap(([, names]) => names)),
     next: entries.length > 0 ? Object.fromEntries(entries) : undefined,

@@ -3,7 +3,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Predicate, Schema } from "effect";
 import { CommandRunner } from "../lib/command.ts";
@@ -14,7 +13,7 @@ import { cleanRepository, discoverRepositories, openFiles } from "./repositories
 
 type Entry = { target: string; result: string };
 
-const interval = 3 * 86400_000;
+const interval = 3 * 86_400_000;
 const State = Schema.Struct({
   lastRun: Schema.Number,
   lastCache: Schema.Number,
@@ -24,17 +23,17 @@ const State = Schema.Struct({
   ),
 });
 type State = typeof State.Type;
-export function readState(statePath: string): { state: State; recovered: boolean } {
+type LoadedState = { state: State; recovered: boolean };
+
+export function readState(statePath: string): LoadedState {
   const empty: State = { lastRun: 0, lastCache: 0, candidates: {} };
   let text: string;
   try {
     text = readFileSync(statePath, "utf8");
   } catch (error) {
-    // Only a missing file is an empty state. Any other read failure (EACCES,
-    // EIO, EISDIR) must not silently restart grace periods or bypass the
-    // scheduled interval, so it propagates and fails the run.
-    if (Predicate.hasProperty(error, "code") && error.code === "ENOENT")
+    if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") {
       return { state: empty, recovered: false };
+    }
     throw error;
   }
   try {
@@ -43,8 +42,6 @@ export function readState(statePath: string): { state: State; recovered: boolean
       recovered: false,
     };
   } catch {
-    // Undecodable state only restarts every grace period and the cache
-    // interval — strictly conservative — instead of failing every later run.
     return { state: empty, recovered: true };
   }
 }
@@ -60,31 +57,30 @@ export async function hygiene(
   const directory = join(home, ".local/state/dotfiles");
   const statePath = join(directory, "hygiene.json");
   const { state, recovered } = readState(statePath);
-  if (recovered)
-    console.error(
-      `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}`,
+  if (recovered) {
+    process.stderr.write(
+      `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}\n`,
     );
+  }
   if (scheduled && now >= state.lastRun && now - state.lastRun < interval) {
-    console.log("Host hygiene: next run is not due.");
+    process.stdout.write("Host hygiene: next run is not due.\n");
     return;
   }
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   let release: () => void;
-  // A lock left by a dead or pre-reboot process is reclaimed automatically;
-  // a live or ambiguous owner still fails the run for inspection.
   try {
     release = acquireDirectoryLock(join(directory, "hygiene.lock"));
-  } catch (cause) {
-    throw new Error("hygiene lock exists; check for an active or interrupted cleanup", { cause });
+  } catch (error) {
+    throw new Error("hygiene lock exists; check for an active or interrupted cleanup", {
+      cause: error,
+    });
   }
   try {
-    // Eligibility rests entirely on the per-worktree checks below, which retain
-    // anything dirty, busy, protected, detached, or not yet in the remote default.
     const roots = [".codex/worktrees", ".claude/worktrees", "projects"].map((path) =>
       join(home, path),
     );
     const next: Record<string, { head: string; since: number }> = {};
-    const reports: Record<string, Entry[]> = {};
+    const reports: Record<string, Array<Entry>> = {};
     let failed = false;
     const activity = () => openFiles(home);
     for (const repo of discoverRepositories(join(home, "projects"))) {
@@ -109,7 +105,7 @@ export async function hygiene(
           { signal },
         )
       : { status: 0, stdout: "Cache cleanup is not due." };
-    console.log(cache.stdout);
+    process.stdout.write(`${cache.stdout}\n`);
     failed ||= cache.status !== 0;
     const logs = apply ? capLogs(logDirectory(home)) : [];
     failed ||= logs.some((entry) => entry.result.startsWith("log cap failed"));
@@ -125,7 +121,7 @@ export async function hygiene(
       null,
       2,
     );
-    console.log(report);
+    process.stdout.write(`${report}\n`);
     if (apply) {
       writeFileSync(dailyLog(home, "hygiene", now), `${cache.stdout}\n${report}\n`, {
         flag: "a",
@@ -143,13 +139,15 @@ export async function hygiene(
       );
       renameSync(temporary, statePath);
     }
-    if (failed) throw new Error("some hygiene checks failed; inspect the report");
+    if (failed) {
+      throw new Error("some hygiene checks failed; inspect the report");
+    }
   } finally {
     release();
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const controller = new AbortController();
   let interrupted: "SIGINT" | "SIGTERM" | undefined;
   const interrupt = (signal: "SIGINT" | "SIGTERM") => {
@@ -176,13 +174,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     );
   } catch (error) {
     if (!interrupted) {
-      console.error(error instanceof Error ? error.message : "hygiene failed");
+      process.stderr.write(`${error instanceof Error ? error.message : "hygiene failed"}\n`);
       process.exitCode = 1;
     }
   } finally {
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
-    // Preserve signal termination after the Effect scopes and hygiene lock close.
-    if (interrupted) process.kill(process.pid, interrupted);
+    if (interrupted) {
+      process.kill(process.pid, interrupted);
+    }
   }
 }

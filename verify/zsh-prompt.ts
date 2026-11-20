@@ -26,7 +26,9 @@ const program = Effect.scoped(
       "cat",
       join(home, ".zshrc"),
     ]);
-    if (rendered.status !== 0) return yield* fail(rendered.stderr);
+    if (rendered.status !== 0) {
+      return yield* fail(rendered.stderr);
+    }
     const zshrc = join(home, ".zshrc.rendered");
     yield* fs.writeFileString(zshrc, rendered.stdout);
     for (const path of [
@@ -37,21 +39,22 @@ const program = Effect.scoped(
       ".local/share/mise/shims",
       "fake-tools",
       "repo",
-    ])
+    ]) {
       yield* fs.makeDirectory(join(home, path), { recursive: true });
-    // .zshrc fronts the shims ahead of Homebrew, so a host mise cannot win there.
-    for (const dir of ["fake-tools", ".local/share/mise/shims"])
+    }
+    for (const dir of ["fake-tools", ".local/share/mise/shims"]) {
       yield* fs.writeFileString(
         join(home, dir, "mise"),
         '#!/bin/sh\n[ "$1" = activate ] && echo "$*" >> "$HOME/mise-activate.log"\nexit 0\n',
         { mode: 0o755 },
       );
+    }
     yield* runner.run("git", ["-C", join(home, "repo"), "init", "-q"]);
     yield* runner.run("git", ["-C", join(home, "repo"), "symbolic-ref", "HEAD", "refs/heads/demo"]);
     const check = Effect.fn("zshPromptCheck")(function* (
       code: string,
       env: Readonly<Record<string, string>>,
-      args: readonly string[] = [],
+      args: ReadonlyArray<string> = [],
     ) {
       const result = yield* runner.run("/usr/bin/env", [
         "-i",
@@ -62,7 +65,9 @@ const program = Effect.scoped(
         "zsh",
         zshrc,
       ]);
-      if (result.status !== 0) return yield* fail(result.stderr || code);
+      if (result.status !== 0) {
+        return yield* fail(result.stderr || code);
+      }
     });
     yield* check("(( ${path[(Ie)$HOME/.local/bin]} > 0 ))", { HOME: home, PATH: "/usr/bin:/bin" }, [
       "-dlc",
@@ -74,7 +79,7 @@ const program = Effect.scoped(
       ["-dlc"],
     );
     yield* check(
-      'source "$1" 2>/dev/null; [[ -o promptsubst ]]; cd "$HOME/repo"; helper="$(devbox_git_prompt_info)"; [[ "$helper" == *demo* ]]; rendered="$(print -P -- "$PROMPT")"; [[ "$rendered" == *demo* ]]; [[ "$rendered" != *"\\$(devbox_git_prompt_info)"* ]]',
+      String.raw`source "$1" 2>/dev/null; [[ -o promptsubst ]]; cd "$HOME/repo"; helper="$(devbox_git_prompt_info)"; [[ "$helper" == *demo* ]]; rendered="$(print -P -- "$PROMPT")"; [[ "$rendered" == *demo* ]]; [[ "$rendered" != *"\$(devbox_git_prompt_info)"* ]]`,
       { HOME: home, PATH: "/usr/bin:/bin", SSH_CONNECTION: "test", TERM: "xterm-256color" },
       ["-dfc"],
     );
@@ -101,10 +106,13 @@ const program = Effect.scoped(
       ["-i", `HOME=${home}`, `PATH=${inheritedPath}`, "/bin/zsh", "-dfi"],
       { stdin: new TextEncoder().encode(`source ${zshrc} 2>/dev/null\nexit\n`) },
     );
-    if (promptShell.status !== 0) return yield* fail(promptShell.stderr);
+    if (promptShell.status !== 0) {
+      return yield* fail(promptShell.stderr);
+    }
     const promptActivation = yield* fs.readFileString(activateLog);
-    if (promptActivation.trim() !== "activate zsh")
+    if (promptActivation.trim() !== "activate zsh") {
       return yield* fail(`prompt shell ran: ${promptActivation}`);
+    }
     const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
     yield* fs.makeDirectory(join(home, ".local/state/dotfiles/updates"), { recursive: true });
     yield* fs.writeFileString(receipt, "{}");

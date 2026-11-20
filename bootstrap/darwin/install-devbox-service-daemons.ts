@@ -49,7 +49,7 @@ type ServiceContext = {
   readonly namespace: string;
 };
 const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
-  argv: readonly string[],
+  argv: ReadonlyArray<string>,
 ) {
   const values = {
     user: "",
@@ -62,11 +62,12 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   const args = [...argv];
   const take = (flag: string): string => {
     const value = args.shift();
-    if (!value) throw new CliFailure({ exitCode: 1, message: `${flag} requires a value` });
+    if (!value) {
+      throw new CliFailure({ exitCode: 1, message: `${flag} requires a value` });
+    }
     return value;
   };
-  while (args.length > 0) {
-    const flag = args.shift()!;
+  for (let flag = args.shift(); flag !== undefined; flag = args.shift()) {
     switch (flag) {
       case "--user":
         values.user = take(flag);
@@ -98,31 +99,35 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   const options = yield* Schema.decodeUnknownEffect(InstallerOptions)(values).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
   );
-  if (!/^[A-Za-z0-9._-]+$/.test(options.user))
+  if (!/^[A-Za-z0-9._-]+$/.test(options.user)) {
     return yield* fail(`unsupported user name: ${options.user}`);
-  if (options.softwareUpdates !== Boolean(options.updatesRepository))
+  }
+  if (options.softwareUpdates !== Boolean(options.updatesRepository)) {
     return yield* fail("--software-updates requires --updates-repository PATH");
+  }
   return options;
 });
 
-const run = (command: string, args: readonly string[] = [], inherit = false) =>
+const run = (command: string, args: ReadonlyArray<string> = [], inherit = false) =>
   runCommand(command, args, { output: inherit ? "inherit" : "capture" });
 
 const checked = Effect.fn("runCheckedServiceCommand")(function* (
   command: string,
-  args: readonly string[] = [],
-  inherit = false,
+  args: ReadonlyArray<string> = [],
+  inherit: boolean = false,
 ) {
   const result = yield* run(command, args, inherit);
-  if (result.status !== 0)
+  if (result.status !== 0) {
     return yield* fail(`${command} ${args.join(" ")} exited ${result.status}`);
+  }
   return result;
 });
 
 const resolveTarget = Effect.fn("resolveServiceTarget")(function* (user: string) {
   const uidResult = yield* run("/usr/bin/id", ["-u", user]);
-  if (uidResult.status !== 0 || !/^\d+$/.test(uidResult.stdout.trim()))
+  if (uidResult.status !== 0 || !/^\d+$/.test(uidResult.stdout.trim())) {
     return yield* fail(`unknown user: ${user}`);
+  }
   const group = yield* checked("/usr/bin/id", ["-gn", user]);
   const homeResult = yield* checked("/usr/bin/dscl", [
     ".",
@@ -133,8 +138,9 @@ const resolveTarget = Effect.fn("resolveServiceTarget")(function* (user: string)
   const home = homeResult.stdout.trim().split(/\s+/).at(-1) || "";
   const fs = yield* FileSystem.FileSystem;
   const info = yield* fs.stat(home).pipe(Effect.option);
-  if (!home || Option.isNone(info) || info.value.type !== "Directory")
+  if (!home || Option.isNone(info) || info.value.type !== "Directory") {
     return yield* fail(`missing home for ${user}`);
+  }
   return {
     user,
     uid: Number(uidResult.stdout.trim()),
@@ -156,7 +162,9 @@ const findExecutable = Effect.fn("findServiceExecutable")(function* (target: Tar
     `/opt/homebrew/bin/${name}`,
     `/usr/local/bin/${name}`,
   ]) {
-    if (yield* executable(path)) return path;
+    if (yield* executable(path)) {
+      return path;
+    }
   }
   return undefined;
 });
@@ -164,22 +172,24 @@ const findExecutable = Effect.fn("findServiceExecutable")(function* (target: Tar
 const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function* (
   target: Target,
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
 ) {
   const uid = process.getuid?.() ?? -1;
-  if (uid === target.uid) return yield* checked(command, args);
-  if (uid === 0)
+  if (uid === target.uid) {
+    return yield* checked(command, args);
+  }
+  if (uid === 0) {
     return yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", command, ...args], {
       cwd: target.home,
     });
+  }
   return yield* fail(`run this step as root or ${target.user}`);
 });
 
-// The target owns this directory, so write it as the target: root must not follow its symlinks.
 const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context: ServiceContext) {
   yield* runAsTarget(context.target, "/bin/sh", [
     "-c",
-    'set -eu; umask 077; mkdir -p "$1"; chmod 0700 "$1"; tmp=$(mktemp "$1/.launchd-namespace.XXXXXX"); printf "%s\\n" "$2" > "$tmp"; mv -f "$tmp" "$1/launchd-namespace"',
+    String.raw`set -eu; umask 077; mkdir -p "$1"; chmod 0700 "$1"; tmp=$(mktemp "$1/.launchd-namespace.XXXXXX"); printf "%s\n" "$2" > "$tmp"; mv -f "$tmp" "$1/launchd-namespace"`,
     "persist-launchd-namespace",
     join(context.target.home, ".config/dotfiles"),
     context.namespace,
@@ -188,7 +198,9 @@ const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context
 
 const program = Effect.gen(function* () {
   const options = yield* parseArguments(process.argv.slice(2));
-  if (!options) return;
+  if (!options) {
+    return;
+  }
   let namespace = yield* Effect.try({
     try: () => resolveLaunchdNamespace(options.namespace),
     catch: (error) => error,
@@ -196,18 +208,23 @@ const program = Effect.gen(function* () {
   if (options.printLabels) {
     if (process.platform === "darwin") {
       const target = yield* resolveTarget(options.user).pipe(Effect.option);
-      if (Option.isSome(target))
+      if (Option.isSome(target)) {
         namespace = yield* resolveLaunchdNamespaceContract(
           options.namespace,
           join(target.value.home, ".config/dotfiles/launchd-namespace"),
           target.value.uid,
         );
+      }
     }
     yield* Console.log(launchdLabel("software-update", options.user, namespace));
     return;
   }
-  if (process.platform !== "darwin") return yield* fail("this installer supports macOS only");
-  if (!options.softwareUpdates) return yield* fail("select at least one service");
+  if (process.platform !== "darwin") {
+    return yield* fail("this installer supports macOS only");
+  }
+  if (!options.softwareUpdates) {
+    return yield* fail("select at least one service");
+  }
   const target = yield* resolveTarget(options.user);
   namespace = yield* resolveLaunchdNamespaceContract(
     options.namespace,
@@ -215,7 +232,9 @@ const program = Effect.gen(function* () {
     target.uid,
   );
   const node = yield* findExecutable(target, "node");
-  if (!node) return yield* fail(`missing Node for ${target.user}`);
+  if (!node) {
+    return yield* fail(`missing Node for ${target.user}`);
+  }
   const resolvedNode = (yield* runAsTarget(target, node, ["-p", "process.execPath"])).stdout.trim();
   yield* installUpdateJobs({
     target,
@@ -224,8 +243,12 @@ const program = Effect.gen(function* () {
     namespace,
     check: options.check,
   });
-  if (options.check) return;
-  if ((process.getuid?.() ?? -1) !== 0) return yield* fail("run this installer as root");
+  if (options.check) {
+    return;
+  }
+  if ((process.getuid?.() ?? -1) !== 0) {
+    return yield* fail("run this installer as root");
+  }
   yield* persistNamespace({ target, namespace });
   yield* Console.log("devbox service daemon installation ok");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

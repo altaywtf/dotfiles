@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
 import { parseCatalog, pickInstallTarget, satisfiesPin } from "./xcode.ts";
 
@@ -54,9 +55,10 @@ function xcodeFixture(
   mkdirSync(bin);
   writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release, build })}\n`);
   writeFileSync(join(home, "installed.txt"), installed);
-  for (const [name, script] of Object.entries({ xcodes, ...extraBin }))
+  for (const [name, script] of Object.entries({ xcodes, ...extraBin })) {
     writeFileSync(join(bin, name), script, { mode: 0o755 });
-  const run = (args: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) =>
+  }
+  const run = (args: Array<string>, options: { input?: string; env?: NodeJS.ProcessEnv } = {}) =>
     spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts"), ...args], {
       encoding: "utf8",
       input: options.input,

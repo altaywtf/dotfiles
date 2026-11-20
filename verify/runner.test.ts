@@ -11,25 +11,25 @@ import { runChecks } from "./run.ts";
 test("verification reports completed checks before a stalled child and cleans it up", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runner-"));
   const pidFile = join(root, "pid");
-  const output: string[] = [];
+  const output: Array<string> = [];
   let failedBeforeTermination = false;
-  const errorWrite = vi.spyOn(process.stderr, "write").mockImplementation(function (
-    chunk: string | Uint8Array,
-  ) {
-    const text = String(chunk);
-    output.push(text);
-    if (text.includes("FAILED: quick")) {
-      if (existsSync(pidFile)) {
-        try {
-          process.kill(Number(readFileSync(pidFile, "utf8")), 0);
-          failedBeforeTermination = true;
-        } catch {
-          failedBeforeTermination = false;
+  const errorWrite = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk: string | Uint8Array) => {
+      const text = String(chunk);
+      output.push(text);
+      if (text.includes("FAILED: quick")) {
+        if (existsSync(pidFile)) {
+          try {
+            process.kill(Number(readFileSync(pidFile, "utf8")), 0);
+            failedBeforeTermination = true;
+          } catch {
+            failedBeforeTermination = false;
+          }
         }
       }
-    }
-    return true;
-  });
+      return true;
+    });
   try {
     const started = Date.now();
     const result = await Effect.runPromise(
@@ -91,7 +91,7 @@ test("verification reports completed checks before a stalled child and cleans it
 test("verification bounds active checks and drains queued checks after failure", async () => {
   let active = 0;
   let peak = 0;
-  const completed: string[] = [];
+  const completed: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) =>
       Effect.gen(function* () {

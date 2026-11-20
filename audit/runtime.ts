@@ -13,18 +13,17 @@ export type CommandOptions = {
   input?: "inherit" | "pipe";
   timeoutMs?: number;
   maxBuffer?: number;
-  // Fail instead of substituting U+FFFD for bytes that are not UTF-8.
   strictUtf8?: boolean;
 };
 export type CommandRunner = (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options?: CommandOptions,
 ) => CommandResult;
 
 export function runCommand(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: CommandOptions = {},
 ): CommandResult {
   const output = options.output === "discard" ? "ignore" : "pipe";
@@ -46,12 +45,12 @@ export function runCommand(
   try {
     const stdout = new TextDecoder("utf-8", { fatal: true }).decode(result.stdout ?? undefined);
     return { status: result.status, stdout, stderr, error: result.error };
-  } catch (cause) {
+  } catch (error) {
     return {
       status: result.status,
       stdout: "",
       stderr,
-      error: result.error ?? new Error(`${command} output is not valid UTF-8`, { cause }),
+      error: result.error ?? new Error(`${command} output is not valid UTF-8`, { cause: error }),
     };
   }
 }
@@ -75,7 +74,7 @@ export type AuditDependencies = {
 
 export function runPolicyCommand(
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: CommandOptions = {},
 ): CommandResult {
   return runCommand(command, args, { ...options, input: "pipe" });

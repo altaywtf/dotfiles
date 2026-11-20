@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import { NodeServices } from "@effect/platform-node";
 import { checkDevboxPhotoAnalysis, disableDevboxPhotoAnalysis } from "./photo-analysis.ts";
 
@@ -18,7 +18,7 @@ function run<A, E>(
 }
 
 function launchctlRunner(loaded: boolean, bootoutStatus = 0) {
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
@@ -52,14 +52,14 @@ test("Photos analysis policy reports a rejected launchctl change", async () => {
     disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(Effect.flip),
     runner,
   );
-  assert.ok(failure instanceof CliFailure);
+  assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
 
 for (const profile of profiles) {
   for (const platform of ["darwin", "linux"] as const) {
     test(`Photos verification boundary: ${profile} on ${platform}`, async () => {
-      const calls: string[][] = [];
+      const calls: Array<Array<string>> = [];
       const runner = CommandRunner.of({
         run: (command, args = []) => {
           calls.push([command, ...args]);

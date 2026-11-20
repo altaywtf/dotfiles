@@ -4,19 +4,19 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
 import { main } from "./mcps.ts";
 import { HARNESSES } from "./harness.ts";
-import { type Runtime } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
+import { Schema } from "effect";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureFailure = {
@@ -33,10 +33,11 @@ type FixtureResult = {
 type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   outputs?: ReadonlyMap<string, string>;
-  // Consumed one result per call for commands whose outcome changes between calls.
-  sequences?: ReadonlyMap<string, FixtureResult[]>;
+  sequences?: ReadonlyMap<string, Array<FixtureResult>>;
   profile?: string;
 };
+
+type FakeResult = { status: number; stdout: string; stderr: string };
 
 class BufferWriter {
   value = "";
@@ -50,11 +51,11 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
-  readonly sequences: Map<string, FixtureResult[]>;
+  readonly sequences: Map<string, Array<FixtureResult>>;
   readonly profile: string;
   readonly repoDir: string;
 
@@ -71,10 +72,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(
-    command: string,
-    args: readonly string[],
-  ): { status: number; stdout: string; stderr: string } {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -90,9 +88,9 @@ class FixtureRuntime implements Runtime {
     }
 
     const key = `${command} ${args.join(" ")}`;
-    const sequence = this.sequences.get(key);
-    if (sequence !== undefined && sequence.length > 0) {
-      return sequence.shift() as FixtureResult;
+    const next = this.sequences.get(key)?.shift();
+    if (next !== undefined) {
+      return next;
     }
 
     const diagnostic = this.failures.get(key);
@@ -103,7 +101,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSharedMcps = [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }];
 
@@ -117,7 +115,18 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string; home: string } {
+const JsonRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
+const LockedMcps = Schema.fromJsonString(
+  Schema.Struct({
+    mcps: Schema.Array(
+      Schema.Struct({ name: Schema.String, harnesses: Schema.Array(Schema.String) }),
+    ),
+  }),
+);
+
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-mcps-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");
@@ -146,7 +155,7 @@ function writeManifest(repoDir: string, layer: string, mcps: unknown): void {
   );
 }
 
-function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
+function harnessCalls(runtime: FixtureRuntime, binary: string): Array<string> {
   return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
@@ -226,7 +235,7 @@ function writeClaudeConfig(home: string, headersHelper?: string): void {
   const entry = {
     type: "http",
     url: "https://auth.fixture.test/mcp",
-    ...(headersHelper ? { headersHelper } : {}),
+    headersHelper: headersHelper || undefined,
   };
   writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { "auth-mcp": entry } }));
 }
@@ -494,12 +503,11 @@ test("prunes dropped mcps on present harnesses and defers absent ones until thei
     harnessCalls(runtime, binary).filter((call) => call.startsWith("mcp remove "));
   const lockedHarnesses = () =>
     Object.fromEntries(
-      JSON.parse(readFileSync(mcpLockPath(home), "utf8")).mcps.map(
-        (mcp: { name: string; harnesses: string[] }) => [mcp.name, [...mcp.harnesses].sort()],
+      Schema.decodeUnknownSync(LockedMcps)(readFileSync(mcpLockPath(home), "utf8")).mcps.map(
+        (mcp) => [mcp.name, [...mcp.harnesses].sort()],
       ),
     );
 
-  // Selected Claude mcps already match, so every remove is an ownership prune.
   const outputs = new Map(
     [
       ["shared-mcp", "https://mcp.fixture.test/mcp"],
@@ -548,10 +556,10 @@ test("prunes from a lock written under the old servers key and rewrites it as mc
 
   assert.equal(main([], runtime), 0);
   assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
-  const lock = JSON.parse(readFileSync(mcpLockPath(home), "utf8"));
-  assert.equal("servers" in lock, false);
+  const raw = Schema.decodeUnknownSync(JsonRecord)(readFileSync(mcpLockPath(home), "utf8"));
+  assert.equal("servers" in raw, false);
   assert.deepEqual(
-    lock.mcps.map((mcp: { name: string }) => mcp.name),
+    Schema.decodeUnknownSync(LockedMcps.to)(raw).mcps.map((mcp) => mcp.name),
     ["shared-mcp"],
   );
 });
@@ -624,7 +632,7 @@ test.each([
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "mcps.ts");
+  const scriptPath = join(import.meta.dirname, "mcps.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
@@ -648,7 +656,7 @@ test("another checkout without the overlay keeps overlay-owned mcps", () => {
     false,
   );
   assert.ok(
-    (JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as { mcps: { name: string }[] }).mcps.some(
+    Schema.decodeUnknownSync(LockedMcps)(readFileSync(mcpLockPath(home), "utf8")).mcps.some(
       (mcp) => mcp.name === "machine-mcp",
     ),
   );
@@ -680,10 +688,8 @@ test("a checkout selecting another checkout's overlay mcp keeps both harness set
   const runtime = new FixtureRuntime(other, home);
   assert.equal(main([], runtime), 0);
   assert.equal(harnessCalls(runtime, "claude").includes("mcp remove -s user machine-mcp"), false);
-  const locked = (
-    JSON.parse(readFileSync(mcpLockPath(home), "utf8")) as {
-      mcps: { name: string; harnesses: string[] }[];
-    }
+  const locked = Schema.decodeUnknownSync(LockedMcps)(
+    readFileSync(mcpLockPath(home), "utf8"),
   ).mcps.find((mcp) => mcp.name === "machine-mcp");
   assert.deepEqual(locked?.harnesses, ["claude", "codex"]);
 });

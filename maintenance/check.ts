@@ -5,21 +5,19 @@ import { parse as parseToml } from "smol-toml";
 import { Effect, Option, Predicate, Schema } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { managedLockLocation } from "../agents/lock.ts";
 import { readLayeredSkills, readSkillLock } from "../agents/skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 
-import { type ProfileConfig, readProfileModel, requireProfile } from "../profiles/model.ts";
-import {
-  collectMacOSUpdateInventory,
-  defaultMacOSUpdateIO,
-  type MacOSUpdateIO,
-  type MacOSUpdateInventory,
-} from "./darwin/macos-updates.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import type { ProfileConfig } from "../profiles/model.ts";
+import { collectMacOSUpdateInventory, defaultMacOSUpdateIO } from "./darwin/macos-updates.ts";
+import type { MacOSUpdateIO, MacOSUpdateInventory } from "./darwin/macos-updates.ts";
 
-import { probe, runProbe, runProcess, type Probe, type ProbeResult } from "./probes.ts";
+import { probe, runProbe, runProcess } from "./probes.ts";
+import type { Probe, ProbeResult } from "./probes.ts";
 import { dropInvalid } from "./schema.ts";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
 export type { CommandRunner, RawCommandResult } from "./command.ts";
@@ -56,7 +54,7 @@ const BrewOutdated = Schema.Struct({
 });
 
 type BrewBacklog = typeof BrewOutdated.Type & {
-  record_lag?: BrewItem[];
+  record_lag?: Array<BrewItem>;
   cask_verification?: Array<{
     name: string;
     status: "record_lag" | "pending" | "unknown";
@@ -64,7 +62,7 @@ type BrewBacklog = typeof BrewOutdated.Type & {
   }>;
 };
 
-const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const JsonObject = Schema.Record(Schema.String, Schema.Json);
 
 function decodeJsonOutput<S extends Schema.Decoder<unknown>>(
   schema: S,
@@ -73,8 +71,8 @@ function decodeJsonOutput<S extends Schema.Decoder<unknown>>(
 ): S["Type"] {
   try {
     return Schema.decodeUnknownSync(Schema.fromJsonString(schema))(contents);
-  } catch (cause) {
-    throw new Error(message, { cause });
+  } catch (error) {
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -113,8 +111,8 @@ function misePins(path: string): Record<string, string> {
         Predicate.isString(pin) ? pin : pin.version,
       ]),
     );
-  } catch (cause) {
-    throw new Error(`cannot inspect mise pins in ${path}`, { cause });
+  } catch (error) {
+    throw new Error(`cannot inspect mise pins in ${path}`, { cause: error });
   }
 }
 
@@ -133,8 +131,8 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
     inventory = Schema.decodeUnknownSync(Schema.fromJsonString(MiseInstallInventory))(
       result.stdout,
     );
-  } catch (cause) {
-    throw new Error("mise returned an invalid installed pin inventory", { cause });
+  } catch (error) {
+    throw new Error("mise returned an invalid installed pin inventory", { cause: error });
   }
   const pending: Record<
     string,
@@ -144,8 +142,9 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
     const selection = inventory[tool]?.find(
       (entry) => entry.requested_version === configured[tool],
     );
-    if (configured[tool] && !selection)
+    if (configured[tool] && !selection) {
       throw new Error(`mise did not report the configured installation of ${tool}`);
+    }
     if (configured[tool] !== pin || !selection?.installed) {
       pending[tool] = {
         declared: pin,
@@ -179,8 +178,8 @@ const CaskInventory = Schema.Struct({
 
 function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBacklog {
   const apps = Schema.is(CaskInventory)(inventory) ? inventory.casks : [];
-  const record_lag: BrewItem[] = [];
-  const casks: BrewItem[] = [];
+  const record_lag: Array<BrewItem> = [];
+  const casks: Array<BrewItem> = [];
   const cask_verification = backlog.casks.map((item) => {
     const app = apps.find((entry) => entry.token === item.name || entry.full_token === item.name);
     const short = app?.bundle_short_version;
@@ -192,7 +191,14 @@ function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBa
     const status =
       app_version === item.current_version ? "record_lag" : app_version ? "pending" : "unknown";
     (status === "record_lag" ? record_lag : casks).push(item);
-    return { name: item.name, status, ...(app_version ? { app_version } : {}) } as const;
+    const verification: NonNullable<BrewBacklog["cask_verification"]>[number] = {
+      name: item.name,
+      status,
+    };
+    if (app_version) {
+      verification.app_version = app_version;
+    }
+    return verification;
   });
   return { ...backlog, casks, record_lag, cask_verification };
 }
@@ -208,13 +214,16 @@ function firstLine(result: RawCommandResult): string {
 
 function parseDisk(result: RawCommandResult) {
   const fields = result.stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
-  if (fields.length < 6) throw new Error("df returned an unsupported shape");
+  const mount = fields.at(-1);
+  if (fields.length < 6 || mount === undefined) {
+    throw new Error("df returned an unsupported shape");
+  }
   return {
     total_kb: Number(fields[1]),
     used_kb: Number(fields[2]),
     available_kb: Number(fields[3]),
     capacity: fields[4],
-    mount: fields.at(-1),
+    mount,
   };
 }
 
@@ -259,8 +268,8 @@ function parseContentCaches(result: RawCommandResult) {
   let locator: typeof CacheLocator.Type;
   try {
     locator = Schema.decodeUnknownSync(Schema.fromJsonString(CacheLocator))(result.stdout);
-  } catch (cause) {
-    throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause });
+  } catch (error) {
+    throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause: error });
   }
   return locator.results.system["refreshed servers"]["shared caching"].map(
     ({ hostport, healthy }) => ({ hostport, healthy }),
@@ -285,8 +294,8 @@ function summaryLine(result: RawCommandResult) {
   };
 }
 
-function agentProbes(context: MaintenanceContext): Probe[] {
-  const versions: Array<[string, string, string[]]> = [
+function agentProbes(context: MaintenanceContext): Array<Probe> {
+  const versions: Array<[string, string, Array<string>]> = [
     ["node", "node", ["--version"]],
     ["npm", "npm", ["--version"]],
     ["codex", "codex", ["--version"]],
@@ -314,8 +323,9 @@ function checkoutPath(context: MaintenanceContext): string | undefined {
 }
 
 function skillFacts(context: MaintenanceContext) {
-  if (context.profileConfig.agentLayers.length === 0)
+  if (context.profileConfig.agentLayers.length === 0) {
     return { managed: false, selected: 0, locked: 0, installed: 0 };
+  }
   const { skills: selected } = readLayeredSkills(
     context.repoRoot,
     context.profile,
@@ -332,9 +342,9 @@ function skillFacts(context: MaintenanceContext) {
   return { managed: true, selected: selected.length, locked, installed };
 }
 
-function buildProbes(context: MaintenanceContext): Probe[] {
+function buildProbes(context: MaintenanceContext): Array<Probe> {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
-  const probes: Probe[] = [
+  const probes: Array<Probe> = [
     probe(
       "mise_convergence",
       "mise",
@@ -379,7 +389,6 @@ function buildProbes(context: MaintenanceContext): Probe[] {
         }),
       );
     }
-    // Only the devbox and personal Brewfiles install Tailscale.
     if (context.profileConfig.capabilities.devbox || context.profileConfig.capabilities.personal) {
       probes.push(
         probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),
@@ -441,7 +450,9 @@ function buildProbes(context: MaintenanceContext): Probe[] {
         env: context.env,
       }),
     );
-    for (const item of probes.slice(-2)) item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
+    for (const item of probes.slice(-2)) {
+      item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
+    }
   }
   return probes;
 }
@@ -500,17 +511,27 @@ const PendingList = Schema.Array(Schema.Unknown);
 function backlogCount(probes: Record<string, ProbeResult>): number {
   let count = 0;
   const brew = Schema.decodeUnknownOption(BrewOutdated)(probes.brew_outdated_greedy?.value);
-  if (Option.isSome(brew)) count += brew.value.formulae.length + brew.value.casks.length;
+  if (Option.isSome(brew)) {
+    count += brew.value.formulae.length + brew.value.casks.length;
+  }
   const misePending = new Set<string>();
   for (const id of ["mise_outdated", "mise_convergence"]) {
     const value = Schema.decodeUnknownOption(PendingKeys)(probes[id]?.value);
-    if (Option.isSome(value)) for (const tool of Object.keys(value.value)) misePending.add(tool);
+    if (Option.isSome(value)) {
+      for (const tool of Object.keys(value.value)) {
+        misePending.add(tool);
+      }
+    }
   }
   count += misePending.size;
   const npm = Schema.decodeUnknownOption(PendingKeys)(probes.npm_outdated?.value);
-  if (Option.isSome(npm)) count += Object.keys(npm.value).length;
+  if (Option.isSome(npm)) {
+    count += Object.keys(npm.value).length;
+  }
   const mas = Schema.decodeUnknownOption(PendingList)(probes.mas_outdated?.value);
-  if (Option.isSome(mas)) count += mas.value.length;
+  if (Option.isSome(mas)) {
+    count += mas.value.length;
+  }
   return count;
 }
 
@@ -551,17 +572,20 @@ export async function collectMaintenanceSnapshot(
     inventory,
   ]);
   const probes: MaintenanceProbes = {};
-  for (const [id, result] of entries) probes[id] = result;
+  for (const [id, result] of entries) {
+    probes[id] = result;
+  }
   if (macosUpdates) {
-    probes.software_update = {
+    const softwareUpdate: ProbeResult<MacOSUpdateInventory> = {
       status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
       required: true,
       duration_ms: macosUpdates.duration_ms,
       value: macosUpdates,
-      ...(macosUpdates.applicability.status === "unknown"
-        ? { error: "macOS update applicability could not be established" }
-        : {}),
     };
+    if (macosUpdates.applicability.status === "unknown") {
+      softwareUpdate.error = "macOS update applicability could not be established";
+    }
+    probes.software_update = softwareUpdate;
   }
   const backlog_count = backlogCount(probes);
   const required_failures = Object.values(probes).filter(
@@ -594,7 +618,9 @@ export async function collectMaintenanceSnapshot(
 
 function ownsHomebrew(env: NodeJS.ProcessEnv): boolean {
   const result = spawnSync("brew", ["--prefix"], { encoding: "utf8", env });
-  if (result.status !== 0) return false;
+  if (result.status !== 0) {
+    return false;
+  }
   try {
     return statSync(result.stdout.trim()).uid === (process.getuid?.() ?? -1);
   } catch {
@@ -644,7 +670,7 @@ const main = Effect.fn("maintenanceCheck")(function* () {
     process.stderr.write("Usage: maintenance/check.ts [--fresh] [--verify]\n");
     return 2;
   }
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const repoRoot = resolve(import.meta.dirname, "..");
   const home = process.env.HOME || homedir();
   const profile = yield* Effect.try(() =>
     readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim(),

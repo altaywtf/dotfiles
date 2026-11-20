@@ -118,7 +118,7 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
     assert.notEqual(chezmoiResult.status, 0);
     assert.match(
       chezmoiResult.stderr,
-      new RegExp(`${name.replaceAll(".", "\\.")} must resolve to a regular file`),
+      new RegExp(`${name.replaceAll(".", String.raw`\.`)} must resolve to a regular file`),
     );
   }
 });

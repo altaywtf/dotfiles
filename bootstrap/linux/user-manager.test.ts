@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
-import { CliFailure } from "../../lib/program.ts";
+import { isCliFailure } from "../../lib/program.ts";
 import { join } from "node:path";
 import { convergeUserManager } from "./user-manager.ts";
 
 for (const unavailable of ["exit", "spawn"] as const) {
   test(`apply tolerates an unavailable user manager (${unavailable})`, async () => {
-    const calls: string[][] = [];
+    const calls: Array<Array<string>> = [];
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
@@ -32,11 +32,13 @@ test("apply converges manager PATH idempotently without losing unrelated entries
     (part) => join(home, part),
   );
   let path = `/custom/bin:${front[2]}:/usr/bin:${front[0]}:${front[0]}`;
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const runner = CommandRunner.of({
     run: (_command, args = []) => {
       calls.push([...args]);
-      if (args[1] === "set-environment") path = args[2]?.slice(5) ?? "";
+      if (args[1] === "set-environment") {
+        path = args[2]?.slice(5) ?? "";
+      }
       return Effect.succeed({
         status: 0,
         stdout: args[1] === "show-environment" ? `OTHER=value\nPATH=${path}\n` : "",
@@ -80,7 +82,7 @@ for (const operation of ["daemon-reload", "set-environment"]) {
           Effect.flip,
         ),
       );
-      assert.ok(error instanceof CliFailure);
+      assert.ok(isCliFailure(error));
       assert.match(error.message, new RegExp(`systemctl --user ${operation}`));
       assert.equal(error.exitCode, failure === "exit" ? 7 : 1);
     });
@@ -88,7 +90,7 @@ for (const operation of ["daemon-reload", "set-environment"]) {
 }
 
 test("dry-run and non-Linux apply never contact systemd", async () => {
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) => {
       calls.push(command);

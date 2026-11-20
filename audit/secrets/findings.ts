@@ -30,11 +30,13 @@ const decodeJsonObjectValue = Schema.decodeUnknownOption(JsonObject);
 const isSeverity = Schema.is(Severity);
 const isCount = Schema.is(Schema.Natural);
 
-function readPolicy(path: string): {
+type Policy = {
   defaultSeverity: Severity;
   failureThreshold: Severity;
   rules: Record<string, Severity>;
-} {
+};
+
+function readPolicy(path: string): Policy {
   const policy = Option.getOrThrowWith(
     decodeJsonObject(readFileSync(path, "utf8")),
     () => new Error("invalid Gitleaks policy"),
@@ -49,7 +51,9 @@ function readPolicy(path: string): {
   );
   const rules: Record<string, Severity> = {};
   for (const [rule, severity] of Object.entries(ruleEntries)) {
-    if (!isSeverity(severity)) throw new Error(`invalid severity for ${rule}`);
+    if (!isSeverity(severity)) {
+      throw new Error(`invalid severity for ${rule}`);
+    }
     rules[rule] = severity;
   }
   return {
@@ -72,28 +76,34 @@ function readFindings(path: string): typeof Findings.Type {
   );
 }
 
-function rootVariants(root: string): string[] {
-  const roots = new Set([resolve(root)]);
-  try {
-    roots.add(realpathSync(root));
-  } catch {}
+const realPath = Option.liftThrowable((path: string) => realpathSync(path));
+
+function rootVariants(root: string): Array<string> {
+  const roots = new Set([resolve(root), ...Option.toArray(realPath(root))]);
   for (const candidate of roots) {
-    if (candidate.startsWith("/private/")) roots.add(candidate.slice(8));
-    else if (candidate.startsWith("/var/")) roots.add(`/private${candidate}`);
+    if (candidate.startsWith("/private/")) {
+      roots.add(candidate.slice(8));
+    } else if (candidate.startsWith("/var/")) {
+      roots.add(`/private${candidate}`);
+    }
   }
   return [...roots];
 }
 
 function safeRelative(root: string, locator: string): string {
-  if (!locator || !isAbsolute(locator)) return "unknown";
+  if (!locator || !isAbsolute(locator)) {
+    return "unknown";
+  }
   for (const candidate of rootVariants(root)) {
     const path = relative(candidate, locator);
-    if (path && path !== ".." && !path.startsWith("../") && !path.startsWith("/")) return path;
+    if (path && path !== ".." && !path.startsWith("../") && !path.startsWith("/")) {
+      return path;
+    }
   }
   return "unknown";
 }
 
-export function findingLocators(scanRoot: string, reportPath: string): string[] {
+export function findingLocators(scanRoot: string, reportPath: string): Array<string> {
   return readFindings(reportPath).map((finding) => {
     const rule = Schema.is(Schema.NonEmptyString)(finding.RuleID) ? finding.RuleID : "unknown";
     const locator = Schema.is(Schema.NonEmptyString)(finding.SymlinkFile)
@@ -105,14 +115,16 @@ export function findingLocators(scanRoot: string, reportPath: string): string[] 
   });
 }
 
-function readRuleCounts(existingJson: string): RuleCounts {
+function readRuleCounts(existingJson: string) {
   const parsed = Option.getOrThrowWith(
     decodeJsonObject(existingJson || "{}"),
     () => new Error("invalid persisted count map"),
   );
   const counts: RuleCounts = {};
   for (const [key, value] of Object.entries(parsed)) {
-    if (!isCount(value)) throw new Error(`invalid count for ${key}`);
+    if (!isCount(value)) {
+      throw new Error(`invalid count for ${key}`);
+    }
     counts[key] = value;
   }
   return counts;
@@ -135,8 +147,11 @@ export function summarizeFindings(
     const severity = policy.rules[rule] ?? policy.defaultSeverity;
     rules[rule] = (rules[rule] ?? 0) + 1;
     severities[severity] = (severities[severity] ?? 0) + 1;
-    if (severityRank[severity] >= severityRank[policy.failureThreshold]) failures += 1;
-    else warnings += 1;
+    if (severityRank[severity] >= severityRank[policy.failureThreshold]) {
+      failures += 1;
+    } else {
+      warnings += 1;
+    }
   }
   return {
     findingCount: findings.length,

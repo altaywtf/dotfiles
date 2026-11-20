@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain, isCliFailure } from "../lib/program.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const installer = join(repoRoot, "bootstrap/install-gh-extensions.ts");
@@ -34,8 +34,9 @@ const program = Effect.scoped(
       env: { PATH: `${bin}:/usr/bin:/bin`, FAKE_GH_LOG: log },
       extendEnv: true,
     });
-    if (installed.status !== 0)
+    if (installed.status !== 0) {
       return yield* fail(installed.stderr || "GitHub extension installer failed");
+    }
     const expected = [
       "arg=--version",
       "arg=extension",
@@ -53,8 +54,9 @@ const program = Effect.scoped(
       env: { PATH: empty },
       extendEnv: true,
     });
-    if (missing.status !== 1)
+    if (missing.status !== 1) {
       return yield* fail(`missing gh returned ${missing.status} instead of 1`);
+    }
     if (!missing.stderr.includes("gh is required; run ./dotfiles apply so mise installs gh")) {
       return yield* fail("missing gh failure was not actionable");
     }
@@ -63,7 +65,7 @@ const program = Effect.scoped(
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
     Effect.mapError((error) =>
-      error instanceof CliFailure ? error : new CliFailure({ exitCode: 1, message: String(error) }),
+      isCliFailure(error) ? error : new CliFailure({ exitCode: 1, message: String(error) }),
     ),
   ),
 );

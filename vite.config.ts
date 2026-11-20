@@ -1,3 +1,4 @@
+import cloudflare from "@cloudflare/oxlint-config";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -23,9 +24,18 @@ export default defineConfig({
     ignorePatterns: ["chezmoi/**/*.tmpl", "chezmoi/**/modify_*", "chezmoi/**/symlink_*"],
   },
   lint: {
-    ignorePatterns: ["chezmoi/**"],
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
-    options: { typeAware: true, typeCheck: true, denyWarnings: true },
+    ...cloudflare,
+    ignorePatterns: [...(cloudflare.ignorePatterns ?? []), "chezmoi/**"],
+    jsPlugins: [
+      ...(cloudflare.jsPlugins ?? []),
+      { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
+      { name: "comments", specifier: "@uinaf/oxlint-plugin-no-comments" },
+    ],
+    rules: {
+      ...cloudflare.rules,
+      "vite-plus/prefer-vite-plus-imports": "error",
+      "comments/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
+    },
+    options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
   },
 });

@@ -3,11 +3,11 @@
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { Effect } from "effect";
 
-import { readLayeredSkills, readSkillLock, type Skill } from "./skills/catalog.ts";
+import { readLayeredSkills, readSkillLock } from "./skills/catalog.ts";
+import type { Skill } from "./skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import {
@@ -16,15 +16,10 @@ import {
   withManagedLock,
   readOverlayOwnership,
   writeLockFile,
-  type OverlayOwnership,
 } from "./lock.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import type { OverlayOwnership } from "./lock.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 export { type Runtime } from "./runtime.ts";
 
@@ -40,21 +35,21 @@ type SkillFailure = {
 
 type SkillLock = {
   version: 1;
-  skills: Skill[];
+  skills: Array<Skill>;
   overlays?: OverlayOwnership;
 };
 
 function writeSkillLock(
   lockPath: string,
-  skills: readonly Skill[],
+  skills: ReadonlyArray<Skill>,
   overlays: OverlayOwnership | undefined,
 ): void {
-  const lock: SkillLock = { version: 1, skills: [...skills], ...(overlays ? { overlays } : {}) };
+  const lock: SkillLock = { version: 1, skills: [...skills], overlays };
   writeLockFile(lockPath, lock);
 }
 
-function findInstalledAgents(runtime: Runtime): Agent[] {
-  const agents: Agent[] = [];
+function findInstalledAgents(runtime: Runtime): Array<Agent> {
+  const agents: Array<Agent> = [];
 
   if (runtime.commandExists("claude")) {
     agents.push("claude-code");
@@ -97,12 +92,12 @@ function installedSkillError(home: string, skill: Skill): string | undefined {
 
 function installSkills(
   runtime: Runtime,
-  skills: readonly Skill[],
-  agents: readonly Agent[],
+  skills: ReadonlyArray<Skill>,
+  agents: ReadonlyArray<Agent>,
   cliVersion: string,
   home: string,
 ): number {
-  const failures: SkillFailure[] = [];
+  const failures: Array<SkillFailure> = [];
 
   const skillsBySource = Map.groupBy(skills, (skill) => skill.source);
 
@@ -172,11 +167,11 @@ function updateGlobalSkills(runtime: Runtime, cliVersion: string): number {
 
 function removeSkills(
   runtime: Runtime,
-  skills: readonly Skill[],
+  skills: ReadonlyArray<Skill>,
   cliVersion: string,
   home: string,
 ): number {
-  const failures: SkillFailure[] = [];
+  const failures: Array<SkillFailure> = [];
 
   for (const skill of skills) {
     writeLine(runtime.stdout, `Removing stale managed skill: ${skill.name}`);
@@ -233,7 +228,7 @@ type ParsedArgs =
 
 const USAGE = "Usage: ./agents/sync.ts [--profile PROFILE] [--update]";
 
-function parseArgs(args: readonly string[]): ParsedArgs {
+function parseArgs(args: ReadonlyArray<string>): ParsedArgs {
   let profile: string | undefined;
   let update = false;
 
@@ -277,7 +272,7 @@ function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string):
 }
 
 function sync(runtime: Runtime, options: SyncOptions): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, options.profile);
 
@@ -302,7 +297,9 @@ function sync(runtime: Runtime, options: SyncOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
-  if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  if (localPath) {
+    writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  }
   if (agents.length === 0) {
     writeLine(
       runtime.stdout,
@@ -346,7 +343,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   return finishSync(runtime, options, cliVersion);
 }
 
-export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
+export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseArgs(args);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
@@ -366,7 +363,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

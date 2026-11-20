@@ -33,7 +33,9 @@ function pruneLogs(directory: string, now = Date.now()): void {
         name,
       )?.[1];
     const path = join(directory, name);
-    if (date && date < cutoff && lstatSync(path).isFile()) unlinkSync(path);
+    if (date && date < cutoff && lstatSync(path).isFile()) {
+      unlinkSync(path);
+    }
   }
 }
 
@@ -52,11 +54,12 @@ export function rotateUpdateLog(home: string, job: "software-update", now = Date
   const path = join(directory, `${job}.log`);
   if (existsSync(path)) {
     const info = lstatSync(path);
-    if (!info.isFile()) throw new Error("update log must be a regular file");
+    if (!info.isFile()) {
+      throw new Error("update log must be a regular file");
+    }
     if (info.size > 0) {
       const timestamp = info.mtime.toISOString().replaceAll(":", "-");
       copyFileSync(path, join(directory, `${job}-${timestamp}.log`));
-      // launchd already holds this inode open for append in the new run.
       truncateSync(path, 0);
     }
   }
@@ -67,38 +70,33 @@ type Entry = { target: string; result: string };
 
 const logCapBytes = 2 * 1024 * 1024;
 
-// launchd opens each job's StandardOutPath/StandardErrorPath with O_APPEND and
-// holds that descriptor for the whole run, so the logs append across runs.
-// That O_APPEND assumption is empirical: it was
-// verified with lsof against a live job, not taken from documentation.
-// Rotation must reuse the same inode: a rename or unlink would orphan the live
-// descriptor and silently discard all later output. Because writers append,
-// the tail is written back through an O_APPEND descriptor too, so a concurrent
-// append that lands between our truncate and our write is interleaved rather
-// than overwritten (a positional write at offset 0 would clobber it).
-// Residual caveat: lines appended
-// between the tail read and the truncate are lost.
 export function capLogs(
   directory: string,
   cap = logCapBytes,
   between: () => void = () => {},
-): Entry[] {
-  const entries: Entry[] = [];
-  if (!existsSync(directory)) return entries;
+): Array<Entry> {
+  const entries: Array<Entry> = [];
+  if (!existsSync(directory)) {
+    return entries;
+  }
   for (const name of readdirSync(directory)) {
-    if (!name.endsWith(".log")) continue;
+    if (!name.endsWith(".log")) {
+      continue;
+    }
     const path = join(directory, name);
     try {
       const info = lstatSync(path);
-      if (!info.isFile() || info.size <= cap) continue;
+      if (!info.isFile() || info.size <= cap) {
+        continue;
+      }
       const fd = openSync(path, "r+");
       try {
         const tail = Buffer.alloc(cap);
         const read = readSync(fd, tail, 0, cap, info.size - cap);
         const newline = tail.indexOf(0x0a);
-        const start = newline >= 0 && newline + 1 < read ? newline + 1 : 0; // drop the leading partial line
+        const start = newline >= 0 && newline + 1 < read ? newline + 1 : 0;
         ftruncateSync(fd, 0);
-        between(); // test hook: a concurrent O_APPEND write landing here must survive
+        between();
         const appender = openSync(path, "a");
         try {
           writeSync(appender, tail, start, read - start, null);

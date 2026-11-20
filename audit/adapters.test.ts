@@ -7,7 +7,8 @@ import { dirname, join } from "node:path";
 import { test } from "vite-plus/test";
 
 import { parseHostArgs, runHostAudit } from "./host.ts";
-import { type CommandOptions, type CommandRunner, runCommand } from "./runtime.ts";
+import { runCommand } from "./runtime.ts";
+import type { CommandOptions, CommandRunner } from "./runtime.ts";
 import { mscpPlatformVersion, parseRepoArgs, runRepoAudit } from "./repo.ts";
 
 const noMscp = (root: string) => ({
@@ -18,28 +19,29 @@ const noMscp = (root: string) => ({
   allowSudoPrompt: false,
 });
 
+const lynisRunner: CommandRunner = (_command, args) => {
+  writeFileSync(
+    args[args.indexOf("--report-file") + 1],
+    [
+      "lynis_version=3.1.4",
+      "hardening_index=72",
+      "lynis_tests_done=191",
+      "warning[]=AUTH-9262|Password policy is weak|",
+      "suggestion[]=BOOT-5122|Protect startup mode|",
+    ].join("\n"),
+  );
+  writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
+  return { status: 0, stdout: "", stderr: "" };
+};
+
 test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
-  const output: string[] = [];
-  const command: CommandRunner = (_command, args) => {
-    writeFileSync(
-      args[args.indexOf("--report-file") + 1],
-      [
-        "lynis_version=3.1.4",
-        "hardening_index=72",
-        "lynis_tests_done=191",
-        "warning[]=AUTH-9262|Password policy is weak|",
-        "suggestion[]=BOOT-5122|Protect startup mode|",
-      ].join("\n"),
-    );
-    writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
-    return { status: 0, stdout: "", stderr: "" };
-  };
+  const output: Array<string> = [];
   try {
     const result = runHostAudit(
       { format: "json", allowSudoPrompt: false, minHardeningIndex: 70 },
       {
-        command,
+        command: lynisRunner,
         env: { TMPDIR: root },
         uid: 501,
         stdout: (value) => output.push(value),
@@ -69,7 +71,7 @@ test("host adapter summarizes Lynis without exposing its report", () => {
 });
 
 test("privileged host adapter checks Lynis before invoking sudo", () => {
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const result = runHostAudit(
     { format: "json", allowSudoPrompt: true },
     {
@@ -104,7 +106,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   const mscp = join(root, "macos_security");
   const artifact = "800-53r5_moderate_macos_26.0";
   const compliance = join(mscp, "build", artifact, `${artifact}_compliance.sh`);
-  const calls: Array<[string, readonly string[], CommandOptions | undefined]> = [];
+  const calls: Array<[string, ReadonlyArray<string>, CommandOptions | undefined]> = [];
   const command: CommandRunner = (name, args, options) => {
     calls.push([name, args, options]);
     return { status: 0, stdout: name === "sw_vers" ? "26.6\n" : "", stderr: "" };
@@ -168,14 +170,15 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   }
 });
 
+const git = (cwd: string, ...args: Array<string>) => {
+  const result = runCommand("git", ["-C", cwd, ...args]);
+  assert.equal(result.status, 0, result.stderr);
+};
+
 test("linked worktree scan covers unignored files and skips dependency trees", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-audit-test-"));
   const main = join(root, "main");
   const linked = join(root, "linked");
-  const git = (cwd: string, ...args: string[]) => {
-    const result = runCommand("git", ["-C", cwd, ...args]);
-    assert.equal(result.status, 0, result.stderr);
-  };
   try {
     mkdirSync(main);
     git(main, "init", "--quiet", "--initial-branch=main");
@@ -201,10 +204,14 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
     mkdirSync(join(linked, "node_modules/dependency/tests"), { recursive: true });
     writeFileSync(join(linked, "node_modules/dependency/tests/fixture.ts"), "dependency fixture\n");
 
-    const scans: Array<readonly string[]> = [];
+    const scans: Array<ReadonlyArray<string>> = [];
     const command: CommandRunner = (name, args, options) => {
-      if (name === "git") return runCommand(name, args, options);
-      if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
+      if (name === "git") {
+        return runCommand(name, args, options);
+      }
+      if (name === "trufflehog" && args[0] === "filesystem") {
+        scans.push(args);
+      }
       return { status: 0, stdout: "", stderr: "" };
     };
     const result = runRepoAudit(noMscp(root), {
@@ -228,18 +235,22 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
 
 test("linked worktree scan fails closed on paths that do not decode", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
-  const scans: Array<readonly string[]> = [];
+  const scans: Array<ReadonlyArray<string>> = [];
   const command: CommandRunner = (name, args, options) => {
-    if (name === "git" && args.includes("worktree"))
+    if (name === "git" && args.includes("worktree")) {
       return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };
-    if (name === "git" && options?.strictUtf8)
+    }
+    if (name === "git" && options?.strictUtf8) {
       return {
         status: 0,
         stdout: "",
         stderr: "",
         error: new Error("git output is not valid UTF-8"),
       };
-    if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
+    }
+    if (name === "trufflehog" && args[0] === "filesystem") {
+      scans.push(args);
+    }
     return { status: 0, stdout: "", stderr: "" };
   };
   try {
@@ -261,6 +272,6 @@ test("strict UTF-8 output keeps a literal U+FFFD and rejects invalid bytes", () 
   const valid = runCommand("printf", ["report-�.txt"], { strictUtf8: true });
   assert.equal(valid.error, undefined);
   assert.equal(valid.stdout, "report-�.txt");
-  const invalid = runCommand("printf", ["report-\\377.txt"], { strictUtf8: true });
+  const invalid = runCommand("printf", [String.raw`report-\377.txt`], { strictUtf8: true });
   assert.match(invalid.error?.message ?? "", /not valid UTF-8/);
 });

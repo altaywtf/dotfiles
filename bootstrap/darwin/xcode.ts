@@ -2,13 +2,13 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult } from "../../lib/command.ts";
+import { join, resolve } from "node:path";
+import { CommandRunner } from "../../lib/command.ts";
+import type { CommandResult } from "../../lib/command.ts";
 import { requirePrefixOwner } from "../../homebrew/homebrew.ts";
 import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const defaultPinPath = join(repoRoot, "chezmoi/.chezmoidata/xcode.json");
 const usage = `Usage:
   bootstrap/darwin/xcode.ts
@@ -37,21 +37,28 @@ const catalogLine = /^(.*) \(([^)]+)\) \[(Apple Silicon|Intel|Universal)\](.*)$/
 
 function parseCatalogLine(line: string): XcodeRelease | undefined {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("xcodes")) return undefined;
+  if (!trimmed || trimmed.startsWith("xcodes")) {
+    return undefined;
+  }
   const [left, path] = trimmed.split("\t");
   const match = catalogLine.exec(left ?? "");
-  if (!match?.[1] || !match[2]) return undefined;
+  if (!match?.[1] || !match[2]) {
+    return undefined;
+  }
   const flags = match[4] ?? "";
-  return {
+  const release: XcodeRelease = {
     version: match[1].trim(),
     build: match[2],
     selected: flags.includes("(Selected)"),
     installed: flags.includes("(Installed") || flags.includes("(Selected)") || Boolean(path),
-    ...(path ? { path } : {}),
   };
+  if (path) {
+    release.path = path;
+  }
+  return release;
 }
 
-export function parseCatalog(contents: string): XcodeRelease[] {
+export function parseCatalog(contents: string): Array<XcodeRelease> {
   return contents
     .split(/\r?\n/)
     .map(parseCatalogLine)
@@ -63,7 +70,7 @@ export function satisfiesPin(version: string, pin: string): boolean {
 }
 
 export function pickInstallTarget(
-  releases: readonly XcodeRelease[],
+  releases: ReadonlyArray<XcodeRelease>,
   pin: string,
 ): XcodeRelease | undefined {
   return releases.find((release) => satisfiesPin(release.version, pin));
@@ -104,7 +111,7 @@ const readPin = Effect.fn("readXcodePin")(function* () {
 });
 
 const runXcodes = Effect.fn("runXcodes")(function* (
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: { output?: "capture" | "inherit"; stdin?: "inherit" } = {},
 ) {
   const runner = yield* CommandRunner;
@@ -115,26 +122,28 @@ const runXcodes = Effect.fn("runXcodes")(function* (
   });
 });
 
-const catalog = Effect.fn("xcodeCatalog")(function* (args: readonly string[]) {
+const catalog = Effect.fn("xcodeCatalog")(function* (args: ReadonlyArray<string>) {
   const result = yield* runXcodes(args);
-  if (result.status !== 0)
+  if (result.status !== 0) {
     return yield* fail(
       `xcodes ${args[0]} exited ${result.status}${result.stderr.trim() ? `: ${result.stderr.trim()}` : ""}`,
       result.status,
     );
+  }
   return parseCatalog(result.stdout);
 });
 
-const selectedRelease = (releases: readonly XcodeRelease[]) =>
+const selectedRelease = (releases: ReadonlyArray<XcodeRelease>) =>
   releases.find((release) => release.selected);
 
 const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
   const installed = yield* catalog(["installed"]);
   const selected = selectedRelease(installed);
-  if (!selected)
+  if (!selected) {
     return yield* fail(
       "no Xcode is selected; install the declared release with mise run xcode:install",
     );
+  }
   if (!satisfiesPin(selected.version, pin.release) || selected.build !== pin.build) {
     return yield* fail(
       `selected Xcode is ${describeRelease(selected)}; pin is ${pin.release} (${pin.build})`,
@@ -145,7 +154,7 @@ const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
 
 const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
@@ -158,7 +167,9 @@ const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (
   let resolved = command;
   if (!command.includes("/")) {
     const located = yield* runner.run("which", [command]);
-    if (located.status !== 0 || !located.stdout.trim()) return yield* fail(`missing ${command}`);
+    if (located.status !== 0 || !located.stdout.trim()) {
+      return yield* fail(`missing ${command}`);
+    }
     resolved = located.stdout.trim();
   }
   const result: CommandResult = useWrapper
@@ -193,7 +204,9 @@ const installRelease = Effect.fn("installXcodeRelease")(function* (pin: XcodePin
   }
   const available = yield* catalog(["list"]);
   const target = pickInstallTarget(available, pin.release);
-  if (!target) return yield* fail(`no stable Xcode ${pin.release} is available from xcodes`);
+  if (!target) {
+    return yield* fail(`no stable Xcode ${pin.release} is available from xcodes`);
+  }
   yield* Console.log(`Installing Xcode ${describeRelease(target)}`);
   const install = yield* runXcodes(
     [
@@ -220,8 +233,9 @@ const program = Effect.gen(function* () {
   const args = process.argv.slice(2);
   let check = false;
   for (const argument of args) {
-    if (argument === "--check") check = true;
-    else if (argument === "-h" || argument === "--help") {
+    if (argument === "--check") {
+      check = true;
+    } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
     } else {
@@ -230,11 +244,13 @@ const program = Effect.gen(function* () {
     }
   }
   const pin = yield* readPin();
-  if (check) return yield* checkPin(pin);
+  if (check) {
+    return yield* checkPin(pin);
+  }
   yield* installRelease(pin);
   yield* checkPin(pin);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(program);
 }

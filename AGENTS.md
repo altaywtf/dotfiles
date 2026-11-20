@@ -14,6 +14,7 @@ Public macOS and Ubuntu bootstrap framework.
 - Pin binary-release tools in the [mise templates](chezmoi/.chezmoitemplates/mise.toml) and their OS siblings, as plain TOML for Renovate. [Homebrew](homebrew/) owns compiled packages, GUI apps, system services, and tools called by fixed privileged paths.
 - Keep the repository standalone; it runs without a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
+- [maintenance/converge.ts](maintenance/converge.ts) and its imports run before dependencies install; keep them to Node built-ins.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Decode untrusted input with `Schema`.
 - Keep Chezmoi templates in their native syntax.

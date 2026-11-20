@@ -16,9 +16,6 @@ const caches = [
   ["Library/Logs/DiagnosticReports", 30],
 ] as const;
 
-// Codex entries name session subtrees, never the Codex root: that root holds
-// config, skills, memories, and the sqlite databases owning live state. Codex
-// synchronises curated plugins through lock files under `.tmp`, so those stay.
 const codexCaches = [
   ["archived_sessions", 30, undefined],
   ["sessions", 90, undefined],
@@ -26,12 +23,6 @@ const codexCaches = [
   [".tmp", 7, "*.lock"],
 ] as const;
 
-// Build output declares itself regenerable with a CACHEDIR.TAG
-// (https://bford.info/cachedir/), as Cargo's target/ does. One idle build tree
-// per agent worktree reached hundreds of gigabytes before any PR merged, so the
-// sweep does not wait for worktree removal. Other tools tag live environments
-// too (uv virtualenvs, Tuist dependencies), so only Cargo and SwiftPM output at
-// a checkout root qualifies, and only when Git confirms the path is ignored.
 const buildRoots = [".codex/worktrees", ".claude/worktrees", "projects"];
 const buildNames = new Set(["target", ".build"]);
 const buildIdleDays = 3;
@@ -39,30 +30,35 @@ const cacheTagSignature = "Signature: 8a477f597d28d172789f06886806bc55";
 
 const claudeRemoteInstalls = [".claude/remote/ccd-cli", ".claude/remote/srv"];
 
-// Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
-// same tree Codex writes to. Empty and relative values fall back rather than
-// resolving against the working directory, where they would name siblings of
-// the real cache roots and delete them.
 const codexHome = (home: string) => {
   const configured = process.env.CODEX_HOME;
   return configured && isAbsolute(configured) ? configured : join(home, ".codex");
 };
 
+const gigabytes = (value: number | undefined) =>
+  value === undefined ? "unknown" : `${(value / 1_048_576).toFixed(1)}G`;
+
+const realDirectory = (path: string) =>
+  Effect.try(() => lstatSync(path)).pipe(
+    Effect.map((info) => info.isDirectory() && !info.isSymbolicLink()),
+    Effect.orElseSucceed(() => false),
+  );
+
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
   apply: boolean,
-  timeoutMs = cacheCleanupTimeoutMs,
+  timeoutMs: number = cacheCleanupTimeoutMs,
 ) {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
-  const lines: string[] = [];
+  const lines: Array<string> = [];
   let failed = false;
   const log = Effect.fn("cacheCleanup.log")(function* (message: string) {
     lines.push(`${DateTime.formatIso(yield* DateTime.now)} cache-cleanup ${message}`);
   });
   const command = Effect.fn("cacheCleanup.command")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
     return yield* runner
       .run(name, args, {
@@ -74,7 +70,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   });
   const checked = Effect.fn("cacheCleanup.checked")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
     const result = yield* command(name, args);
     if (result.status !== 0) {
@@ -85,26 +81,28 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   });
   const mutate = Effect.fn("cacheCleanup.mutate")(function* (
     name: string,
-    args: readonly string[],
+    args: ReadonlyArray<string>,
   ) {
-    if (!apply) return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
+    if (!apply) {
+      return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
+    }
     yield* checked(name, args);
   });
   const used = Effect.fn("cacheCleanup.used")(function* () {
     const volume = (yield* fs.exists("/System/Volumes/Data")) ? "/System/Volumes/Data" : "/";
     const result = yield* checked("df", ["-k", volume]);
     const value = Number(result.stdout.trim().split("\n")[1]?.trim().split(/\s+/)[2]);
-    if (Number.isFinite(value)) return value;
+    if (Number.isFinite(value)) {
+      return value;
+    }
     failed = true;
     yield* log("warning: disk usage unavailable");
     return undefined;
   });
-  const gigabytes = (value: number | undefined) =>
-    value === undefined ? "unknown" : `${(value / 1048576).toFixed(1)}G`;
   const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);
-    const targets: readonly (readonly [string, number, string | undefined])[] = [
+    const targets: ReadonlyArray<readonly [string, number, string | undefined]> = [
       ...caches.map(([relative, days]) => [join(home, relative), days, undefined] as const),
       ...codexCaches.map(
         ([relative, days, keep]) => [join(codexHome(home), relative), days, keep] as const,
@@ -112,7 +110,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
     ];
     for (const [path, days, keep] of targets) {
       const info = yield* fs.stat(path).pipe(Effect.option);
-      if (Option.isNone(info) || info.value.type !== "Directory") continue;
+      if (Option.isNone(info) || info.value.type !== "Directory") {
+        continue;
+      }
       yield* log(`prune files older than ${days} days under ${path}`);
       const result = yield* checked("find", [
         path,
@@ -123,16 +123,19 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         `+${days}`,
         apply ? "-delete" : "-print0",
       ]);
-      // -mindepth 1 keeps the cache root itself when every file under it expired.
-      if (apply)
+      if (apply) {
         yield* checked("find", [path, "-mindepth", "1", "-type", "d", "-empty", "-delete"]);
-      else lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
+      } else {
+        lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
+      }
     }
-    const builds: string[] = [];
+    const builds: Array<string> = [];
     for (const relative of buildRoots) {
       const root = join(home, relative);
       const info = yield* fs.stat(root).pipe(Effect.option);
-      if (Option.isNone(info) || info.value.type !== "Directory") continue;
+      if (Option.isNone(info) || info.value.type !== "Directory") {
+        continue;
+      }
       const found = yield* checked("find", [
         root,
         "-maxdepth",
@@ -160,13 +163,16 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           tag.value.startsWith(cacheTagSignature) &&
           buildNames.has(basename(directory)) &&
           (yield* fs.exists(join(dirname(directory), ".git")))
-        )
+        ) {
           builds.push(directory);
+        }
       }
     }
-    const removed: string[] = [];
+    const removed: Array<string> = [];
     for (const directory of builds.sort()) {
-      if (removed.some((parent) => directory.startsWith(`${parent}/`))) continue;
+      if (removed.some((parent) => directory.startsWith(`${parent}/`))) {
+        continue;
+      }
       const ignored = yield* command("git", [
         "-C",
         dirname(directory),
@@ -174,7 +180,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         "-q",
         basename(directory),
       ]);
-      if (ignored.status !== 0) continue;
+      if (ignored.status !== 0) {
+        continue;
+      }
       const recent = yield* checked("find", [
         directory,
         "-mtime",
@@ -182,10 +190,14 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         "-print",
         "-quit",
       ]);
-      if (recent.status !== 0 || recent.stdout !== "") continue;
+      if (recent.status !== 0 || recent.stdout !== "") {
+        continue;
+      }
       removed.push(directory);
       yield* log(`remove build output idle for ${buildIdleDays} days: ${directory}`);
-      if (!apply) continue;
+      if (!apply) {
+        continue;
+      }
       yield* fs.remove(directory, { recursive: true }).pipe(
         Effect.catch(() =>
           Effect.gen(function* () {
@@ -196,7 +208,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       );
     }
     const inUse = Effect.fn("cacheCleanup.inUse")(function* (path: string) {
-      const pattern = path.replace(/[.[\]()*+?{}|^$\\]/g, "\\$&");
+      const pattern = path.replaceAll(/[.[\]()*+?{}|^$\\]/g, String.raw`\$&`);
       const probe = yield* runner
         .run("pgrep", ["-f", pattern], {
           cwd: home,
@@ -204,36 +216,40 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           env: { HOME: home },
         })
         .pipe(Effect.option);
-      if (Option.isSome(probe) && probe.value.status <= 1) return probe.value.status === 0;
+      if (Option.isSome(probe) && probe.value.status <= 1) {
+        return probe.value.status === 0;
+      }
       failed = true;
       yield* log(`warning: cannot tell whether ${path} is running; kept`);
       return true;
     });
-    const realDirectory = (path: string) =>
-      Effect.try(() => lstatSync(path)).pipe(
-        Effect.map((info) => info.isDirectory() && !info.isSymbolicLink()),
-        Effect.orElseSucceed(() => false),
-      );
-    if (yield* commandAvailable("pgrep"))
+    if (yield* commandAvailable("pgrep")) {
       for (const relative of claudeRemoteInstalls) {
         const root = join(home, relative);
         const ancestry = [join(home, ".claude"), join(home, ".claude/remote"), root];
-        if (!(yield* Effect.forEach(ancestry, realDirectory)).every(Boolean)) continue;
+        if (!(yield* Effect.forEach(ancestry, realDirectory)).every(Boolean)) {
+          continue;
+        }
         const names = yield* fs.readDirectory(root).pipe(Effect.orElseSucceed(() => []));
-        const installs: { path: string; modified: number }[] = [];
+        const installs: Array<{ path: string; modified: number }> = [];
         for (const name of names) {
           const info = yield* fs.stat(join(root, name)).pipe(Effect.option);
-          if (Option.isSome(info))
+          if (Option.isSome(info)) {
             installs.push({
               path: join(root, name),
               modified: Option.getOrElse(info.value.mtime, () => new Date(0)).getTime(),
             });
+          }
         }
         installs.sort((left, right) => right.modified - left.modified);
         for (const { path } of installs.slice(1)) {
-          if (yield* inUse(path)) continue;
+          if (yield* inUse(path)) {
+            continue;
+          }
           yield* log(`remove superseded Claude remote install: ${path}`);
-          if (!apply) continue;
+          if (!apply) {
+            continue;
+          }
           yield* fs.remove(path, { recursive: true }).pipe(
             Effect.catch(() =>
               Effect.gen(function* () {
@@ -244,6 +260,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
           );
         }
       }
+    }
     if (
       (yield* commandAvailable("xcrun")) &&
       (yield* command("xcrun", ["--find", "simctl"])).status === 0
@@ -255,9 +272,6 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* log("pnpm store prune");
       yield* mutate("pnpm", ["store", "prune"]);
     }
-    // Runtime pins move forward, but superseded installs stay runnable. Pruning
-    // keeps every version a tracked config uses. mise 2026.10.9 is the first to
-    // also keep running versions and inline task tools (jdx/mise#14020, #14334).
     if (yield* commandAvailable("mise")) {
       const version = (yield* command("mise", ["--version"])).stdout.match(/^(\d+)\.(\d+)\.(\d+)/);
       const [year, month, patch] = (version?.slice(1) ?? []).map(Number);
@@ -267,8 +281,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       ) {
         yield* log("mise prune unused runtime versions");
         yield* mutate("mise", ["prune", "--yes"]);
-      } else
+      } else {
         yield* log("skip mise prune: mise older than 2026.10.9 may delete versions still in use");
+      }
     }
     if ((yield* commandAvailable("docker")) && (yield* command("docker", ["info"])).status === 0) {
       yield* log("docker build cache older than 7 days");

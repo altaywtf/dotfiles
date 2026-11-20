@@ -2,14 +2,13 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 
-function containsAny(content: string, values: readonly string[]): boolean {
+function containsAny(content: string, values: ReadonlyArray<string>): boolean {
   return values.some((value) => content.includes(value));
 }
 
@@ -32,6 +31,10 @@ function allowed(file: string, content: string): boolean {
       return content.includes("uinaf/ffss");
     case "agents/rules/shared.json":
       return content.includes("githubusercontent.com/uinaf/ffss");
+    case "package.json":
+    case "pnpm-lock.yaml":
+    case "vite.config.ts":
+      return content.includes("@uinaf/oxlint-plugin-no-comments");
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
       return content.includes("uinaf/tap");
@@ -90,7 +93,9 @@ const program = Effect.gen(function* () {
       unexpected = true;
     }
   }
-  if (unexpected) return yield* fail("owner-name boundary failed");
+  if (unexpected) {
+    return yield* fail("owner-name boundary failed");
+  }
   yield* Console.log("ok owner names are limited to external coordinates");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

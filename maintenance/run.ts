@@ -6,7 +6,6 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { BoundedCommand } from "./bounded-command.ts";
@@ -48,12 +47,20 @@ function currentBootId(): string | undefined {
   }
 }
 type Alert = "not-configured" | "not-needed" | "sent" | "failed";
+type ReceiptFields = {
+  state: "running" | "finished";
+  exitCode?: number;
+  cleanupComplete?: boolean;
+  timedOut?: boolean;
+  finishedAt?: string;
+  alert?: Alert;
+};
 
 export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   job: Job,
   home: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   send: typeof fetch = fetch,
   readBootId: () => string | undefined = currentBootId,
 ) {
@@ -70,8 +77,8 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
   );
   const receipt = Effect.fn("writeUpdateReceipt")(
-    function* (fields: Record<string, unknown>) {
-      const record = `${JSON.stringify({ version: 1, job, startedAt, ...(bootId ? { bootId } : {}), ...fields })}\n`;
+    function* (fields: ReceiptFields) {
+      const record = `${JSON.stringify({ version: 1, job, startedAt, bootId: bootId || undefined, ...fields })}\n`;
       yield* Console.log(`Update receipt: ${record.trim()}`);
       yield* Effect.gen(function* () {
         const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
@@ -95,7 +102,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
 
   const destination = yield* Effect.gen(function* () {
-    if (!(yield* fs.exists(configPath))) return undefined;
+    if (!(yield* fs.exists(configPath))) {
+      return undefined;
+    }
     const link = yield* fs.readLink(configPath).pipe(Effect.option);
     const info = yield* fs.stat(configPath);
     if (
@@ -129,22 +138,30 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   );
 
   const blocked = yield* Effect.gen(function* () {
-    if (!(yield* fs.exists(path))) return false;
+    if (!(yield* fs.exists(path))) {
+      return false;
+    }
     const previous = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PreviousReceipt))(
       yield* fs.readFileString(path),
     );
-    if (previous.cleanupComplete !== false) return false;
-    if (!previous.bootId || !bootId || previous.bootId === bootId) return true;
+    if (previous.cleanupComplete !== false) {
+      return false;
+    }
+    if (!previous.bootId || !bootId || previous.bootId === bootId) {
+      return true;
+    }
     yield* Console.log("The previous update ended with a reboot; none of its processes remain.");
     return false;
   }).pipe(Effect.catch(() => Effect.succeed(true)));
-  if (blocked)
+  if (blocked) {
     yield* Console.error(
       "Previous update cleanup is unverified; refusing to start another update.",
     );
+  }
   const gateSaved = yield* receipt({ state: "running", cleanupComplete: false });
-  if (!gateSaved)
+  if (!gateSaved) {
     yield* Console.error("Cannot persist the cleanup gate; refusing to start another update.");
+  }
   const execution =
     blocked || !gateSaved
       ? { status: 125, timedOut: false, cleanupComplete: !blocked }
@@ -169,14 +186,14 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         : "Timeout diagnostics could not be saved.",
     );
   }
-  if (!execution.cleanupComplete)
+  if (!execution.cleanupComplete) {
     yield* Console.error("Update process cleanup is incomplete; inspect before retrying.");
-  // Persist cleanup before network delivery: cancellation must not reopen the retry gate.
+  }
   yield* receipt({
     state: "running",
     exitCode: status,
     cleanupComplete: execution.cleanupComplete,
-    ...(execution.timedOut ? { timedOut: true } : {}),
+    timedOut: execution.timedOut || undefined,
   });
   if (destination) {
     const failing = status !== 0;
@@ -185,8 +202,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       Effect.map((state) => state.failing),
       Effect.orElseSucceed(() => false),
     );
-    if (failing === notified) alert = "not-needed";
-    else {
+    if (failing === notified) {
+      alert = "not-needed";
+    } else {
       const host = hostname();
       const subject = failing
         ? `${host}: ${job} failed with exit code ${status}`
@@ -205,8 +223,6 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         "Inspect with `mise run maintenance:status` and the update log.",
         "",
       ].join("\n");
-      // One attempt only: a timed-out send may have been accepted. An unconfirmed
-      // transition stays pending, so the next scheduled run notifies again.
       alert = yield* Effect.tryPromise(async (signal) => {
         const response = await send(destination.endpoint, {
           method: "POST",
@@ -219,7 +235,9 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
           signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
         });
         const body = await response.text();
-        if (!response.ok) throw new Error(`alert rejected with HTTP ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`alert rejected with HTTP ${response.status}`);
+        }
         return body.slice(0, 65_536);
       }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(SendResult))),
@@ -245,21 +263,22 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     finishedAt: new Date().toISOString(),
     exitCode: status,
     alert,
-    ...(execution.timedOut ? { timedOut: true } : {}),
-    ...(execution.timedOut || !execution.cleanupComplete
-      ? { cleanupComplete: execution.cleanupComplete }
-      : {}),
+    timedOut: execution.timedOut || undefined,
+    cleanupComplete:
+      execution.timedOut || !execution.cleanupComplete ? execution.cleanupComplete : undefined,
   });
   return status;
 });
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     const [job, separator, command, ...args] = process.argv.slice(2);
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
       return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
-    if (process.platform === "darwin" && !(yield* awaitFullWake())) return;
+    if (process.platform === "darwin" && !(yield* awaitFullWake())) {
+      return;
+    }
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
   }).pipe(
     Effect.provide(BoundedCommand.layer),

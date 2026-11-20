@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, writeFile, utimes, symlink, readFile, rm, access } from
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../lib/command.ts";
@@ -16,26 +17,28 @@ async function fixture(t: TestContext) {
   await mkdir(bin);
   const previousPath = process.env.PATH;
   process.env.PATH = bin;
-  // An inherited CODEX_HOME would point the live `find` at the developer's real
-  // Codex tree, so every fixture run is pinned inside the temporary home.
   const previousCodexHome = process.env.CODEX_HOME;
   process.env.CODEX_HOME = join(home, ".codex");
   t.onTestFinished(() => {
     process.env.PATH = previousPath;
-    if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-    else process.env.CODEX_HOME = previousCodexHome;
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousCodexHome;
+    }
   });
-  for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"])
+  for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"]) {
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
+  }
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
     await mkdir(join(path, ".."), { recursive: true });
     await writeFile(path, "preserve unless eligible");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(path, when, when);
     return path;
   };
-  const calls: string[][] = [];
+  const calls: Array<Array<string>> = [];
   const run = (
     apply: boolean,
     options: {
@@ -43,7 +46,7 @@ async function fixture(t: TestContext) {
       spawnFailure?: boolean;
       probeFailure?: boolean;
       miseVersion?: string;
-      running?: readonly string[];
+      running?: ReadonlyArray<string>;
     } = {},
   ) =>
     Effect.runPromise(
@@ -54,11 +57,12 @@ async function fixture(t: TestContext) {
             assert.equal(commandOptions?.cwd, home);
             assert.equal(commandOptions?.env?.HOME, home);
             calls.push([command, ...args]);
-            if (command === options.failure)
+            if (command === options.failure) {
               return options.spawnFailure
                 ? Effect.fail(new CommandError({ command, message: "fixture spawn failure" }))
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
-            if (command === "pgrep")
+            }
+            if (command === "pgrep") {
               return Effect.succeed({
                 status: options.running?.some((path) => new RegExp(args[1] ?? "").test(path))
                   ? 0
@@ -66,8 +70,10 @@ async function fixture(t: TestContext) {
                 stdout: "",
                 stderr: "",
               });
-            if (command === "find" || command === "git")
+            }
+            if (command === "find" || command === "git") {
               return live.run(`/usr/bin/${command}`, args, commandOptions);
+            }
             return Effect.succeed({
               status: options.probeFailure && (args[0] === "info" || args[0] === "--find") ? 1 : 0,
               stdout:
@@ -176,7 +182,7 @@ test("one total budget cancels the active command and prevents subsequent cleanu
   const f = await fixture(t);
   await f.file(".gradle/daemon/old", 20);
   let cancelled = false;
-  const calls: string[] = [];
+  const calls: Array<string> = [];
   const runner = CommandRunner.of({
     run: (command) => {
       calls.push(command);
@@ -233,10 +239,13 @@ test("codex retention honours day boundaries, keeps roots, locks, and root state
   assert.equal(dry.status, 0);
   await Promise.all([...expired, ...retained, ...protectedState].map((path) => access(path)));
   assert.equal((await f.run(true)).status, 0);
-  for (const path of expired) await assert.rejects(access(path), { code: "ENOENT" });
+  for (const path of expired) {
+    await assert.rejects(access(path), { code: "ENOENT" });
+  }
   await Promise.all([...retained, ...protectedState].map((path) => access(path)));
-  for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"])
+  for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"]) {
     await access(join(f.home, ".codex", root));
+  }
 });
 
 test("codex retention empties a session root without removing the root itself", async (t) => {
@@ -287,15 +296,18 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   };
   const build = async (relative: string, days: number, tagged = true) => {
     const artifact = await f.file(`${relative}/debug/deps/libcrate.rlib`, days);
-    if (tagged) await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
-    const when = new Date(Date.now() - days * 86400_000);
+    if (tagged) {
+      await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
+    }
+    const when = new Date(Date.now() - days * 86_400_000);
     for (const path of [
       `${relative}/CACHEDIR.TAG`,
       `${relative}/debug/deps`,
       `${relative}/debug`,
       relative,
-    ])
+    ]) {
       await utimes(join(f.home, path), when, when).catch(() => undefined);
+    }
     return artifact;
   };
   await repo(".claude/worktrees/pnpm/review");
@@ -325,28 +337,33 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   await Promise.all(kept.map((path) => access(path)));
 });
 
+const install = async (path: string, days: number, directory = false) => {
+  await mkdir(directory ? path : join(path, ".."), { recursive: true });
+  if (directory) {
+    await writeFile(join(path, "server"), "fixture");
+  } else {
+    await writeFile(path, "fixture");
+  }
+  const when = new Date(Date.now() - days * 86_400_000);
+  await utimes(path, when, when);
+};
+
+const present = (path: string) =>
+  access(path).then(
+    () => true,
+    () => false,
+  );
+
 test("superseded Claude remote installs go, keeping the newest and any still running", async (t) => {
   const { home, run } = await fixture(t);
   const cli = join(home, ".claude/remote/ccd-cli");
   const srv = join(home, ".claude/remote/srv");
-  const install = async (path: string, days: number, directory = false) => {
-    await mkdir(directory ? path : join(path, ".."), { recursive: true });
-    if (directory) await writeFile(join(path, "server"), "fixture");
-    else await writeFile(path, "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
-    await utimes(path, when, when);
-  };
   await install(join(cli, "2.1.304-old"), 20);
   await install(join(cli, "2.1.309 (running)"), 10);
   await install(join(cli, "2.1.317-new"), 0);
   await install(join(srv, "old"), 20, true);
   await install(join(srv, "new"), 0, true);
   const running = [join(cli, "2.1.309 (running)")];
-  const present = (path: string) =>
-    access(path).then(
-      () => true,
-      () => false,
-    );
 
   await run(false, { running });
   assert.equal(await present(join(cli, "2.1.304-old")), true);
@@ -374,7 +391,7 @@ test("a Claude remote install whose running state is unknown stays", async (t) =
     ["new", 0],
   ] as const) {
     await writeFile(join(cli, name), "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(cli, name), when, when);
   }
   const result = await run(true, { failure: "pgrep", spawnFailure: true });
@@ -391,7 +408,7 @@ test("a symlinked Claude remote directory is never followed", async (t) => {
     ["new", 0],
   ] as const) {
     await writeFile(join(outside, name), "fixture");
-    const when = new Date(Date.now() - days * 86400_000);
+    const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(outside, name), when, when);
   }
   await mkdir(join(home, ".claude/remote"), { recursive: true });

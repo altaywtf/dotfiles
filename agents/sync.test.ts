@@ -4,17 +4,17 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { DEFAULT_SKILLS_CLI_VERSION, main, type Runtime } from "./sync.ts";
+import { DEFAULT_SKILLS_CLI_VERSION, main } from "./sync.ts";
+import type { Runtime } from "./sync.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureOptions = {
@@ -30,6 +30,8 @@ type FixtureFailure = {
   stdout: string;
 };
 
+type FakeResult = { status: number; stdout: string; stderr: string };
+
 class BufferWriter {
   value = "";
 
@@ -42,7 +44,7 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly falseSuccesses: ReadonlySet<string>;
   readonly failures: ReadonlyMap<string, FixtureFailure>;
@@ -67,10 +69,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(
-    command: string,
-    args: readonly string[],
-  ): { status: number; stdout: string; stderr: string } {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -94,7 +93,9 @@ class FixtureRuntime implements Runtime {
         }
       }
       for (const skill of skills) {
-        if (this.falseSuccesses.has(skill)) continue;
+        if (this.falseSuccesses.has(skill)) {
+          continue;
+        }
         const skillDir = join(this.home, ".agents", "skills", skill);
         mkdirSync(skillDir, { recursive: true });
         writeFileSync(
@@ -131,7 +132,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSkills = [
   { name: "ok-before", source: "fixture/before" },
@@ -149,7 +150,9 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string; home: string } {
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-sync-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");
@@ -185,7 +188,7 @@ function createFixture(): { repoDir: string; home: string } {
   return { repoDir, home };
 }
 
-function requestedSkills(args: readonly string[]): string[] {
+function requestedSkills(args: ReadonlyArray<string>): Array<string> {
   const skillFlag = args.indexOf("-s");
   const skills = skillFlag >= 0 ? args.slice(skillFlag + 1) : [];
   if (skills.length === 0 || skills.some((skill) => skill.startsWith("-"))) {
@@ -194,17 +197,17 @@ function requestedSkills(args: readonly string[]): string[] {
   return skills;
 }
 
-function installCalls(runtime: FixtureRuntime): CommandCall[] {
+function installCalls(runtime: FixtureRuntime): Array<CommandCall> {
   return runtime.calls.filter(
     (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "add",
   );
 }
 
-function installedSkillNames(runtime: FixtureRuntime): string[] {
+function installedSkillNames(runtime: FixtureRuntime): Array<string> {
   return installCalls(runtime).flatMap((call) => requestedSkills(call.args));
 }
 
-function removedSkillNames(runtime: FixtureRuntime): string[] {
+function removedSkillNames(runtime: FixtureRuntime): Array<string> {
   return runtime.calls
     .filter(
       (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "remove",
@@ -218,7 +221,7 @@ function removedSkillNames(runtime: FixtureRuntime): string[] {
     });
 }
 
-function updateCalls(runtime: FixtureRuntime): CommandCall[] {
+function updateCalls(runtime: FixtureRuntime): Array<CommandCall> {
   return runtime.calls.filter(
     (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "update",
   );
@@ -574,7 +577,7 @@ test("skips the updater when managed skill installation fails", () => {
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "sync.ts");
+  const scriptPath = join(import.meta.dirname, "sync.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
@@ -621,15 +624,16 @@ test("another checkout without the overlay keeps overlay-owned skills", () => {
   assert.deepEqual(removedSkillNames(owner), ["machine-only"]);
 });
 
+const overlay = (repoDir: string, name: string) =>
+  writeFileSync(
+    join(repoDir, "agents", "local.json"),
+    JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
+    { mode: 0o600 },
+  );
+
 test("checkouts with their own overlays keep each other's skills", () => {
   const first = createFixture();
   const second = createFixture().repoDir;
-  const overlay = (repoDir: string, name: string) =>
-    writeFileSync(
-      join(repoDir, "agents", "local.json"),
-      JSON.stringify({ skills: [{ name, source: `fixture/${name}` }] }),
-      { mode: 0o600 },
-    );
   overlay(first.repoDir, "first-only");
   overlay(second, "second-only");
   assert.equal(main([], new FixtureRuntime(first.repoDir, first.home)), 0);

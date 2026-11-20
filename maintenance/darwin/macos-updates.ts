@@ -73,7 +73,7 @@ type DeviceValue = {
 export type SoftwareUpdateResult = {
   available: boolean;
   restart_required: boolean;
-  items: string[];
+  items: Array<string>;
 };
 
 type ApplicabilityResult = {
@@ -82,7 +82,7 @@ type ApplicabilityResult = {
   freshness: "cached_previous_scan" | "live" | "not_run";
   available?: boolean;
   restart_required?: boolean;
-  items: string[];
+  items: Array<string>;
   error?: string;
   failure_kind?: FailureKind;
   cache_error?: string;
@@ -104,7 +104,7 @@ export type MacOSUpdateInventory = {
   };
   cached_applicability: ApplicabilityResult;
   live_scan: ApplicabilityResult & {
-    reasons: string[];
+    reasons: Array<string>;
     last_success_at?: string;
     last_success_age_seconds?: number;
   };
@@ -204,9 +204,9 @@ const appleUrl = "https://gdmf.apple.com/v2/pmv";
 const sofaMacOSUrl = "https://sofafeed.macadmins.io/v2/macos_data_feed.json";
 const sofaSafariUrl = "https://sofafeed.macadmins.io/v2/safari_data_feed.json";
 const userAgent = "dotfiles-maintenance/1";
-const dayMs = 24 * 60 * 60 * 1_000;
-const commandTimeoutMs = 5_000;
-const feedTimeoutMs = 1_500;
+const dayMs = 24 * 60 * 60 * 1000;
+const commandTimeoutMs = 5000;
+const feedTimeoutMs = 1500;
 const safariMajorByMacOSMajor = new Map([
   [12, "17"],
   [13, "18"],
@@ -215,7 +215,9 @@ const safariMajorByMacOSMajor = new Map([
 ]);
 
 function errorMessage(result: RawCommandResult): string {
-  if (result.timedOut) return "command timed out";
+  if (result.timedOut) {
+    return "command timed out";
+  }
   return (
     (result.stderr || result.error?.message || result.stdout || `exit ${result.status}`)
       .trim()
@@ -224,10 +226,18 @@ function errorMessage(result: RawCommandResult): string {
 }
 
 function classifyHttp(status: number): FailureKind {
-  if (status === 401 || status === 403) return "auth";
-  if (status === 409) return "conflict";
-  if (status === 429) return "rate_limit";
-  if (status >= 500) return "transient";
+  if (status === 401 || status === 403) {
+    return "auth";
+  }
+  if (status === 409) {
+    return "conflict";
+  }
+  if (status === 429) {
+    return "rate_limit";
+  }
+  if (status >= 500) {
+    return "transient";
+  }
   return status >= 400 ? "validation" : "unknown";
 }
 
@@ -240,10 +250,14 @@ function parseDateTime(value: string): DateTime.Utc | undefined {
 
 function ageSeconds(nowMs: number, value: string): number | undefined {
   const parsed = parseDateTime(value);
-  if (!parsed) return undefined;
+  if (!parsed) {
+    return undefined;
+  }
   const ageMs = nowMs - DateTime.toEpochMillis(parsed);
-  if (ageMs < 0) return undefined;
-  return Math.floor(ageMs / 1_000);
+  if (ageMs < 0) {
+    return undefined;
+  }
+  return Math.floor(ageMs / 1000);
 }
 
 function commandInstalled(
@@ -267,7 +281,9 @@ export function parseSoftwareUpdate(result: RawCommandResult): SoftwareUpdateRes
     .map((line) => line.trim())
     .filter(Boolean);
   const items = lines.filter((line) => /^\* Label:|^Label:|^Title:/i.test(line));
-  if (items.length === 0) throw new Error("softwareupdate returned an unsupported listing");
+  if (items.length === 0) {
+    throw new Error("softwareupdate returned an unsupported listing");
+  }
   return {
     available: true,
     restart_required: lines.some((line) => /restart/i.test(line)),
@@ -313,40 +329,57 @@ export function compareVersions(left: string, right: string): number {
   const b = right.split(".").map(Number);
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (a[index] ?? 0) - (b[index] ?? 0);
-    if (difference !== 0) return Math.sign(difference);
+    if (difference !== 0) {
+      return Math.sign(difference);
+    }
   }
   return 0;
 }
 
-export function compareBuilds(left: string, right: string): number {
-  const parse = (value: string) => {
-    const match = /^(\d+)([A-Za-z]+)(\d+)([A-Za-z0-9]*)$/.exec(value);
-    if (!match) throw new Error(`invalid Apple build ${value}`);
-    return {
-      train: Number(match[1]),
-      branch: match[2]!.toUpperCase(),
-      revision: Number(match[3]),
-      suffix: match[4]!.toUpperCase(),
-    };
+const parse = (value: string) => {
+  const match = /^(\d+)([A-Za-z]+)(\d+)([A-Za-z0-9]*)$/.exec(value);
+  if (!match) {
+    throw new Error(`invalid Apple build ${value}`);
+  }
+  return {
+    train: Number(match[1]),
+    branch: match[2].toUpperCase(),
+    revision: Number(match[3]),
+    suffix: match[4].toUpperCase(),
   };
+};
+
+export function compareBuilds(left: string, right: string): number {
   const a = parse(left);
   const b = parse(right);
-  if (a.train !== b.train) return Math.sign(a.train - b.train);
+  if (a.train !== b.train) {
+    return Math.sign(a.train - b.train);
+  }
   const branch = a.branch.localeCompare(b.branch);
-  if (branch !== 0) return Math.sign(branch);
-  if (a.revision !== b.revision) return Math.sign(a.revision - b.revision);
-  if (a.suffix === "" && b.suffix !== "") return 1;
-  if (a.suffix !== "" && b.suffix === "") return -1;
+  if (branch !== 0) {
+    return Math.sign(branch);
+  }
+  if (a.revision !== b.revision) {
+    return Math.sign(a.revision - b.revision);
+  }
+  if (a.suffix === "" && b.suffix !== "") {
+    return 1;
+  }
+  if (a.suffix !== "" && b.suffix === "") {
+    return -1;
+  }
   return Math.sign(a.suffix.localeCompare(b.suffix));
 }
 
 function compareBaselines(left: ReleaseBaseline, right: ReleaseBaseline): number {
   const version = compareVersions(left.version, right.version);
-  if (version !== 0 || !left.build || !right.build) return version;
+  if (version !== 0 || !left.build || !right.build) {
+    return version;
+  }
   return compareBuilds(left.build, right.build);
 }
 
-function newest(values: readonly ReleaseBaseline[]): ReleaseBaseline | undefined {
+function newest(values: ReadonlyArray<ReleaseBaseline>): ReleaseBaseline | undefined {
   return values.reduce<ReleaseBaseline | undefined>(
     (selected, value) => (!selected || compareBaselines(value, selected) > 0 ? value : selected),
     undefined,
@@ -355,7 +388,7 @@ function newest(values: readonly ReleaseBaseline[]): ReleaseBaseline | undefined
 
 export function selectGdmfBaseline(
   payload: unknown,
-  deviceIdentifiers: readonly string[],
+  deviceIdentifiers: ReadonlyArray<string>,
 ): ReleaseBaseline {
   const feed = Schema.decodeUnknownSync(GdmfFeed)(payload);
   const identifiers = new Set(deviceIdentifiers.filter(Boolean));
@@ -373,8 +406,9 @@ export function selectGdmfBaseline(
         ];
   });
   const selected = newest(candidates);
-  if (!selected)
+  if (!selected) {
     throw new Error("Apple GDMF is incompatible with this software-update device identifier");
+  }
   return selected;
 }
 
@@ -392,7 +426,9 @@ export function selectSofaMacOSBaseline(
     device_match: modelIdentifier,
   }));
   const selected = newest(candidates);
-  if (!selected) throw new Error("SOFA macOS is incompatible with this model identifier");
+  if (!selected) {
+    throw new Error("SOFA macOS is incompatible with this model identifier");
+  }
   return selected;
 }
 
@@ -402,7 +438,9 @@ function compatibleSafariMajor(
 ): string {
   const safariMajor = installedSafariVersion.split(".")[0] ?? "";
   const macOSMajor = Number(installedMacOSVersion.split(".")[0]);
-  if (macOSMajor >= 26) return String(macOSMajor);
+  if (macOSMajor >= 26) {
+    return String(macOSMajor);
+  }
   return safariMajorByMacOSMajor.get(macOSMajor) ?? safariMajor;
 }
 
@@ -421,7 +459,9 @@ export function selectSofaSafariBaseline(
     device_match: `Safari ${major}`,
   }));
   const selected = newest(candidates);
-  if (!selected) throw new Error(`SOFA Safari is incompatible with Safari ${major}`);
+  if (!selected) {
+    throw new Error(`SOFA Safari is incompatible with Safari ${major}`);
+  }
   return selected;
 }
 
@@ -434,15 +474,18 @@ function sourceFailure(
   failureKind: FailureKind,
   age?: number,
 ): UpstreamResult {
-  return {
+  const result: UpstreamResult = {
     status,
     source,
     freshness,
     checked_at: checkedAt,
     error,
     failure_kind: failureKind,
-    ...(age === undefined ? {} : { age_seconds: age }),
   };
+  if (age !== undefined) {
+    result.age_seconds = age;
+  }
+  return result;
 }
 
 function selectPayload(
@@ -454,14 +497,17 @@ function selectPayload(
   age?: number,
 ): UpstreamResult {
   try {
-    return {
+    const result: UpstreamResult = {
       status: freshness === "stale_cache" ? "stale" : "ok",
       source,
       freshness,
       checked_at: checkedAt,
       baseline: select(payload),
-      ...(age === undefined ? {} : { age_seconds: age }),
     };
+    if (age !== undefined) {
+      result.age_seconds = age;
+    }
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const incompatible = /incompatible/i.test(message);
@@ -477,8 +523,12 @@ function selectPayload(
   }
 }
 
-function parseCache(contents: string | undefined): { record?: CacheRecord; error?: string } {
-  if (contents === undefined) return {};
+type ParsedRecord<A> = { record?: A; error?: string };
+
+function parseCache(contents: string | undefined): ParsedRecord<CacheRecord> {
+  if (contents === undefined) {
+    return {};
+  }
   try {
     return { record: Schema.decodeUnknownSync(Schema.fromJsonString(CacheRecord))(contents) };
   } catch (error) {
@@ -486,11 +536,10 @@ function parseCache(contents: string | undefined): { record?: CacheRecord; error
   }
 }
 
-function parseLiveScanRecord(contents: string | undefined): {
-  record?: LiveScanRecord;
-  error?: string;
-} {
-  if (contents === undefined) return {};
+function parseLiveScanRecord(contents: string | undefined): ParsedRecord<LiveScanRecord> {
+  if (contents === undefined) {
+    return {};
+  }
   try {
     return { record: Schema.decodeUnknownSync(Schema.fromJsonString(LiveScanRecord))(contents) };
   } catch (error) {
@@ -514,7 +563,7 @@ async function appleSource(
   cachePath: string,
   nowIso: string,
   nowMs: number,
-  identifiers: readonly string[],
+  identifiers: ReadonlyArray<string>,
 ): Promise<UpstreamResult> {
   const cached = parseCache(await io.readCache(cachePath).catch(() => undefined));
   const checkedAge = cached.record ? ageSeconds(nowMs, cached.record.checked_at) : undefined;
@@ -524,13 +573,13 @@ async function appleSource(
   const fetchedAgeUnknown = cached.record?.fetched_at !== undefined && fetchedAge === undefined;
   const reusableCache =
     cached.record && checkedAge !== undefined && !fetchedAgeUnknown ? cached.record : undefined;
-  if (reusableCache && checkedAge !== undefined && checkedAge < dayMs / 1_000) {
+  if (reusableCache && checkedAge !== undefined && checkedAge < dayMs / 1000) {
     if (reusableCache.payload !== undefined) {
       const result = selectPayload(
         "apple_gdmf",
         reusableCache.payload,
         reusableCache.checked_at,
-        fetchedAge !== undefined && fetchedAge >= dayMs / 1_000 ? "stale_cache" : "daily_cache",
+        fetchedAge !== undefined && fetchedAge >= dayMs / 1000 ? "stale_cache" : "daily_cache",
         (payload) => selectGdmfBaseline(payload, identifiers),
         fetchedAge,
       );
@@ -578,10 +627,8 @@ async function appleSource(
     checked_at: nowIso,
     ...(failure
       ? {
-          ...(reusableCache?.payload === undefined ? {} : { payload: reusableCache.payload }),
-          ...(reusableCache?.fetched_at === undefined
-            ? {}
-            : { fetched_at: reusableCache.fetched_at }),
+          payload: reusableCache?.payload,
+          fetched_at: reusableCache?.fetched_at,
           error: failure.error,
           failure_kind: failure.kind,
         }
@@ -604,24 +651,28 @@ async function appleSource(
         (value) => selectGdmfBaseline(value, identifiers),
         ageSeconds(nowMs, record.fetched_at),
       );
-      return {
+      const stale: UpstreamResult = {
         ...result,
         error: failure.error,
         failure_kind: failure.kind,
-        ...(cacheError ? { cache_error: cacheError } : {}),
       };
+      if (cacheError) {
+        stale.cache_error = cacheError;
+      }
+      return stale;
     }
-    return {
-      ...sourceFailure(
-        "apple_gdmf",
-        nowIso,
-        "unavailable",
-        "unavailable",
-        failure.error,
-        failure.kind,
-      ),
-      ...(cacheError ? { cache_error: cacheError } : {}),
-    };
+    const unavailable = sourceFailure(
+      "apple_gdmf",
+      nowIso,
+      "unavailable",
+      "unavailable",
+      failure.error,
+      failure.kind,
+    );
+    if (cacheError) {
+      unavailable.cache_error = cacheError;
+    }
+    return unavailable;
   }
   const result = selectPayload(
     "apple_gdmf",
@@ -631,7 +682,10 @@ async function appleSource(
     (value) => selectGdmfBaseline(value, identifiers),
     0,
   );
-  return { ...result, ...(cacheError ? { cache_error: cacheError } : {}) };
+  if (cacheError) {
+    result.cache_error = cacheError;
+  }
+  return result;
 }
 
 async function sofaSource(
@@ -642,7 +696,7 @@ async function sofaSource(
   select: (payload: unknown) => ReleaseBaseline,
 ): Promise<UpstreamResult> {
   const response = await io.fetch(url, userAgent, feedTimeoutMs);
-  if (response.error)
+  if (response.error) {
     return sourceFailure(
       source,
       nowIso,
@@ -651,6 +705,7 @@ async function sofaSource(
       response.error.message,
       "transient",
     );
+  }
   if (response.status < 200 || response.status >= 300) {
     return sourceFailure(
       source,
@@ -703,21 +758,24 @@ function parseDevice(result: RawCommandResult): DeviceValue {
       error: "ioreg did not return a supported device identifier",
     };
   }
-  return {
-    status: "ok",
-    source: "ioreg",
-    freshness: "installed",
-    ...(softwareUpdateId ? { software_update_id: softwareUpdateId } : {}),
-    ...(modelIdentifier ? { model_identifier: modelIdentifier } : {}),
-    ...(boardIdentifier ? { board_identifier: boardIdentifier } : {}),
-  };
+  const device: DeviceValue = { status: "ok", source: "ioreg", freshness: "installed" };
+  if (softwareUpdateId) {
+    device.software_update_id = softwareUpdateId;
+  }
+  if (modelIdentifier) {
+    device.model_identifier = modelIdentifier;
+  }
+  if (boardIdentifier) {
+    device.board_identifier = boardIdentifier;
+  }
+  return device;
 }
 
 function runCommand(
   runner: CommandRunner,
   options: MacOSUpdateOptions,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   timeoutMs: number | null,
 ) {
   return Effect.tryPromise({
@@ -742,7 +800,9 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
 ) {
   const started = performance.now();
   const now = options.now ? parseDateTime(options.now) : yield* DateTime.now;
-  if (!now) return yield* Effect.die(new Error(`invalid inventory time ${options.now}`));
+  if (!now) {
+    return yield* Effect.die(new Error(`invalid inventory time ${options.now}`));
+  }
   const nowIso = DateTime.formatIso(now);
   const nowMs = DateTime.toEpochMillis(now);
 
@@ -871,36 +931,50 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
     ),
   );
   const selectedSafari = sofaSafari.status === "ok" ? sofaSafari.baseline : undefined;
-  const reasons: string[] = [];
-  if (options.fresh) reasons.push("explicit_fresh");
-  if (liveScanCacheError || lastLiveScanAge === undefined) reasons.push("live_scan_age_unknown");
-  else if (lastLiveScanAge >= dayMs / 1_000) reasons.push("live_scan_stale");
-  if (cachedApplicability.status === "failed") reasons.push("cached_applicability_invalid");
-  else if (cachedApplicability.available) reasons.push("cached_backlog_nonempty");
+  const reasons: Array<string> = [];
+  if (options.fresh) {
+    reasons.push("explicit_fresh");
+  }
+  if (liveScanCacheError || lastLiveScanAge === undefined) {
+    reasons.push("live_scan_age_unknown");
+  } else if (lastLiveScanAge >= dayMs / 1000) {
+    reasons.push("live_scan_stale");
+  }
+  if (cachedApplicability.status === "failed") {
+    reasons.push("cached_applicability_invalid");
+  } else if (cachedApplicability.available) {
+    reasons.push("cached_backlog_nonempty");
+  }
   if (
     installedOs.status !== "ok" ||
     !installedOs.version ||
     !installedOs.build ||
     device.status !== "ok"
-  )
+  ) {
     reasons.push("installed_state_invalid");
-  if (!selectedOs) reasons.push("upstream_os_unavailable");
-  if (installedSafari.status !== "ok" || !installedSafari.version || !selectedSafari)
+  }
+  if (!selectedOs) {
+    reasons.push("upstream_os_unavailable");
+  }
+  if (installedSafari.status !== "ok" || !installedSafari.version || !selectedSafari) {
     reasons.push("upstream_safari_unavailable");
+  }
   if (selectedOs && installedOs.version && installedOs.build) {
     const version = compareVersions(selectedOs.version, installedOs.version);
     if (
       version > 0 ||
       (version === 0 && selectedOs.build && compareBuilds(selectedOs.build, installedOs.build) > 0)
-    )
+    ) {
       reasons.push("upstream_os_newer");
+    }
   }
   if (
     selectedSafari &&
     installedSafari.version &&
     compareVersions(selectedSafari.version, installedSafari.version) > 0
-  )
+  ) {
     reasons.push("upstream_safari_newer");
+  }
 
   let liveScan: MacOSUpdateInventory["live_scan"] = {
     status: "not_run",
@@ -908,14 +982,14 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
     freshness: "not_run",
     items: [],
     reasons: [...new Set(reasons)],
-    ...(lastLiveScanAge === undefined || !liveScanCache.record
-      ? {}
-      : {
-          last_success_at: liveScanCache.record.completed_at,
-          last_success_age_seconds: lastLiveScanAge,
-        }),
-    ...(liveScanCacheError ? { cache_error: liveScanCacheError } : {}),
   };
+  if (lastLiveScanAge !== undefined && liveScanCache.record) {
+    liveScan.last_success_at = liveScanCache.record.completed_at;
+    liveScan.last_success_age_seconds = lastLiveScanAge;
+  }
+  if (liveScanCacheError) {
+    liveScan.cache_error = liveScanCacheError;
+  }
   if (reasons.length > 0) {
     const live = parseApplicability(
       yield* runCommand(runner, options, "softwareupdate", ["-l"], null),
@@ -959,16 +1033,21 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
             ? { status: "current" as const, basis: "cached_and_upstream" as const }
             : { status: "unknown" as const, basis: "unknown" as const };
 
+  const upstream: MacOSUpdateInventory["upstream"] = {
+    apple_gdmf: apple,
+    sofa_macos: sofaMacOS,
+    sofa_safari: sofaSafari,
+  };
+  if (selectedOs) {
+    upstream.selected_os = selectedOs;
+  }
+  if (selectedSafari) {
+    upstream.selected_safari = selectedSafari;
+  }
   return {
     duration_ms: Math.round(performance.now() - started),
     installed: { os: installedOs, safari: installedSafari, device },
-    upstream: {
-      apple_gdmf: apple,
-      sofa_macos: sofaMacOS,
-      sofa_safari: sofaSafari,
-      ...(selectedOs ? { selected_os: selectedOs } : {}),
-      ...(selectedSafari ? { selected_safari: selectedSafari } : {}),
-    },
+    upstream,
     cached_applicability: cachedApplicability,
     live_scan: liveScan,
     applicability,
@@ -984,7 +1063,9 @@ export async function collectMacOSUpdateInventory(
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  if (signal?.aborted) abort();
+  if (signal?.aborted) {
+    abort();
+  }
   const active = new Set<Promise<unknown>>();
   const runIO = async <A>(operation: () => Promise<A>): Promise<A> => {
     controller.signal.throwIfAborted();
@@ -1042,7 +1123,9 @@ export const defaultMacOSUpdateIO: MacOSUpdateIO = {
     try {
       return await readFile(path, { encoding: "utf8", signal });
     } catch (error) {
-      if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") return undefined;
+      if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") {
+        return undefined;
+      }
       throw error;
     }
   },

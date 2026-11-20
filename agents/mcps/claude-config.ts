@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Option, Schema } from "effect";
 
-import { type McpOAuth } from "./catalog.ts";
+import type { McpOAuth } from "./catalog.ts";
 
 const ClaudeConfig = Schema.fromJsonString(
   Schema.Struct({ mcpServers: Schema.Record(Schema.String, Schema.Unknown) }),
@@ -22,7 +22,9 @@ function claudeConfigPath(env: NodeJS.ProcessEnv): string | undefined {
 
 function userEntry(env: NodeJS.ProcessEnv, name: string): typeof ClaudeServer.Type | undefined {
   const path = claudeConfigPath(env);
-  if (path === undefined) return undefined;
+  if (path === undefined) {
+    return undefined;
+  }
   let contents: string;
   try {
     contents = readFileSync(path, "utf8");
@@ -46,9 +48,13 @@ export function claudeAuthMatches(
   const configuredHelper = Option.getOrUndefined(
     Schema.decodeUnknownOption(Schema.String)(entry?.headersHelper),
   );
-  if (configuredHelper !== headersHelper) return false;
+  if (configuredHelper !== headersHelper) {
+    return false;
+  }
 
-  if (oauth === undefined) return entry?.oauth === undefined;
+  if (oauth === undefined) {
+    return entry?.oauth === undefined;
+  }
   return Schema.decodeUnknownOption(ClaudeOAuth, { onExcessProperty: "error" })(entry?.oauth).pipe(
     Option.exists(
       (configured) =>

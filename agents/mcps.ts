@@ -2,15 +2,13 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { Effect, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { decodeOr, decodeOrThrow } from "./decode.ts";
 import {
-  type Harness,
   HARNESS_INFO,
   HARNESSES,
   harnessPresent,
@@ -18,9 +16,10 @@ import {
   parseSyncArgs,
   reportSyncFailures,
   SafeName,
-  type SyncFailure,
 } from "./harness.ts";
-import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Harness, SyncFailure } from "./harness.ts";
+import { expandHeadersHelper, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Mcp } from "./mcps/catalog.ts";
 import { claudeAuthMatches } from "./mcps/claude-config.ts";
 import { codexCallbackUrl, codexOAuthMatches } from "./mcps/codex-config.ts";
 import { planOwnership } from "./ownership.ts";
@@ -31,15 +30,10 @@ import {
   readLockFile,
   readOverlayOwnership,
   writeLockFile,
-  type OverlayOwnership,
 } from "./lock.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import type { OverlayOwnership } from "./lock.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 type McpFailure = SyncFailure;
 
@@ -56,11 +50,11 @@ const McpLockDocument = Schema.Struct({
 
 type McpLock = {
   version: 1;
-  mcps: LockedMcp[];
+  mcps: Array<LockedMcp>;
   overlays?: OverlayOwnership;
 };
 
-function readMcpLock(lockPath: string): LockedMcp[] | undefined {
+function readMcpLock(lockPath: string): Array<LockedMcp> | undefined {
   const parsed = readLockFile(lockPath, "MCP");
   if (parsed === undefined) {
     return undefined;
@@ -69,8 +63,6 @@ function readMcpLock(lockPath: string): LockedMcp[] | undefined {
   const label = `Invalid managed MCP lock at ${lockPath}`;
   const shapeMessage = `${label}: expected version 1 and an mcps array`;
   const lock = decodeOr(McpLockDocument, parsed, shapeMessage);
-  // Locks written before the rename keep their entries under `servers`; the
-  // next write stores them as `mcps`.
   const entries = lock.mcps ?? lock.servers;
   if (entries === undefined) {
     throw new Error(shapeMessage);
@@ -93,17 +85,19 @@ function readMcpLock(lockPath: string): LockedMcp[] | undefined {
 
 function writeMcpLock(
   lockPath: string,
-  mcps: readonly LockedMcp[],
+  mcps: ReadonlyArray<LockedMcp>,
   overlays?: OverlayOwnership,
 ): void {
-  const lock: McpLock = { version: 1, mcps: [...mcps], ...(overlays ? { overlays } : {}) };
+  const lock: McpLock = { version: 1, mcps: [...mcps], overlays };
   writeLockFile(lockPath, lock);
 }
 
-const mcpName = (mcp: { name: string; harnesses: readonly Harness[] }) => mcp.name;
+const mcpName = (mcp: { name: string; harnesses: ReadonlyArray<Harness> }) => mcp.name;
 
-// Another checkout's overlay keeps its harnesses even when this checkout selects the same name.
-function withKept(next: readonly LockedMcp[], kept: readonly LockedMcp[]): LockedMcp[] {
+function withKept(
+  next: ReadonlyArray<LockedMcp>,
+  kept: ReadonlyArray<LockedMcp>,
+): Array<LockedMcp> {
   const merged = new Map(next.map((mcp) => [mcp.name, mcp]));
   for (const mcp of kept) {
     const current = merged.get(mcp.name);
@@ -117,7 +111,7 @@ function withKept(next: readonly LockedMcp[], kept: readonly LockedMcp[]): Locke
   return [...merged.values()];
 }
 
-function mcpRemoveArgs(harness: Harness, name: string): string[] {
+function mcpRemoveArgs(harness: Harness, name: string): Array<string> {
   switch (harness) {
     case "claude":
       return ["mcp", "remove", "-s", "user", name];
@@ -130,8 +124,8 @@ function runPlanned(
   runtime: Runtime,
   label: string,
   binary: string,
-  args: readonly string[],
-  failures: McpFailure[],
+  args: ReadonlyArray<string>,
+  failures: Array<McpFailure>,
 ): boolean {
   writeLine(runtime.stdout, `${label}: ${binary} ${args.join(" ")}`);
   const result = runtime.run(binary, args, { stdout: "capture", stderr: "capture" });
@@ -145,10 +139,7 @@ function runPlanned(
   return true;
 }
 
-// `codex mcp add` upserts the config but then probes the mcp and can start an
-// interactive OAuth login, so converge through get: a matching URL and OAuth client is a no-op,
-// and an add whose config landed before the login step failed is a warning.
-function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
+function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<McpFailure>): void {
   const label = "Codex";
   const selected = mcps.filter((mcp) => mcp.harnesses.includes("codex"));
 
@@ -201,7 +192,7 @@ function applyCodex(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure
   }
 }
 
-function codexAddArgs(mcp: Mcp): string[] {
+function codexAddArgs(mcp: Mcp): Array<string> {
   if (mcp.oauth === undefined) {
     return ["mcp", "add", mcp.name, "--url", mcp.url];
   }
@@ -218,23 +209,24 @@ function codexAddArgs(mcp: Mcp): string[] {
   ];
 }
 
-function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): string[] {
+function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): Array<string> {
   if (headersHelper === undefined && mcp.oauth === undefined) {
     return ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url];
   }
   const config = JSON.stringify({
     type: "http",
     url: mcp.url,
-    ...(headersHelper === undefined ? {} : { headersHelper }),
-    ...(mcp.oauth === undefined ? {} : { oauth: mcp.oauth }),
+    headersHelper,
+    oauth: mcp.oauth,
   });
   return ["mcp", "add-json", "-s", "user", mcp.name, config];
 }
 
-// `claude mcp add` refuses an existing name instead of updating it, so converge
-// through get: matching URL, headers helper, and OAuth client is a no-op, anything else is
-// removed and re-added.
-function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailure[]): void {
+function applyClaude(
+  runtime: Runtime,
+  mcps: ReadonlyArray<Mcp>,
+  failures: Array<McpFailure>,
+): void {
   const label = "Claude Code";
   const selected = mcps.filter((mcp) => mcp.harnesses.includes("claude"));
 
@@ -281,13 +273,13 @@ function applyClaude(runtime: Runtime, mcps: readonly Mcp[], failures: McpFailur
 
 function removeStaleMcps(
   runtime: Runtime,
-  stale: readonly LockedMcp[],
-  failures: McpFailure[],
-): LockedMcp[] {
-  const leftover: LockedMcp[] = [];
+  stale: ReadonlyArray<LockedMcp>,
+  failures: Array<McpFailure>,
+): Array<LockedMcp> {
+  const leftover: Array<LockedMcp> = [];
 
   for (const mcp of stale) {
-    const leftoverHarnesses: Harness[] = [];
+    const leftoverHarnesses: Array<Harness> = [];
     for (const harness of mcp.harnesses) {
       const { binary, label } = HARNESS_INFO[harness];
       if (!runtime.commandExists(binary)) {
@@ -319,7 +311,7 @@ type McpOptions = {
 const USAGE = "Usage: ./agents/mcps.ts [--profile PROFILE]";
 
 function apply(runtime: Runtime, options: McpOptions): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, options.profile);
 
@@ -333,7 +325,9 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
-  if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  if (localPath) {
+    writeLine(runtime.stdout, `Local overlay: ${localPath}`);
+  }
 
   const mcpLockPath = managedLockLocation(runtime.env, "mcps");
   const previouslyManaged = readMcpLock(mcpLockPath);
@@ -346,7 +340,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
     keyOf: mcpName,
   });
 
-  const failures: McpFailure[] = [];
+  const failures: Array<McpFailure> = [];
   for (const harness of HARNESSES) {
     if (harness === "claude") {
       applyClaude(runtime, mcps, failures);
@@ -381,11 +375,11 @@ function apply(runtime: Runtime, options: McpOptions): number {
   return 0;
 }
 
-function reportMcpFailures(runtime: Runtime, failures: readonly McpFailure[]): 1 {
+function reportMcpFailures(runtime: Runtime, failures: ReadonlyArray<McpFailure>): 1 {
   return reportSyncFailures(runtime, failures, "MCP sync", ["command", "commands"], "MCP");
 }
 
-export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
+export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, false);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
@@ -405,7 +399,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

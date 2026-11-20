@@ -4,18 +4,18 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
 import { HARNESSES, main, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
-import { type Runtime } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
+import { Schema } from "effect";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
   command: string;
-  args: readonly string[];
+  args: ReadonlyArray<string>;
 };
 
 type FixtureFailure = {
@@ -27,6 +27,8 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   profile?: string;
 };
+
+type FakeResult = { status: number; stdout: string; stderr: string };
 
 class BufferWriter {
   value = "";
@@ -40,7 +42,7 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly calls: CommandCall[] = [];
+  readonly calls: Array<CommandCall> = [];
   readonly installedCommands = new Set(["claude", "codex"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly profile: string;
@@ -57,10 +59,7 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(
-    command: string,
-    args: readonly string[],
-  ): { status: number; stdout: string; stderr: string } {
+  run(command: string, args: ReadonlyArray<string>): FakeResult {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -83,7 +82,7 @@ class FixtureRuntime implements Runtime {
   }
 }
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: Array<string> = [];
 
 const fixtureSharedPlugins = [
   { marketplace: "fixture/shared-market", name: "shared-plugin" },
@@ -100,7 +99,21 @@ afterEach(() => {
   }
 });
 
-function createFixture(): { repoDir: string; home: string } {
+const LockedPlugins = Schema.fromJsonString(
+  Schema.Struct({
+    plugins: Schema.Array(
+      Schema.Struct({
+        marketplaceId: Schema.String,
+        name: Schema.String,
+        harnesses: Schema.Array(Schema.String),
+      }),
+    ),
+  }),
+);
+
+type Fixture = { repoDir: string; home: string };
+
+function createFixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-plugins-"));
   temporaryDirectories.push(root);
   const repoDir = join(root, "repo");
@@ -133,7 +146,7 @@ function manifestPath(repoDir: string, layer: string): string {
   return join(repoDir, "agents", "plugins", `${layer}.json`);
 }
 
-function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
+function harnessCalls(runtime: FixtureRuntime, binary: string): Array<string> {
   return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
@@ -144,8 +157,8 @@ function pluginLockPath(home: string): string {
 function lockPlugin(plugin: {
   marketplace: string;
   name: string;
-  harnesses?: readonly string[];
-}): unknown {
+  harnesses?: ReadonlyArray<string>;
+}) {
   return {
     marketplace: plugin.marketplace,
     marketplaceId: plugin.marketplace.split("/")[1],
@@ -154,7 +167,7 @@ function lockPlugin(plugin: {
   };
 }
 
-function writePluginLock(home: string, plugins: Parameters<typeof lockPlugin>[0][]): void {
+function writePluginLock(home: string, plugins: Array<Parameters<typeof lockPlugin>[0]>): void {
   mkdirSync(dirname(pluginLockPath(home)), { recursive: true });
   writeFileSync(
     pluginLockPath(home),
@@ -268,9 +281,7 @@ test("another checkout without the overlay keeps overlay-owned plugins", () => {
     harnessCalls(other, "claude").some((call) => call.includes("uninstall -y local@local-market")),
     false,
   );
-  const lock = JSON.parse(readFileSync(pluginLockPath(home), "utf8")) as {
-    plugins: { name: string }[];
-  };
+  const lock = Schema.decodeUnknownSync(LockedPlugins)(readFileSync(pluginLockPath(home), "utf8"));
   assert.ok(lock.plugins.some((plugin) => plugin.name === "local"));
 });
 
@@ -527,12 +538,12 @@ test("prunes dropped plugins on present harnesses and defers absent ones until t
     harnessCalls(runtime, binary).filter((call) => /^plugin (uninstall|remove) /.test(call));
   const lockedHarnesses = () =>
     Object.fromEntries(
-      JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins.map(
-        (plugin: { marketplaceId: string; name: string; harnesses: string[] }) => [
-          `${plugin.name}@${plugin.marketplaceId}`,
-          [...plugin.harnesses].sort(),
-        ],
-      ),
+      Schema.decodeUnknownSync(LockedPlugins)(
+        readFileSync(pluginLockPath(home), "utf8"),
+      ).plugins.map((plugin) => [
+        `${plugin.name}@${plugin.marketplaceId}`,
+        [...plugin.harnesses].sort(),
+      ]),
     );
 
   const withoutCodex = new FixtureRuntime(repoDir, home);
@@ -649,7 +660,7 @@ test.each([
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "plugins.ts");
+  const scriptPath = join(import.meta.dirname, "plugins.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);

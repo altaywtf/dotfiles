@@ -5,7 +5,8 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult, runCommand } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
+import type { CommandResult } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -37,9 +38,13 @@ const parseConfig = Effect.fn("parseSopsSudoConfig")(function* (contents: string
   const values: Record<string, string> = {};
   for (const line of contents.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
     const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(trimmed);
-    if (match?.[1] && match[2] !== undefined) values[match[1]] = expandConfigValue(match[2]);
+    if (match?.[1] && match[2] !== undefined) {
+      values[match[1]] = expandConfigValue(match[2]);
+    }
   }
   return yield* Schema.decodeUnknownEffect(DevboxSudoConfig)(values).pipe(
     Effect.mapError(
@@ -54,7 +59,7 @@ const parseConfig = Effect.fn("parseSopsSudoConfig")(function* (contents: string
 
 const runRaw = Effect.fn("runSopsSudoCommand")(function* (
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   options: {
     readonly env?: Readonly<Record<string, string>>;
     readonly extendEnv?: boolean;
@@ -76,16 +81,22 @@ const executable = Effect.fn("sopsSudoExecutable")(function* (path: string) {
 });
 
 const findFixedExecutable = Effect.fn("findFixedSopsSudoExecutable")(function* (
-  paths: readonly string[],
+  paths: ReadonlyArray<string>,
 ) {
-  for (const path of paths) if (yield* executable(path)) return path;
+  for (const path of paths) {
+    if (yield* executable(path)) {
+      return path;
+    }
+  }
   return undefined;
 });
 
-function sanitizedEnvironment(extra: Readonly<Record<string, string>>): Record<string, string> {
+function sanitizedEnvironment(extra: Readonly<Record<string, string>>) {
   const environment: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (key !== "SUDO_PASSWORD_AGE" && value !== undefined) environment[key] = value;
+    if (key !== "SUDO_PASSWORD_AGE" && value !== undefined) {
+      environment[key] = value;
+    }
   }
   return { ...environment, ...extra };
 }
@@ -96,21 +107,36 @@ const validateOwnerFileMode = Effect.fn("validateSopsSudoFileMode")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const info = yield* fs.stat(path).pipe(Effect.option);
-  if (Option.isNone(info) || info.value.type !== "File") return yield* fail(missing);
-  if ((info.value.mode & 0o777) !== 0o600)
+  if (Option.isNone(info) || info.value.type !== "File") {
+    return yield* fail(missing);
+  }
+  if ((info.value.mode & 0o777) !== 0o600) {
     return yield* fail(`${path} mode is ${(info.value.mode & 0o777).toString(8)}, expected 600`);
+  }
 });
 
-const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonly string[]) {
+const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: ReadonlyArray<string>) {
   const args = [...raw];
   const nested = args[0] === "--nested";
-  if (nested) args.shift();
-  if (args[0] === "--") args.shift();
-  if (args.length === 0) return yield* fail("missing sudo command");
+  if (nested) {
+    args.shift();
+  }
+  if (args[0] === "--") {
+    args.shift();
+  }
+  if (args.length === 0) {
+    return yield* fail("missing sudo command");
+  }
   const ciphertext = process.env.SUDO_PASSWORD_AGE;
-  if (!ciphertext) return yield* fail("SOPS returned an empty sudo credential");
-  if (!(yield* executable("/usr/bin/sudo"))) return yield* fail("missing /usr/bin/sudo");
-  if (!(yield* executable(askpass))) return yield* fail("missing sudo askpass helper");
+  if (!ciphertext) {
+    return yield* fail("SOPS returned an empty sudo credential");
+  }
+  if (!(yield* executable("/usr/bin/sudo"))) {
+    return yield* fail("missing /usr/bin/sudo");
+  }
+  if (!(yield* executable(askpass))) {
+    return yield* fail("missing sudo askpass helper");
+  }
   const identityFile = process.env.SUDO_AGE_IDENTITY_FILE || defaultSudoIdentity;
   yield* validateOwnerFileMode(identityFile, `missing ${identityFile}`);
   const age = yield* findFixedExecutable([
@@ -118,11 +144,14 @@ const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonl
     "/usr/local/bin/age",
     "/usr/bin/age",
   ]);
-  if (!age) return yield* fail("missing age");
+  if (!age) {
+    return yield* fail("missing age");
+  }
   const fs = yield* FileSystem.FileSystem;
   const tmpBase = (process.env.TMPDIR || "/tmp").replace(/\/$/, "") || "/";
-  if (!isAbsolute(tmpBase) || !(yield* fs.exists(tmpBase)))
+  if (!isAbsolute(tmpBase) || !(yield* fs.exists(tmpBase))) {
     return yield* fail("invalid temporary directory");
+  }
   return yield* Effect.scoped(
     Effect.gen(function* () {
       const temporary = yield* fs.makeTempDirectoryScoped({
@@ -142,8 +171,9 @@ const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonl
           }),
           extendEnv: false,
         });
-        if (result.status !== 0)
+        if (result.status !== 0) {
           return yield* fail(`sudo command exited ${result.status}`, result.status);
+        }
         return;
       }
       const nestedAskpass = join(temporary, "askpass");
@@ -156,11 +186,13 @@ const consumeSecret = Effect.fn("consumeSopsSudoSecret")(function* (raw: readonl
         env,
         extendEnv: false,
       });
-      if (validated.status !== 0)
+      if (validated.status !== 0) {
         return yield* fail(`sudo validation exited ${validated.status}`, validated.status);
-      const child = yield* runRaw(args[0]!, args.slice(1), { env, extendEnv: false });
-      if (child.status !== 0)
+      }
+      const child = yield* runRaw(args[0], args.slice(1), { env, extendEnv: false });
+      if (child.status !== 0) {
         return yield* fail(`nested command exited ${child.status}`, child.status);
+      }
     }),
   );
 });
@@ -171,12 +203,16 @@ function shellQuote(value: string): string {
 
 const program = Effect.gen(function* () {
   const args = process.argv.slice(2);
-  if (args[0] === "--consume-secret") return yield* consumeSecret(args.slice(1));
+  if (args[0] === "--consume-secret") {
+    return yield* consumeSecret(args.slice(1));
+  }
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
     yield* Console.log(usage);
     return;
   }
-  if (args[0] === "--") args.shift();
+  if (args[0] === "--") {
+    args.shift();
+  }
   if (args.length === 0) {
     yield* Console.error(usage);
     return yield* fail("missing command", 2);
@@ -185,14 +221,16 @@ const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const config = yield* parseConfig(yield* fs.readFileString(configPath));
   const payloadInfo = yield* fs.stat(config.SOPS_SUDO_SECRET_FILE).pipe(Effect.option);
-  if (Option.isNone(payloadInfo) || payloadInfo.value.type !== "File")
+  if (Option.isNone(payloadInfo) || payloadInfo.value.type !== "File") {
     return yield* fail(`missing SOPS payload: ${config.SOPS_SUDO_SECRET_FILE}`);
+  }
   const sudoIdentity =
     process.env.SUDO_AGE_IDENTITY_FILE || config.SUDO_AGE_IDENTITY_FILE || defaultSudoIdentity;
   const sopsIdentity = ageIdentityPath();
   const identityInfo = yield* fs.stat(sopsIdentity).pipe(Effect.option);
-  if (Option.isNone(identityInfo) || identityInfo.value.type !== "File")
+  if (Option.isNone(identityInfo) || identityInfo.value.type !== "File") {
     return yield* fail(`missing SOPS age identity: ${sopsIdentity}`);
+  }
   const sops =
     process.env.SOPS_BINARY ||
     (yield* findFixedExecutable([
@@ -200,7 +238,9 @@ const program = Effect.gen(function* () {
       "/usr/local/bin/sops",
       "/usr/bin/sops",
     ]));
-  if (!sops) return yield* fail("missing sops");
+  if (!sops) {
+    return yield* fail("missing sops");
+  }
   const command = [
     process.execPath,
     join(repoRoot, "identity/sops-devbox-sudo.ts"),
@@ -216,8 +256,9 @@ const program = Effect.gen(function* () {
       env: { SOPS_AGE_KEY_FILE: sopsIdentity, SUDO_AGE_IDENTITY_FILE: sudoIdentity },
     },
   );
-  if (result.status !== 0)
+  if (result.status !== 0) {
     return yield* fail(`sops exec-env exited ${result.status}`, result.status);
+  }
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

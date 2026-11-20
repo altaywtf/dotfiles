@@ -1,4 +1,4 @@
-import { Context, Effect, Fiber, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Fiber, Layer, Predicate, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { CliFailure, fail } from "./program.ts";
@@ -13,7 +13,6 @@ export type CommandResult = {
   readonly status: number;
   readonly stderr: string;
   readonly stdout: string;
-  // Raw captured stdout for binary payloads (tar archives); absent unless captured.
   readonly stdoutBytes?: Uint8Array;
 };
 
@@ -21,13 +20,12 @@ export type CommandOptions = {
   readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly extendEnv?: boolean;
-  // A byte payload is written to the child's stdin and then closed.
   readonly stdin?: "ignore" | "inherit" | Uint8Array;
   readonly output?: "capture" | "inherit" | "ignore";
   readonly timeoutMs?: number;
 };
 
-function decode(chunks: readonly Uint8Array[]): string {
+function decode(chunks: ReadonlyArray<Uint8Array>): string {
   return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString();
 }
 
@@ -36,7 +34,7 @@ export class CommandRunner extends Context.Service<
   {
     readonly run: (
       command: string,
-      args?: readonly string[],
+      args?: ReadonlyArray<string>,
       options?: CommandOptions,
     ) => Effect.Effect<CommandResult, CommandError>;
   }
@@ -48,28 +46,23 @@ export class CommandRunner extends Context.Service<
 
       const run = Effect.fn("CommandRunner.run")(function* (
         command: string,
-        args: readonly string[] = [],
+        args: ReadonlyArray<string> = [],
         options: CommandOptions = {},
       ) {
         const output = options.output ?? "capture";
-        const stdout: Uint8Array[] = [];
-        const stderr: Uint8Array[] = [];
+        const stdout: Array<Uint8Array> = [];
+        const stderr: Array<Uint8Array> = [];
         const execution = Effect.gen(function* () {
           const handle = yield* spawner.spawn(
             ChildProcess.make(command, args, {
               cwd: options.cwd,
               env: options.env,
               extendEnv: options.extendEnv ?? true,
-              // A detached child starts a new session without a controlling
-              // terminal, so password prompts (sudo, xcodes) fall back to echoed
-              // stdin. Interactive children stay in the caller's session.
               detached: options.stdin !== "inherit",
-              // Effect waits forever for a child that ignores SIGTERM unless told to escalate.
               forceKillAfter: options.timeoutMs === undefined ? undefined : "5 seconds",
-              stdin:
-                options.stdin instanceof Uint8Array
-                  ? Stream.make(options.stdin)
-                  : (options.stdin ?? "ignore"),
+              stdin: Predicate.isUint8Array(options.stdin)
+                ? Stream.make(options.stdin)
+                : (options.stdin ?? "ignore"),
               stdout: output === "capture" ? "pipe" : output,
               stderr: output === "capture" ? "pipe" : output,
             }),
@@ -122,10 +115,9 @@ export class CommandRunner extends Context.Service<
   );
 }
 
-// Run a command, mapping a failed spawn (missing binary, bad cwd) to a CliFailure.
 export const runCommand = Effect.fn("runCommand")(function* (
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const runner = yield* CommandRunner;
@@ -140,10 +132,9 @@ export const runCommand = Effect.fn("runCommand")(function* (
   );
 });
 
-// Run a command and propagate a non-zero exit status as the process exit code.
 export const runChecked = Effect.fn("runChecked")(function* (
   command: string,
-  args: readonly string[] = [],
+  args: ReadonlyArray<string> = [],
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const result = yield* runCommand(command, args, options);

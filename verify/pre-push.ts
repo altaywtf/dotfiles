@@ -4,7 +4,6 @@ import { spawnSync } from "node:child_process";
 import { Console, Effect } from "effect";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runMain } from "../lib/program.ts";
 
 type Update = {
@@ -18,7 +17,7 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-function git(args: string[], allowFailure = false): string {
+function git(args: Array<string>, allowFailure = false): string {
   const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.error) {
     fail(`cannot run git: ${result.error.message}`);
@@ -34,8 +33,8 @@ function objectExists(revision: string): boolean {
   return result.status === 0;
 }
 
-function parseUpdates(input: string, oidLength: number): Update[] {
-  const updates: Update[] = [];
+function parseUpdates(input: string, oidLength: number): Array<Update> {
+  const updates: Array<Update> = [];
   for (const [index, rawLine] of input.split(/\r?\n/).entries()) {
     const line = rawLine.trim();
     if (!line) {
@@ -59,7 +58,7 @@ function parseUpdates(input: string, oidLength: number): Update[] {
   return updates;
 }
 
-function remoteNames(remoteName: string, remoteLocation: string): string[] {
+function remoteNames(remoteName: string, remoteLocation: string): Array<string> {
   const names = git(["remote"], true).split(/\r?\n/).filter(Boolean);
   if (names.includes(remoteName)) {
     return [remoteName];
@@ -71,7 +70,11 @@ function remoteNames(remoteName: string, remoteLocation: string): string[] {
   });
 }
 
-function commitsForUpdate(update: Update, zeroOid: string, matchingRemotes: string[]): string[] {
+function commitsForUpdate(
+  update: Update,
+  zeroOid: string,
+  matchingRemotes: Array<string>,
+): Array<string> {
   if (update.localOid === zeroOid) {
     return [];
   }
@@ -140,7 +143,7 @@ function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation
   return commits.size;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     const input = yield* Effect.try({
       try: () => readFileSync(0, "utf8"),

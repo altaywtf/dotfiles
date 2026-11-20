@@ -14,10 +14,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
-const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
+const script = resolve(import.meta.dirname, "configure-codex.ts");
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
 function run(home: string, profile = "workstation", userHome = process.env.HOME) {

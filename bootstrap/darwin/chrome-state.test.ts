@@ -149,7 +149,9 @@ function updateChromeProfiles(root: string, mode: "enable" | "disable") {
 test("Chrome profiles enable vertical tabs in every user profile", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
   try {
-    for (const name of ["Default", "Profile 1", "System Profile"]) mkdirSync(join(root, name));
+    for (const name of ["Default", "Profile 1", "System Profile"]) {
+      mkdirSync(join(root, name));
+    }
     const first = join(root, "Default/Preferences");
     const second = join(root, "Profile 1/Preferences");
     const system = join(root, "System Profile/Preferences");
@@ -193,12 +195,13 @@ test("Chrome profiles seed Default and reject malformed preferences", async () =
   }
 });
 
+const run = (path: string, mode: "enable" | "disable") =>
+  Effect.runPromise(
+    updateChromeLocalStatePreferencesEffect(path, mode).pipe(Effect.provide(NodeServices.layer)),
+  );
+
 test("Chrome Local State turns off the quit prompt and restores it", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-quit-"));
-  const run = (path: string, mode: "enable" | "disable") =>
-    Effect.runPromise(
-      updateChromeLocalStatePreferencesEffect(path, mode).pipe(Effect.provide(NodeServices.layer)),
-    );
   try {
     const path = join(root, "Local State");
     writeFileSync(path, '{"browser":{"confirm_to_quit":true,"enabled_labs_experiments":["a@1"]}}');

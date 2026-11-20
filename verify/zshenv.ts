@@ -15,7 +15,7 @@ const program = Effect.scoped(
     const home = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-zshenv." });
     const directory = join(home, ".config/dotfiles");
     yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
-    const chezmoi = Effect.fn("chezmoi")(function* (...args: string[]) {
+    const chezmoi = Effect.fn("chezmoi")(function* (...args: Array<string>) {
       return yield* runner.run(
         "chezmoi",
         [
@@ -42,7 +42,9 @@ const program = Effect.scoped(
     });
     const apply = Effect.fn("chezmoiApply")(function* (target: string) {
       const result = yield* chezmoi("apply", target);
-      if (result.status !== 0) return yield* fail(result.stderr);
+      if (result.status !== 0) {
+        return yield* fail(result.stderr);
+      }
     });
     yield* apply(join(home, ".zshenv"));
     const run = Effect.fn("zshenvCheck")(function* (code: string) {
@@ -55,7 +57,9 @@ const program = Effect.scoped(
         "-c",
         code,
       ]);
-      if (result.status !== 0) return yield* fail(result.stderr || code);
+      if (result.status !== 0) {
+        return yield* fail(result.stderr || code);
+      }
     });
     for (const path of [
       ".config/dotfiles/zshenv.local",
@@ -71,8 +75,9 @@ const program = Effect.scoped(
       ),
     ]) {
       const result = yield* runner.run("git", ["-C", repoRoot, "check-ignore", "-q", path]);
-      if (result.status !== 0)
+      if (result.status !== 0) {
         return yield* fail(`overlay source path is not ignored by Git: ${path}`);
+      }
     }
     yield* run(
       '[[ "$LANG" == en_US.UTF-8 ]]; [[ -z ${DOTFILES_ZSHENV_LOCAL+x} ]]; [[ -z ${HOMEBREW_NO_AUTO_UPDATE+x} ]]',
@@ -117,13 +122,16 @@ const program = Effect.scoped(
       const target = join(home, name);
       yield* fs.remove(target, { force: true });
       const rendered = yield* chezmoi("cat", target);
-      if (rendered.status !== 0) return yield* fail(rendered.stderr);
+      if (rendered.status !== 0) {
+        return yield* fail(rendered.stderr);
+      }
       const managed = rendered.stdout;
       const unchanged = Effect.fn("zshUnchanged")(function* (expected: string) {
         const diff = yield* chezmoi("diff", target);
         const contents = yield* fs.readFileString(target);
-        if (diff.status !== 0 || diff.stdout !== "" || contents !== expected)
+        if (diff.status !== 0 || diff.stdout !== "" || contents !== expected) {
           return yield* fail(`${name} differs after apply:\n${diff.stdout}${diff.stderr}`);
+        }
       });
       yield* fs.writeFileString(target, managed);
       yield* unchanged(managed);
@@ -139,8 +147,9 @@ const program = Effect.scoped(
       ]) {
         yield* fs.writeFileString(target, unterminated);
         const failed = yield* chezmoi("apply", target);
-        if (failed.status === 0 || (yield* fs.readFileString(target)) !== unterminated)
+        if (failed.status === 0 || (yield* fs.readFileString(target)) !== unterminated) {
           return yield* fail(`${name}: apply replaced an unterminated managed block`);
+        }
       }
     }
     yield* fs.writeFileString(join(home, ".zshenv"), `stale\n\n${block}\n`);

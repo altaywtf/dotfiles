@@ -12,8 +12,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "vite-plus/test";
-import { Effect, Fiber, FileSystem } from "effect";
+import { test, vi } from "vite-plus/test";
+import type { FileSystem } from "effect";
+import { Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 import { CommandRunner } from "../lib/command.ts";
 import {
@@ -23,15 +24,17 @@ import {
   RuleContentFailure,
   RuleRefreshUnavailable,
   liveRuleRuntime,
-  type RuleRuntime,
 } from "./rules.ts";
+import type { RuleRuntime } from "./rules.ts";
 
 const originalRules = "## General guidelines\n\nOriginal rules.\n";
+
+type Fixture = { cache: string; root: string };
 
 function createFixture(
   sources = ["https://rules.example.test/shared.md"],
   options: { readonly cached?: boolean } = { cached: true },
-): { cache: string; root: string } {
+): Fixture {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-rules-"));
   const cache = join(root, "state/dotfiles/agent-rules.md");
   mkdirSync(join(root, "agents/rules"), { recursive: true });
@@ -54,16 +57,15 @@ function run<A>(
   );
 }
 
-async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): Promise<A> {
-  const warnings: string[] = [];
-  const originalWarn = console.warn;
-  console.warn = (...values: unknown[]) => {
+async function captureWarnings<A>(action: (warnings: Array<string>) => Promise<A>): Promise<A> {
+  const warnings: Array<string> = [];
+  const warn = vi.spyOn(console, "warn").mockImplementation((...values: Array<unknown>) => {
     warnings.push(values.map(String).join(" "));
-  };
+  });
   try {
     return await action(warnings);
   } finally {
-    console.warn = originalWarn;
+    warn.mockRestore();
   }
 }
 
@@ -144,7 +146,7 @@ test("refreshes the cache only after every source and the secret scan succeed", 
 });
 
 test("keeps the cache when refresh or secret validation is unavailable", async () => {
-  const runtimes: RuleRuntime[] = [
+  const runtimes: Array<RuleRuntime> = [
     {
       fetch: (url) => Effect.fail(new RuleRefreshUnavailable({ message: `offline: ${url}` })),
       scan: () => Effect.succeed(undefined),
@@ -224,7 +226,7 @@ test("includes timeout failures in the machine-local cache warning", async () =>
 });
 
 test("rejects invalid or secret-bearing fetched content without replacing the cache", async () => {
-  const runtimes: RuleRuntime[] = [
+  const runtimes: Array<RuleRuntime> = [
     {
       fetch: () => Effect.succeed("---\ntitle: rules\n---\n"),
       scan: () => Effect.succeed(undefined),

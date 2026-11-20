@@ -18,15 +18,17 @@ const signerSource = join(
 
 const program = Effect.scoped(
   Effect.gen(function* () {
-    for (const key of Object.keys(process.env))
-      if (key.startsWith("GIT_") && !["GIT_USER_NAME", "GIT_USER_EMAIL"].includes(key))
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_") && !["GIT_USER_NAME", "GIT_USER_EMAIL"].includes(key)) {
         delete process.env[key];
+      }
+    }
     const fs = yield* FileSystem.FileSystem;
     const runner = yield* CommandRunner;
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-configure-git." });
     const run = (
       command: string,
-      args: readonly string[],
+      args: ReadonlyArray<string>,
       env: Readonly<Record<string, string>> = {},
     ) => runner.run(command, args, { env });
     const makeHome = Effect.fn("makeGitFixtureHome")(function* (name: string, encrypted = false) {
@@ -109,7 +111,6 @@ const program = Effect.scoped(
     const source = yield* renderSsh('{"dotfilesProfile":"devbox"}');
     assert.equal(source.split("\n")[0], "Include ~/.ssh/github.config");
     assert.match(source, /^Include ~\/\.ssh\/config\.d\/\*\.conf$/m);
-    // The Colima include is macOS-only; a missing non-glob Include breaks OpenSSH on Linux.
     const darwin = yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"darwin"}}');
     assert.match(darwin, /^Include ~\/\.colima\/ssh_config$/m);
     const linux = yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"linux"}}');

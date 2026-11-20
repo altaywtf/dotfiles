@@ -6,13 +6,13 @@ import { CliFailure, fail } from "../lib/program.ts";
 export type ChezmoiContext = {
   readonly repoRoot: string;
   readonly home: string;
-  readonly baseArgs: readonly string[];
+  readonly baseArgs: ReadonlyArray<string>;
   readonly dryRun: boolean;
 };
 
 const runChezmoi = Effect.fn("runChezmoi")(function* (
   context: ChezmoiContext,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;
@@ -41,7 +41,9 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   const fs = yield* FileSystem.FileSystem;
   const link = yield* fs.readLink(target).pipe(Effect.option);
   const exists = yield* fs.exists(target);
-  if (!exists && Option.isNone(link)) return true;
+  if (!exists && Option.isNone(link)) {
+    return true;
+  }
   if (expectedType === "symlink" && Option.isSome(link)) {
     const expected = yield* runChezmoi(context, ["cat", target]);
     return link.value === expected.stdout.trimEnd();
@@ -56,11 +58,6 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   return false;
 });
 
-// Every drifted apply creates one timestamped backup, so enrolled hosts
-// accumulate them forever; keep only the most recent backup per target. The
-// backup written by this run is the most recent by definition and is never a
-// prune candidate: timestamps come from the host clock, so a clock behind an
-// existing backup would otherwise prune the file just written.
 export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function* (
   target: string,
   created?: string,
@@ -84,7 +81,9 @@ const backupPath = Effect.fn("backupPath")(function* (
   expectedType: "file" | "symlink",
 ) {
   const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
+  if (matches) {
+    return;
+  }
   const fs = yield* FileSystem.FileSystem;
   const now = yield* DateTime.now;
   const timestamp = DateTime.formatIso(now).replaceAll(/\D/g, "").slice(0, 14);
@@ -109,7 +108,9 @@ const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
   expectedType: "file" | "symlink",
 ) {
   const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
+  if (matches) {
+    return;
+  }
   if (context.dryRun) {
     yield* Console.log(`would replace generated agent rules at ${target}`);
     return;
@@ -124,7 +125,9 @@ const removeLegacyAgentRules = Effect.fn("removeLegacyAgentRules")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const legacy = join(context.home, "AGENTS.md");
-  if (!(yield* fs.exists(legacy))) return;
+  if (!(yield* fs.exists(legacy))) {
+    return;
+  }
   if (context.dryRun) {
     yield* Console.log(`would remove legacy agent rules at ${legacy}`);
     return;
@@ -149,8 +152,6 @@ const managedTargets = Effect.fn("managedTargets")(function* (
 export const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
   context: ChezmoiContext,
 ) {
-  // Rules used to render at ~/AGENTS.md, which harnesses also load as
-  // project rules for every directory under home.
   yield* removeLegacyAgentRules(context);
   for (const target of yield* managedTargets(context, "files")) {
     if (target === join(context.home, ".agents/AGENTS.md")) {

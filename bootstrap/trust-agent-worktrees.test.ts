@@ -19,13 +19,14 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
     join(worktrees, "project", ".mise.toml"),
     join(worktrees, "project", "checkout", "mise.toml"),
   ].sort();
-  // Depth four is the first level past the bound.
   const excluded = join(worktrees, "project", "checkout", "node_modules", "mise.toml");
 
   try {
     mkdirSync(dirname(excluded), { recursive: true });
     mkdirSync(bin);
-    for (const path of [...expected, excluded]) writeFileSync(path, "[tools]\n");
+    for (const path of [...expected, excluded]) {
+      writeFileSync(path, "[tools]\n");
+    }
     const mise = join(bin, "mise");
     writeFileSync(
       mise,

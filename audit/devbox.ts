@@ -11,7 +11,8 @@ import {
   codexPrivateFilePattern,
 } from "../agents/codex/projects.ts";
 import { runMain } from "../lib/program.ts";
-import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
+import { readSettingsFile, runPolicy } from "./engine.ts";
+import type { AuditFormat, AuditPolicy } from "./engine.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { compromisedRoots, projectEnvFiles } from "./workstation.ts";
 
@@ -184,13 +185,15 @@ function runDevbox(
   }).status;
 }
 
-function main(args: string[]): number {
+function main(args: Array<string>): number {
   let format: AuditFormat = "text";
   let config = "";
   for (let index = 0; index < args.length; index += 1) {
-    if (args[index] === "--json") format = "json";
-    else if (args[index] === "--config" && args[index + 1]) config = args[++index];
-    else {
+    if (args[index] === "--json") {
+      format = "json";
+    } else if (args[index] === "--config" && args[index + 1]) {
+      config = args[++index];
+    } else {
       process.stderr.write("Usage: audit/devbox.ts [--config PATH] [--json]\n");
       return 2;
     }
