@@ -319,12 +319,6 @@ test("interrupting the collector reaps every owned probe before completing", asy
   await mkdir(bin);
   await mkdir(pids);
   const controller = new AbortController();
-  let completion: Promise<Exit.Exit<unknown, unknown>> | undefined;
-  t.onTestFinished(async () => {
-    controller.abort();
-    await completion;
-    await rm(root, { recursive: true, force: true });
-  });
   const commands = ["mise", "npm", "node", "codex", "claude"];
   for (const command of commands) {
     await writeFile(
@@ -337,7 +331,7 @@ setTimeout(() => process.exit(9), 5000);
       { mode: 0o700 },
     );
   }
-  completion = Effect.runPromiseExit(
+  const completion = Effect.runPromiseExit(
     collectMaintenanceSnapshotEffect({
       ...context(),
       cwd: root,
@@ -352,6 +346,11 @@ setTimeout(() => process.exit(9), 5000);
     }),
     { signal: controller.signal },
   );
+  t.onTestFinished(async () => {
+    controller.abort();
+    await completion;
+    await rm(root, { recursive: true, force: true });
+  });
   const deadline = performance.now() + 4000;
   let started: string[];
   do {
