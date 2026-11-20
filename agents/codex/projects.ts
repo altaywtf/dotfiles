@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, lstatSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { ConfigEdit } from "./config.ts";
+import type { Schema } from "effect";
 
 // Codex creates its state with the process umask; the devbox audit requires
 // these directories and matching files to stay private.
@@ -61,7 +62,7 @@ function withinRoot(root: string, path: string): boolean {
 export function projectTrustEdits(
   root: string,
   checkouts: readonly string[],
-  existing: Readonly<Record<string, unknown>>,
+  existing: Readonly<Record<string, Schema.Json>>,
   exists: (path: string) => boolean = existsSync,
 ): ConfigEdit[] {
   const edits: ConfigEdit[] = [];

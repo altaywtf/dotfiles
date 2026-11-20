@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
 import { parseProfileModel, readProfileModel, requireProfile } from "./model.ts";
+import type { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
@@ -18,7 +19,8 @@ const profileNames = [
   "workstation",
 ];
 
-type RawModel = Record<string, unknown> & { profiles: Record<string, Record<string, unknown>> };
+type RawProfile = Record<string, Schema.Json> & { capabilities: Record<string, Schema.Json> };
+type RawModel = Record<string, Schema.Json> & { profiles: Record<string, RawProfile> };
 
 function rawModel(): RawModel {
   return JSON.parse(readFileSync(modelPath, "utf8")).profileModel;
@@ -81,8 +83,7 @@ test("canonical model covers every profile and renders through chezmoi", () => {
 });
 
 const workstation = (model: RawModel) => model.profiles.workstation;
-const capabilities = (model: RawModel) =>
-  workstation(model).capabilities as Record<string, unknown>;
+const capabilities = (model: RawModel) => workstation(model).capabilities;
 const invalidModels: Array<[string, (model: RawModel) => void, RegExp?]> = [
   ["unsupported version", (model) => (model.version = 2), /Expected 1/],
   ["missing key", (model) => delete capabilities(model).devbox, /Missing key/],

@@ -24,7 +24,7 @@ const Scalar = Schema.Union([
 type Scalar = typeof Scalar.Type;
 const LocalSettings = Schema.fromJsonString(Schema.Record(Schema.String, Scalar));
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
-type UserConfig = { projects: Readonly<Record<string, unknown>> };
+type UserConfig = { projects: Readonly<Record<string, Schema.Json>> };
 type PlanEdits = (user: UserConfig) => readonly ConfigEdit[];
 
 const ConfigRead = Schema.Struct({
@@ -33,7 +33,7 @@ const ConfigRead = Schema.Struct({
       name: Schema.Struct({ type: Schema.String, file: Schema.optional(Schema.String) }),
       version: Schema.String,
       config: Schema.Struct({
-        projects: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+        projects: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
       }),
     }),
   ),

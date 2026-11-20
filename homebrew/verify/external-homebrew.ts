@@ -12,7 +12,15 @@ import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts"
 import type { ProfileModel } from "../../profiles/model.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-type Capability = Record<string, unknown>;
+type Capability = {
+  packageType: "brew" | "cask";
+  name: string;
+  validator: "command" | "bundle";
+  path: string;
+  arguments?: readonly string[];
+  bundleIdentifier?: string;
+  teamIdentifier?: string;
+};
 const isArray = Schema.is(Schema.Array(Schema.Unknown));
 const xml = (capabilities: readonly Capability[]) => {
   const value = (input: unknown): string => {

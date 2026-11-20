@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
+import type { Schema } from "effect";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const tools = `${read("chezmoi/.chezmoitemplates/mise.toml")}\n${read("chezmoi/.chezmoitemplates/mise-tasks.toml")}`;
@@ -109,7 +110,7 @@ const matches = (names: string[] | undefined, name: string) =>
     !names.includes(`!${name}`));
 
 test("both pnpm pins share one Renovate release gate and schedule", () => {
-  type Rule = Record<string, unknown> & {
+  type Rule = Record<string, Schema.Json> & {
     matchManagers?: string[];
     matchDepNames?: string[];
     matchPackageNames?: string[];
@@ -122,7 +123,7 @@ test("both pnpm pins share one Renovate release gate and schedule", () => {
           matches(rule.matchDepNames, "pnpm") &&
           matches(rule.matchPackageNames, "pnpm"),
       )
-      .reduce<Record<string, unknown>>(
+      .reduce<Record<string, Schema.Json>>(
         (merged, rule) =>
           Object.assign(merged, {
             ...("minimumReleaseAge" in rule ? { minimumReleaseAge: rule.minimumReleaseAge } : {}),

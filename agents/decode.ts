@@ -40,15 +40,17 @@ export function readJsonFile(path: string, label: string): Schema.Json {
   );
 }
 
+const UnknownRecord = Schema.Record(Schema.String, Schema.Unknown);
+type UnknownRecord = typeof UnknownRecord.Type;
+
 export function ClosedStruct<const Fields extends Schema.Struct.Fields>(
   fields: Fields,
   messages: { notObject: string; unsupported: (keys: string) => string },
 ) {
   const known = new Set(Object.keys(fields));
-  return Schema.Record(Schema.String, Schema.Unknown)
-    .annotate({ message: messages.notObject })
+  return UnknownRecord.annotate({ message: messages.notObject })
     .check(
-      Schema.makeFilter((input: { readonly [key: string]: unknown }) => {
+      Schema.makeFilter((input: UnknownRecord) => {
         const unknownKeys = Object.keys(input).filter((key) => !known.has(key));
         return unknownKeys.length === 0 || messages.unsupported(unknownKeys.join(", "));
       }),

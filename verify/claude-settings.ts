@@ -17,13 +17,14 @@ import { runMain } from "../lib/program.ts";
 import { dirname, join, resolve } from "node:path";
 
 import { runApply } from "./home-fixture.ts";
+import type { Schema } from "effect";
 
-type Settings = Record<string, unknown> & {
+type Settings = Record<string, Schema.Json | undefined> & {
   autoMemoryDirectory?: string;
   autoMemoryEnabled?: boolean;
-  env?: Record<string, unknown>;
-  modelSettings?: Record<string, Record<string, unknown>>;
-  permissions?: Record<string, unknown>;
+  env?: Record<string, Schema.Json>;
+  modelSettings?: Record<string, Record<string, Schema.Json | undefined>>;
+  permissions?: Record<string, Schema.Json | undefined>;
 };
 type Fixture = {
   contents: string;
@@ -42,7 +43,7 @@ const managedEnv = {
   DISABLE_FEEDBACK_COMMAND: "1",
 };
 
-function unmanagedEnv(env: Record<string, unknown> | undefined) {
+function unmanagedEnv(env: Record<string, Schema.Json> | undefined) {
   const rest = Object.fromEntries(
     Object.entries(env ?? {}).filter(([key]) => !Object.hasOwn(managedEnv, key)),
   );

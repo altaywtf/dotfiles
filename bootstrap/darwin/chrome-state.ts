@@ -8,7 +8,7 @@ import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
 
-const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const JsonObject = Schema.Record(Schema.String, Schema.Json);
 type JsonObject = typeof JsonObject.Type;
 
 const decodeObject = (schema: Schema.Codec<JsonObject, unknown>, value: unknown, label: string) =>
@@ -88,7 +88,7 @@ const applyPreferences = Effect.fnUntraced(function* (
   preferences: readonly Preference[],
   mode: Mode,
 ) {
-  const updated: Record<string, unknown> = { ...data };
+  const updated: Record<string, Schema.Json> = { ...data };
   let changed = false;
   for (const { group, key, value } of preferences) {
     const section = updated[group] === undefined ? {} : yield* object(updated[group], `"${group}"`);

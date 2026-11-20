@@ -11,6 +11,7 @@ import { CommandRunner } from "../lib/command.ts";
 import { BoundedCommand, BoundedCommandError } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
 import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
+import type { Schema } from "effect";
 
 const alertConfig = {
   endpoint: "https://mail.example/v4/accounts/fixture/email/sending/send",
@@ -24,7 +25,7 @@ const writeAlertConfig = (home: string, content = JSON.stringify(alertConfig)) =
     writeFile(join(home, ".config/dotfiles/update-alerts.json"), content, { mode: 0o600 }),
   );
 
-const accepted = (overrides: Record<string, unknown> = {}) =>
+const accepted = (overrides: Record<string, Schema.Json> = {}) =>
   new Response(
     JSON.stringify({
       success: true,
@@ -369,7 +370,7 @@ test("only a different boot reopens an incomplete receipt", async (t) => {
   const home = await tempHome(t, "dotfiles-update-rebooted-");
   await mkdir(join(home, ".local/state/dotfiles/updates"), { recursive: true });
   const command = fixedCommand({ status: 0 });
-  const blocked = async (receipt: Record<string, unknown>, current: string | undefined) => {
+  const blocked = async (receipt: Record<string, Schema.Json>, current: string | undefined) => {
     await writeFile(receiptPath(home), JSON.stringify({ cleanupComplete: false, ...receipt }));
     return (
       (await Effect.runPromise(update(home, command.service, undefined, () => current))) === 125

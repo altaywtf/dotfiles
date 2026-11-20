@@ -47,6 +47,14 @@ function currentBootId(): string | undefined {
   }
 }
 type Alert = "not-configured" | "not-needed" | "sent" | "failed";
+type ReceiptFields = {
+  state: "running" | "finished";
+  exitCode?: number;
+  cleanupComplete?: boolean;
+  timedOut?: boolean;
+  finishedAt?: string;
+  alert?: Alert;
+};
 
 export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   job: Job,
@@ -69,7 +77,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
   );
   const receipt = Effect.fn("writeUpdateReceipt")(
-    function* (fields: Record<string, unknown>) {
+    function* (fields: ReceiptFields) {
       const record = `${JSON.stringify({ version: 1, job, startedAt, ...(bootId ? { bootId } : {}), ...fields })}\n`;
       yield* Console.log(`Update receipt: ${record.trim()}`);
       yield* Effect.gen(function* () {
