@@ -291,7 +291,7 @@ function checkGithubAuth(run: AuditRun): void {
   const scopes = new Set(
     status.stderr
       .match(/Token scopes:\s*(.*)/)?.[1]
-      .replace(/[',]/g, "")
+      .replaceAll(/[',]/g, "")
       .split(/\s+/) ?? [],
   );
   for (const scope of sensitive) {

@@ -60,7 +60,7 @@ printf '<%s>' "$@" >"$FAKE_SOPS_LOG"
     assert.match(
       yield* fs.readFileString(log),
       new RegExp(
-        `<exec-env><--same-process><${payload.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}>`,
+        `<exec-env><--same-process><${payload.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}>`,
       ),
     );
     yield* Console.log("ok SOPS sudo runner preserves both age identity boundaries");

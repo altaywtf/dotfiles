@@ -69,7 +69,7 @@ cat "$input"
     assert.match(
       provision.stdout,
       new RegExp(
-        `^SOPS age identity ready: ${identity.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}$`,
+        `^SOPS age identity ready: ${identity.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}$`,
         "m",
       ),
     );
