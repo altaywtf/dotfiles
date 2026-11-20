@@ -17,7 +17,7 @@ const program = Effect.scoped(
     const runner = yield* CommandRunner;
     const runInstaller = (args: readonly string[]) =>
       runner.run(process.execPath, [installer, ...args]);
-    const expected = "local.dotfiles.colima.example";
+    const expected = "local.dotfiles.software-update.example";
     const generic = yield* runInstaller(["--user", "example", "--print-labels"]);
     assert.equal(generic.status, 0);
     assert.equal(generic.stdout.trim(), expected);
@@ -30,9 +30,9 @@ const program = Effect.scoped(
         "--print-labels",
       ]);
       assert.equal(custom.status, 0);
-      assert.equal(custom.stdout.trim(), `${namespace}.colima.example`);
+      assert.equal(custom.stdout.trim(), `${namespace}.software-update.example`);
     }
-    assert.throws(() => launchdLabel("colima", ""));
+    assert.throws(() => launchdLabel("software-update", ""));
     assert.throws(() => launchdLabel("", "example"));
 
     const invalid = yield* runInstaller([
@@ -44,8 +44,7 @@ const program = Effect.scoped(
     ]);
     assert.notEqual(invalid.status, 0);
     for (const args of [
-      ["--user", "example", "--colima", "--openclaw-port", "18790"],
-      ["--user", "example", "--colima", "--openclaw-wrapper", "/tmp/wrapper"],
+      ["--user", "example", "--colima"],
       ["--user", "example", "--openclaw"],
       ["--user", "example", "--allow-openclaw-restart"],
     ]) {

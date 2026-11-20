@@ -6,22 +6,21 @@ import { join } from "node:path";
 import { CommandRunner, runChecked, runCommand } from "../../lib/command.ts";
 import {
   launchdLabel,
-  plistXml,
   resolveLaunchdNamespace,
   resolveLaunchdNamespaceContract,
 } from "../../lib/darwin/launchd.ts";
 import { CliFailure, fail, runMain } from "../../lib/program.ts";
+import { installUpdateJobs } from "../../maintenance/darwin/devbox.ts";
 
 const usage = `Usage:
   bootstrap/darwin/install-devbox-service-daemons.ts --user <name> [services]
 
 Services:
-  --colima           Run the user's colima-ensure script once at system boot.
   --software-updates Run per-user Topgrade every six hours and at boot.
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
-  --print-labels     Print the generic labels for the selected user and exit.
+  --print-labels     Print the update job label for the selected user and exit.
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
   --updates-repository PATH
                       Target user's persistent dotfiles checkout; required for updates.
@@ -32,7 +31,6 @@ LaunchDaemons that drop privileges to the selected user.`;
 const InstallerOptions = Schema.Struct({
   user: Schema.NonEmptyString,
   namespace: Schema.String,
-  colima: Schema.Boolean,
   check: Schema.Boolean,
   printLabels: Schema.Boolean,
   softwareUpdates: Schema.Boolean,
@@ -47,11 +45,8 @@ type Target = {
   readonly home: string;
 };
 type ServiceContext = {
-  readonly options: InstallerOptions;
   readonly target: Target;
   readonly namespace: string;
-  readonly labels: { readonly colima: string };
-  readonly launchDaemonDir: string;
 };
 const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   argv: readonly string[],
@@ -59,7 +54,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   const values = {
     user: "",
     namespace: process.env.DOTFILES_LAUNCHD_NAMESPACE || "",
-    colima: false,
     check: false,
     printLabels: false,
     softwareUpdates: false,
@@ -79,9 +73,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
         break;
       case "--namespace":
         values.namespace = take(flag);
-        break;
-      case "--colima":
-        values.colima = true;
         break;
       case "--software-updates":
         values.softwareUpdates = true;
@@ -152,12 +143,6 @@ const resolveTarget = Effect.fn("resolveServiceTarget")(function* (user: string)
   } satisfies Target;
 });
 
-function labels(user: string, namespace: string) {
-  return {
-    colima: launchdLabel("colima", user, namespace),
-  };
-}
-
 const executable = Effect.fn("serviceExecutable")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
   const info = yield* fs.stat(path).pipe(Effect.option);
@@ -190,41 +175,6 @@ const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function* (
   return yield* fail(`run this step as root or ${target.user}`);
 });
 
-const checkJob = Effect.fn("checkLaunchdJob")(function* (context: ServiceContext, label: string) {
-  const plist = join(context.launchDaemonDir, `${label}.plist`);
-  const stat = yield* checked("/usr/bin/stat", ["-f", "%Su:%Sg:%Lp", plist]);
-  if (stat.stdout.trim() !== "root:wheel:644")
-    return yield* fail(`${label} plist must be root:wheel mode 0644`);
-  const status = yield* run("/bin/launchctl", ["print", `system/${label}`]);
-  if (status.status !== 0) return yield* fail(`${label} is not loaded`);
-  yield* Console.log(`ok ${label} loaded for ${context.target.user}`);
-});
-
-const bootout = Effect.fn("bootoutLaunchdJob")(function* (label: string) {
-  if ((yield* run("/bin/launchctl", ["print", `system/${label}`])).status !== 0) return;
-  yield* checked("/bin/launchctl", ["bootout", `system/${label}`]);
-  for (let attempt = 1; attempt <= 50; attempt += 1) {
-    if ((yield* run("/bin/launchctl", ["print", `system/${label}`])).status !== 0) return;
-    yield* Effect.sleep("100 millis");
-  }
-  return yield* fail(`system/${label} remains loaded after bootout`);
-});
-
-const installJob = Effect.fn("installLaunchdJob")(function* (
-  context: ServiceContext,
-  source: string,
-  label: string,
-) {
-  yield* bootout(label);
-  const target = join(context.launchDaemonDir, `${label}.plist`);
-  yield* checked("/usr/bin/install", ["-o", "root", "-g", "wheel", "-m", "0644", source, target]);
-  yield* checked("/bin/launchctl", ["bootstrap", "system", target]);
-  yield* checked("/bin/launchctl", ["enable", `system/${label}`]);
-  yield* checked("/bin/launchctl", ["kickstart", "-k", `system/${label}`]);
-  yield* checked("/bin/launchctl", ["print", `system/${label}`]);
-  yield* Console.log(`installed ${label} for ${context.target.user}`);
-});
-
 // The target owns this directory, so write it as the target: root must not follow its symlinks.
 const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context: ServiceContext) {
   yield* runAsTarget(context.target, "/bin/sh", [
@@ -234,62 +184,6 @@ const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context
     join(context.target.home, ".config/dotfiles"),
     context.namespace,
   ]);
-});
-
-const writePlist = Effect.fn("writeServicePlist")(function* (path: string, xml: string) {
-  const fs = yield* FileSystem.FileSystem;
-  yield* fs.writeFileString(path, xml, { mode: 0o600 });
-  yield* checked("/usr/bin/plutil", ["-lint", path]);
-});
-
-const prepareColima = Effect.fn("prepareColimaService")(function* (target: Target) {
-  const binary = yield* findExecutable(target, "colima");
-  if (!binary) return yield* fail("missing colima binary");
-  const start = join(target.home, ".local/bin/colima-ensure");
-  if (!(yield* executable(start))) return yield* fail(`missing executable ${start}`);
-  return { binary, start };
-});
-
-const checkColima = Effect.fn("checkColimaService")(function* (
-  context: ServiceContext,
-  colima: { binary: string; start: string },
-) {
-  yield* checkJob(context, context.labels.colima);
-  const uid = process.getuid?.() ?? -1;
-  if (uid === 0 || uid === context.target.uid) {
-    const status = yield* runAsTarget(context.target, colima.binary, ["status"]);
-    if (!/colima is running/i.test(`${status.stdout}\n${status.stderr}`))
-      return yield* fail(`${context.labels.colima} is loaded but Colima is not running`);
-  } else
-    yield* Console.log(
-      `skipped ${context.labels.colima} functional check (requires root or ${context.target.user})`,
-    );
-});
-
-const installColima = Effect.fn("installColimaService")(function* (
-  context: ServiceContext,
-  temporary: string,
-  colima: { binary: string; start: string },
-) {
-  yield* runAsTarget(context.target, colima.start);
-  const logDirectory = join(context.target.home, ".local/log/colima");
-  yield* runAsTarget(context.target, "/usr/bin/install", ["-d", "-m", "0750", logDirectory]);
-  const plist = join(temporary, `${context.labels.colima}.plist`);
-  yield* writePlist(
-    plist,
-    plistXml({
-      label: context.labels.colima,
-      user: context.target.user,
-      group: context.target.group,
-      workingDirectory: context.target.home,
-      stdout: join(logDirectory, "launchd.log"),
-      stderr: join(logDirectory, "launchd-error.log"),
-      arguments: [colima.start],
-      keepAlive: false,
-    }),
-  );
-  yield* installJob(context, plist, context.labels.colima);
-  yield* checkColima(context, colima);
 });
 
 const program = Effect.gen(function* () {
@@ -309,62 +203,30 @@ const program = Effect.gen(function* () {
           target.value.uid,
         );
     }
-    const output = labels(options.user, namespace);
-    yield* Console.log(output.colima);
+    yield* Console.log(launchdLabel("software-update", options.user, namespace));
     return;
   }
   if (process.platform !== "darwin") return yield* fail("this installer supports macOS only");
-  if (!options.colima && !options.softwareUpdates)
-    return yield* fail("select at least one service");
+  if (!options.softwareUpdates) return yield* fail("select at least one service");
   const target = yield* resolveTarget(options.user);
   namespace = yield* resolveLaunchdNamespaceContract(
     options.namespace,
     join(target.home, ".config/dotfiles/launchd-namespace"),
     target.uid,
   );
-  const context: ServiceContext = {
-    options,
+  const node = yield* findExecutable(target, "node");
+  if (!node) return yield* fail(`missing Node for ${target.user}`);
+  const resolvedNode = (yield* runAsTarget(target, node, ["-p", "process.execPath"])).stdout.trim();
+  yield* installUpdateJobs({
     target,
+    node: resolvedNode,
+    repository: options.updatesRepository,
     namespace,
-    labels: labels(target.user, namespace),
-    launchDaemonDir: "/Library/LaunchDaemons",
-  };
-  const colima = options.colima ? yield* prepareColima(target) : undefined;
-  if (options.softwareUpdates) {
-    // Keep update-only dependencies out of the standalone installer path.
-    const { installUpdateJobs } = yield* Effect.promise(
-      () => import("../../maintenance/darwin/devbox.ts"),
-    );
-    const node = yield* findExecutable(target, "node");
-    if (!node) return yield* fail(`missing Node for ${target.user}`);
-    const resolvedNode = (yield* runAsTarget(target, node, [
-      "-p",
-      "process.execPath",
-    ])).stdout.trim();
-    yield* installUpdateJobs({
-      target,
-      node: resolvedNode,
-      repository: options.updatesRepository,
-      namespace,
-      check: options.check,
-    });
-  }
-  if (options.check) {
-    if (colima) yield* checkColima(context, colima);
-    return;
-  }
+    check: options.check,
+  });
+  if (options.check) return;
   if ((process.getuid?.() ?? -1) !== 0) return yield* fail("run this installer as root");
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const temporary = yield* fs.makeTempDirectoryScoped({
-        directory: process.env.TMPDIR || "/tmp",
-        prefix: "dotfiles-service-daemons.",
-      });
-      yield* persistNamespace(context);
-      if (colima) yield* installColima(context, temporary, colima);
-    }),
-  );
+  yield* persistNamespace({ target, namespace });
   yield* Console.log("devbox service daemon installation ok");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

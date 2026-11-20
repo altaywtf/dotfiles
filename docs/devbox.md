@@ -46,21 +46,6 @@ calls:
 
 A narrow sudoers allowlist stays the authorization boundary.
 
-## System Services
-
-Install system services only when the owner asks. On macOS, install Colima's
-boot service from an administrator account:
-
-```zsh
-sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima
-sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima --check
-```
-
-- Retire competing user LaunchAgents first.
-- The service runs the user's own `~/.local/bin/colima-ensure`, which dotfiles
-  does not ship. It must exit 0 when `colima status` succeeds and otherwise run
-  `colima start` with the host's sizing.
-
 ## Updates and Cleanup
 
 - macOS: enroll [headless updates](software-updates.md#headless-devbox-updates)
@@ -95,8 +80,7 @@ Keep the old devbox working until the new one passes every check below.
    ignored work. Clone repositories in full, not blobless: tests that swap
    `HOME` cannot fetch missing blobs over SSH. Sign in to coding agents and
    browsers afresh.
-5. Enroll [headless updates](software-updates.md#headless-devbox-updates) and
-   any requested [system services](#system-services).
+5. Enroll [headless updates](software-updates.md#headless-devbox-updates).
 6. Run [verification](#verification), then each moved repository's own gate.
 
 Then retire the old host's services, updater, and age recipient, each with its

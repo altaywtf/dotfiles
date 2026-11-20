@@ -72,7 +72,7 @@ const program = Effect.gen(function* () {
   );
   const fs = yield* FileSystem.FileSystem;
   let found = false;
-  for (const service of ["colima"]) {
+  for (const service of ["software-update"]) {
     const label = launchdLabel(service, user, namespace);
     const plist = `/Library/LaunchDaemons/${label}.plist`;
     if (!(yield* fs.exists(plist))) continue;
