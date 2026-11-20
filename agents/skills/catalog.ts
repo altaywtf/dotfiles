@@ -83,8 +83,7 @@ export function readLayeredSkills(
     (name) => {
       const sources = selected
         .flatMap((layer) => manifests.get(layer) ?? [])
-        .filter((skill) => skill.name === name)
-        .map((skill) => skill.source);
+        .flatMap((skill) => (skill.name === name ? [skill.source] : []));
       return `Invalid layered skills: ${name} is defined more than once (${sources.join(" and ")})`;
     },
   );

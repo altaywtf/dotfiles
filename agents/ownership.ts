@@ -33,12 +33,10 @@ function presentHarnessEntries<T extends HarnessOwned>(
   available: readonly Harness[],
   entries: readonly T[],
 ): T[] {
-  return entries
-    .map((entry) => ({
-      ...entry,
-      harnesses: entry.harnesses.filter((harness) => available.includes(harness)),
-    }))
-    .filter((entry) => entry.harnesses.length > 0);
+  return entries.flatMap((entry) => {
+    const harnesses = entry.harnesses.filter((harness) => available.includes(harness));
+    return harnesses.length > 0 ? [{ ...entry, harnesses }] : [];
+  });
 }
 
 function retainAbsentEntries<P extends HarnessOwned, C extends HarnessOwned>(
