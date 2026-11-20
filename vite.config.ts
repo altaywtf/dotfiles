@@ -35,12 +35,5 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
-    overrides: [
-      ...(cloudflare.overrides ?? []),
-      {
-        files: ["**/*.ts"],
-        rules: {},
-      },
-    ],
   },
 });
