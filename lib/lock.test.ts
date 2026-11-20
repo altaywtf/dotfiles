@@ -10,7 +10,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { acquireDirectoryLock, lockOwnerAlive, processAlive } from "./lock.ts";
 
 function fixture(t: TestContext): string {

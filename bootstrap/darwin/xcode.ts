@@ -4,7 +4,8 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult } from "../../lib/command.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import type { CommandResult } from "../../lib/command.ts";
 import { requirePrefixOwner } from "../../homebrew/homebrew.ts";
 import { CliFailure, fail, runMain } from "../../lib/program.ts";
 

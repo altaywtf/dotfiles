@@ -5,9 +5,11 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Exit } from "effect";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
-import { BoundedCommand, type BoundedCommandOptions } from "./bounded-command.ts";
+import { BoundedCommand } from "./bounded-command.ts";
+import type { BoundedCommandOptions } from "./bounded-command.ts";
 
 type Runner = Parameters<typeof CommandRunner.of>[0];
 

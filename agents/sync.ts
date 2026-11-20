@@ -7,7 +7,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
-import { readLayeredSkills, readSkillLock, type Skill } from "./skills/catalog.ts";
+import { readLayeredSkills, readSkillLock } from "./skills/catalog.ts";
+import type { Skill } from "./skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import {
@@ -16,15 +17,10 @@ import {
   withManagedLock,
   readOverlayOwnership,
   writeLockFile,
-  type OverlayOwnership,
 } from "./lock.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import type { OverlayOwnership } from "./lock.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 export { type Runtime } from "./runtime.ts";
 

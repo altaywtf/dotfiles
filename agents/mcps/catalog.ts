@@ -1,7 +1,7 @@
 import { isAbsolute, join } from "node:path";
 import { Schema } from "effect";
 
-import { type AgentLayer } from "../../profiles/model.ts";
+import type { AgentLayer } from "../../profiles/model.ts";
 import { ClosedStruct, decodeOr, decodeOrThrow, readJsonFile } from "../decode.ts";
 import { composeLayers, ManifestHarnesses, SafeName } from "../harness.ts";
 import { readLocalOverlay } from "../local.ts";

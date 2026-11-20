@@ -9,10 +9,8 @@ import {
   selectGdmfBaseline,
   selectSofaMacOSBaseline,
   selectSofaSafariBaseline,
-  type CommandRunner,
-  type HttpResult,
-  type MacOSUpdateIO,
 } from "./macos-updates.ts";
+import type { CommandRunner, HttpResult, MacOSUpdateIO } from "./macos-updates.ts";
 
 const now = "2026-08-26T12:00:00.000Z";
 const deviceOutput = `+-o Fixture1AP <class IOPlatformExpertDevice>

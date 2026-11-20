@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
 import { parseCatalog, pickInstallTarget, satisfiesPin } from "./xcode.ts";
 

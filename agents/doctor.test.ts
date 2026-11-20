@@ -6,7 +6,7 @@ import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { main } from "./doctor.ts";
-import { type Runtime } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

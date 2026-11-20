@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
 
-import { type Harness } from "./harness.ts";
+import type { Harness } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
 
 type Entry = { name: string; harnesses: readonly Harness[] };

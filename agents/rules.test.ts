@@ -23,8 +23,8 @@ import {
   RuleContentFailure,
   RuleRefreshUnavailable,
   liveRuleRuntime,
-  type RuleRuntime,
 } from "./rules.ts";
+import type { RuleRuntime } from "./rules.ts";
 
 const originalRules = "## General guidelines\n\nOriginal rules.\n";
 

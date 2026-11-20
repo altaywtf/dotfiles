@@ -14,7 +14,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");

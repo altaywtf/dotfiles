@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Exit } from "effect";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { checkTemporarySource } from "./temporary-source.ts";
 
 function fixture(t: TestContext, checkoutExists: boolean) {

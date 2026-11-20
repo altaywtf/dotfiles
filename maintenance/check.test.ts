@@ -14,10 +14,8 @@ import {
   collectMaintenanceSnapshot,
   collectMaintenanceSnapshotEffect,
   parseBrewBacklog,
-  type CommandRunner,
-  type MaintenanceContext,
-  type RawCommandResult,
 } from "./check.ts";
+import type { CommandRunner, MaintenanceContext, RawCommandResult } from "./check.ts";
 import type { MacOSUpdateIO } from "./darwin/macos-updates.ts";
 
 const profileConfig = {

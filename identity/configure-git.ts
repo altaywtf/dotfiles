@@ -6,7 +6,8 @@ import { dirname, join } from "node:path";
 import { CommandRunner, runCommand } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile, type ProfileConfig } from "../profiles/model.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import type { ProfileConfig } from "../profiles/model.ts";
 
 const usage = `usage: identity/configure-git.ts [--profile developer|devbox|workstation|personal-devbox|personal-workstation] [--non-interactive]
 

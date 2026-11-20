@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { guardProfileSwitch, profileModelFile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile, type InstallStep } from "../profiles/model.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import type { InstallStep } from "../profiles/model.ts";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;

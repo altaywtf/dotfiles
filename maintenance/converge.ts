@@ -7,7 +7,8 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
-import { acquireDirectoryLock, sleepSync, type LockOptions } from "../lib/lock.ts";
+import { acquireDirectoryLock, sleepSync } from "../lib/lock.ts";
+import type { LockOptions } from "../lib/lock.ts";
 
 // Concurrent manual and scheduled convergence wait for the checkout owner.
 const lockWaitMs = 15 * 60_000;

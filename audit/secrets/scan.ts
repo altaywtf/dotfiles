@@ -11,7 +11,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { AuditReport } from "../report.ts";
 import type { CommandRunner } from "../runtime.ts";
-import { type PathSource, resolveSources, walkFiles } from "../paths.ts";
+import { resolveSources, walkFiles } from "../paths.ts";
+import type { PathSource } from "../paths.ts";
 import { findingLocators, summarizeFindings } from "./findings.ts";
 
 export type SecretScanCounts = {

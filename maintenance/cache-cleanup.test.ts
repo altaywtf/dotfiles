@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, writeFile, utimes, symlink, readFile, rm, access } from
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../lib/command.ts";

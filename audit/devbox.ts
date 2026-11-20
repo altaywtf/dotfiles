@@ -11,7 +11,8 @@ import {
   codexPrivateFilePattern,
 } from "../agents/codex/projects.ts";
 import { runMain } from "../lib/program.ts";
-import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
+import { readSettingsFile, runPolicy } from "./engine.ts";
+import type { AuditFormat, AuditPolicy } from "./engine.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { compromisedRoots, projectEnvFiles } from "./workstation.ts";
 

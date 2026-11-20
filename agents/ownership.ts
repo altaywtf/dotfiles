@@ -1,4 +1,5 @@
-import { type Harness, HARNESSES } from "./harness.ts";
+import { HARNESSES } from "./harness.ts";
+import type { Harness } from "./harness.ts";
 
 // Ownership-lock algebra shared by the plugin and MCP syncs. Each lock entry
 // records the harness subset the sync owns for one named thing; apply drops

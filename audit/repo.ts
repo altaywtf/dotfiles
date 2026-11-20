@@ -8,15 +8,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
-import { AuditReport, type AuditFormat } from "./report.ts";
-import {
-  type AuditDependencies,
-  canAccess,
-  type CommandResult,
-  type CommandRunner,
-  runCommand,
-} from "./runtime.ts";
-import { classifyTrufflehogFindings, type TrufflehogFindings } from "./secrets/trufflehog.ts";
+import { AuditReport } from "./report.ts";
+import type { AuditFormat } from "./report.ts";
+import { canAccess, runCommand } from "./runtime.ts";
+import type { AuditDependencies, CommandResult, CommandRunner } from "./runtime.ts";
+import { classifyTrufflehogFindings } from "./secrets/trufflehog.ts";
+import type { TrufflehogFindings } from "./secrets/trufflehog.ts";
 
 const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const trufflehogAllowlist = resolve(

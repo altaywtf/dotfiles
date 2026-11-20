@@ -10,7 +10,6 @@ import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { decodeOr, decodeOrThrow } from "./decode.ts";
 import {
-  type Harness,
   HARNESS_INFO,
   HARNESSES,
   harnessPresent,
@@ -18,9 +17,10 @@ import {
   parseSyncArgs,
   reportSyncFailures,
   SafeName,
-  type SyncFailure,
 } from "./harness.ts";
-import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Harness, SyncFailure } from "./harness.ts";
+import { expandHeadersHelper, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Mcp } from "./mcps/catalog.ts";
 import { claudeAuthMatches } from "./mcps/claude-config.ts";
 import { codexCallbackUrl, codexOAuthMatches } from "./mcps/codex-config.ts";
 import { planOwnership } from "./ownership.ts";
@@ -31,15 +31,10 @@ import {
   readLockFile,
   readOverlayOwnership,
   writeLockFile,
-  type OverlayOwnership,
 } from "./lock.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import type { OverlayOwnership } from "./lock.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 type McpFailure = SyncFailure;
 

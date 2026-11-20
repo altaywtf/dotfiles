@@ -7,11 +7,11 @@ import { fileURLToPath } from "node:url";
 import { Effect, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import type { AgentLayer } from "../profiles/model.ts";
 import { decodeOr, decodeOrThrow, readJsonFile } from "./decode.ts";
 import {
   composeLayers,
-  type Harness,
   HARNESS_INFO,
   HARNESSES,
   LockedHarnesses,
@@ -20,26 +20,21 @@ import {
   reportSyncFailures,
   SafeName,
   safeName,
-  type SyncFailure,
 } from "./harness.ts";
+import type { Harness, SyncFailure } from "./harness.ts";
 import { readLocalOverlay } from "./local.ts";
 import { planOwnership } from "./ownership.ts";
 import {
   guardOverlay,
   managedLockLocation,
-  type OverlayOwnership,
   readLockFile,
   readOverlayOwnership,
   withManagedLock,
   writeLockFile,
 } from "./lock.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import type { OverlayOwnership } from "./lock.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 export { HARNESSES } from "./harness.ts";
 

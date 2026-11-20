@@ -22,8 +22,8 @@ import {
   discoverRepositories,
   lastChanged,
   openFiles,
-  type Runner,
 } from "./repositories.ts";
+import type { Runner } from "./repositories.ts";
 
 const gracePeriod = 3 * 86400_000;
 const baseline = Date.now();

@@ -5,7 +5,8 @@ import { pathToFileURL } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { type AuditFormat, type AuditPolicy, runPolicy } from "./engine.ts";
+import { runPolicy } from "./engine.ts";
+import type { AuditFormat, AuditPolicy } from "./engine.ts";
 
 const homeDotfiles = {
   kind: "home-dotfiles",

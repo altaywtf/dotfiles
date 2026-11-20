@@ -11,15 +11,13 @@ import { managedLockLocation } from "../agents/lock.ts";
 import { readLayeredSkills, readSkillLock } from "../agents/skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 
-import { type ProfileConfig, readProfileModel, requireProfile } from "../profiles/model.ts";
-import {
-  collectMacOSUpdateInventory,
-  defaultMacOSUpdateIO,
-  type MacOSUpdateIO,
-  type MacOSUpdateInventory,
-} from "./darwin/macos-updates.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import type { ProfileConfig } from "../profiles/model.ts";
+import { collectMacOSUpdateInventory, defaultMacOSUpdateIO } from "./darwin/macos-updates.ts";
+import type { MacOSUpdateIO, MacOSUpdateInventory } from "./darwin/macos-updates.ts";
 
-import { probe, runProbe, runProcess, type Probe, type ProbeResult } from "./probes.ts";
+import { probe, runProbe, runProcess } from "./probes.ts";
+import type { Probe, ProbeResult } from "./probes.ts";
 import { dropInvalid } from "./schema.ts";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
 export type { CommandRunner, RawCommandResult } from "./command.ts";

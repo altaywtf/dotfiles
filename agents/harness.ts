@@ -1,7 +1,8 @@
 import { Effect, Schema, SchemaTransformation } from "effect";
 
-import { type AgentLayer } from "../profiles/model.ts";
-import { type Runtime, writeLine } from "./runtime.ts";
+import type { AgentLayer } from "../profiles/model.ts";
+import { writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 export const HARNESSES = ["claude", "codex"] as const;
 

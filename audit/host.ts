@@ -17,8 +17,10 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
-import { AuditReport, type AuditFormat } from "./report.ts";
-import { type AuditDependencies, canAccess, type CommandResult, runCommand } from "./runtime.ts";
+import { AuditReport } from "./report.ts";
+import type { AuditFormat } from "./report.ts";
+import { canAccess, runCommand } from "./runtime.ts";
+import type { AuditDependencies, CommandResult } from "./runtime.ts";
 
 export type HostAuditOptions = {
   format: AuditFormat;

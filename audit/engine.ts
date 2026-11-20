@@ -1,16 +1,19 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
-import { AuditReport, type AuditFormat, type FindingSeverity } from "./report.ts";
-import {
-  type AuditDependencies as BaseDependencies,
-  type CommandResult,
-  type CommandRunner,
-  runPolicyCommand,
+import { AuditReport } from "./report.ts";
+import type { AuditFormat, FindingSeverity } from "./report.ts";
+import { runPolicyCommand } from "./runtime.ts";
+import type {
+  AuditDependencies as BaseDependencies,
+  CommandResult,
+  CommandRunner,
 } from "./runtime.ts";
-import { homePath, type PathSource, resolveSources, walkFiles } from "./paths.ts";
+import { homePath, resolveSources, walkFiles } from "./paths.ts";
+import type { PathSource } from "./paths.ts";
 import { checkCodexStorage } from "./codex-storage.ts";
-import { scanSecrets, type SecretScanCounts } from "./secrets/scan.ts";
+import { scanSecrets } from "./secrets/scan.ts";
+import type { SecretScanCounts } from "./secrets/scan.ts";
 
 export type { AuditFormat } from "./report.ts";
 

@@ -5,7 +5,8 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult, runCommand } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
+import type { CommandResult } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));

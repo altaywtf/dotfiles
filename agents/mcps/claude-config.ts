@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Option, Schema } from "effect";
 
-import { type McpOAuth } from "./catalog.ts";
+import type { McpOAuth } from "./catalog.ts";
 
 const ClaudeConfig = Schema.fromJsonString(
   Schema.Struct({ mcpServers: Schema.Record(Schema.String, Schema.Unknown) }),

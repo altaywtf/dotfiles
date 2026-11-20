@@ -14,7 +14,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
 function git(cwd: string, ...args: string[]) {

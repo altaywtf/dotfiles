@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { readProfileModel } from "../profiles/model.ts";
 import { main } from "./mcps.ts";
 import { HARNESSES } from "./harness.ts";
-import { type Runtime } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));

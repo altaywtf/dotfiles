@@ -2,7 +2,8 @@ import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { basename, isAbsolute, join } from "node:path";
 import { runCommand as runRaw } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
-import { requireProfile, type ProfileModel } from "../profiles/model.ts";
+import { requireProfile } from "../profiles/model.ts";
+import type { ProfileModel } from "../profiles/model.ts";
 import { brewfilePath, profileBrewfiles, withLocalBrewfile } from "./homebrew.ts";
 
 const PackageName = Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9@+._/-]+$/)));

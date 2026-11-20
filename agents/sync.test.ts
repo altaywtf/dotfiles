@@ -7,7 +7,8 @@ import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { DEFAULT_SKILLS_CLI_VERSION, main, type Runtime } from "./sync.ts";
+import { DEFAULT_SKILLS_CLI_VERSION, main } from "./sync.ts";
+import type { Runtime } from "./sync.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));

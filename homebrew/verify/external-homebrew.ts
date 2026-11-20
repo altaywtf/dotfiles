@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { configureExternalCapabilities } from "../external-capabilities.ts";
 import { fail, runMain } from "../../lib/program.ts";
-import { readProfileModelEffect, requireProfile, type ProfileModel } from "../../profiles/model.ts";
+import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts";
+import type { ProfileModel } from "../../profiles/model.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 type Capability = Record<string, unknown>;

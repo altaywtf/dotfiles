@@ -7,16 +7,13 @@ import { Array, Effect, Option, Result, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
-import { expandHeadersHelper, type Mcp, readLayeredMcps } from "./mcps/catalog.ts";
+import { HARNESS_INFO, HARNESSES, parseSyncArgs } from "./harness.ts";
+import type { Harness } from "./harness.ts";
+import { expandHeadersHelper, readLayeredMcps } from "./mcps/catalog.ts";
+import type { Mcp } from "./mcps/catalog.ts";
 import { claudeAuthMatches } from "./mcps/claude-config.ts";
-import {
-  createRuntime,
-  errorMessage,
-  resolveProfileName,
-  type Runtime,
-  writeLine,
-} from "./runtime.ts";
+import { createRuntime, errorMessage, resolveProfileName, writeLine } from "./runtime.ts";
+import type { Runtime } from "./runtime.ts";
 
 const USAGE = `Usage: ./agents/doctor.ts [--profile PROFILE]
 

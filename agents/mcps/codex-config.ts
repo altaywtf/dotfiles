@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Option, Schema } from "effect";
 import { parse as parseToml } from "smol-toml";
 
-import { type McpOAuth } from "./catalog.ts";
+import type { McpOAuth } from "./catalog.ts";
 
 const CodexConfig = Schema.Struct({
   mcp_servers: Schema.Record(Schema.String, Schema.Unknown),

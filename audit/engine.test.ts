@@ -16,9 +16,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "vite-plus/test";
+import { test } from "vite-plus/test";
+import type { TestContext } from "vite-plus/test";
 
-import { type AuditPolicy, runPolicy } from "./engine.ts";
+import { runPolicy } from "./engine.ts";
+import type { AuditPolicy } from "./engine.ts";
 import { workstationPolicy } from "./workstation.ts";
 
 function fixture(t: TestContext): { home: string; root: string } {
