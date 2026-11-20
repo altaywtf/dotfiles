@@ -2,9 +2,8 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Clock, Console, Effect, FileSystem, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { availableParallelism } from "node:os";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
@@ -40,7 +39,7 @@ type Options = {
   readonly skipSecurity: boolean;
 };
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const registryPath = resolve(repoRoot, "verify/checks.json");
 const usageText = `Usage:
   verify/run.ts [--skip-security] [--domain NAME ...]

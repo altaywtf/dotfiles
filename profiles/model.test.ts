@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { parseProfileModel, readProfileModel, requireProfile } from "./model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const sourceDir = join(repoRoot, "chezmoi");
 const profileNames = [

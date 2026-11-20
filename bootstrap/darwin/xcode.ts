@@ -2,14 +2,13 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { CommandRunner } from "../../lib/command.ts";
 import type { CommandResult } from "../../lib/command.ts";
 import { requirePrefixOwner } from "../../homebrew/homebrew.ts";
 import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const defaultPinPath = join(repoRoot, "chezmoi/.chezmoidata/xcode.json");
 const usage = `Usage:
   bootstrap/darwin/xcode.ts
@@ -236,6 +235,6 @@ const program = Effect.gen(function* () {
   yield* checkPin(pin);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(program);
 }

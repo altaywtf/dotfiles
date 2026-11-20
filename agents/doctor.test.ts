@@ -3,12 +3,11 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { main } from "./doctor.ts";
 import type { Runtime } from "./runtime.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 
 class BufferWriter {
   value = "";

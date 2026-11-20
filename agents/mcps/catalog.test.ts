@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
 import { HARNESSES } from "../harness.ts";
 import { readLayeredMcps, readMcps } from "./catalog.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const temporaryDirectories: string[] = [];
 const fixtureSharedMcps = [{ name: "shared-mcp", url: "https://mcp.fixture.test/mcp" }];
 

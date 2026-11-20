@@ -6,7 +6,6 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { BoundedCommand } from "./bounded-command.ts";
@@ -253,7 +252,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   return status;
 });
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     const [job, separator, command, ...args] = process.argv.slice(2);
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {

@@ -4,13 +4,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { auditCommand, runAudit } from "../audit/run.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
   return (
     env.MISE_GLOBAL_CONFIG_FILE ||

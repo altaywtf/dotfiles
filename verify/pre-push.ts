@@ -4,7 +4,6 @@ import { spawnSync } from "node:child_process";
 import { Console, Effect } from "effect";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runMain } from "../lib/program.ts";
 
 type Update = {
@@ -140,7 +139,7 @@ function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation
   return commits.size;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     const input = yield* Effect.try({
       try: () => readFileSync(0, "utf8"),

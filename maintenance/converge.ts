@@ -5,7 +5,6 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
 import { acquireDirectoryLock, sleepSync } from "../lib/lock.ts";
 import type { LockOptions } from "../lib/lock.ts";
@@ -205,7 +204,7 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
   try {
     if (process.argv.length !== 2 || process.getuid?.() === 0)
       throw new UpdateFailure("run dotfiles convergence as the enrolled user, without arguments");

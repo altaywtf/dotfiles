@@ -15,7 +15,6 @@ import {
 import { tmpdir } from "node:os";
 import { runMain } from "../lib/program.ts";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { runApply } from "./home-fixture.ts";
 
@@ -32,7 +31,7 @@ type Fixture = {
   malformed?: boolean;
 };
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedMode = "defaultMode";

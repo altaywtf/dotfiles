@@ -3,8 +3,7 @@
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { Effect } from "effect";
 
 import { readLayeredSkills, readSkillLock } from "./skills/catalog.ts";
@@ -273,7 +272,7 @@ function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string):
 }
 
 function sync(runtime: Runtime, options: SyncOptions): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, options.profile);
 
@@ -362,7 +361,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

@@ -4,8 +4,7 @@ import { configureExternalCapabilities } from "./external-capabilities.ts";
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { commandAvailable } from "../lib/command-available.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
@@ -21,7 +20,7 @@ import {
 import { normalizeProfile, profileModelFile } from "../profiles/current.ts";
 import { readProfileModelEffect } from "../profiles/model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const usage = `Usage:
   homebrew/brew-bundle.ts developer|devbox|workstation|personal-devbox|personal-workstation
   homebrew/brew-bundle.ts --shared-only PROFILE

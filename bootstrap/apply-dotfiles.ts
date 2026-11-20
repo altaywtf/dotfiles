@@ -3,8 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { hostname } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { validateLocalAgentRules } from "../agents/rules-local.ts";
 import { linkAgentSource } from "../agents/agent-source.ts";
 import { backupPreexistingTargets } from "./managed-files.ts";
@@ -17,7 +16,7 @@ import { resolveProfile } from "../profiles/current.ts";
 import { disableDevboxPhotoAnalysis } from "./darwin/photo-analysis.ts";
 import { checkTemporarySource } from "./temporary-source.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = join(repoRoot, "chezmoi");
 const home = process.env.HOME || "";
 const configDir = join(home, ".config/dotfiles");
@@ -182,6 +181,6 @@ const program = Effect.gen(function* () {
   );
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(program);
 }

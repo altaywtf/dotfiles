@@ -3,15 +3,14 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { saveAgentSource } from "../agents/agent-source.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
 const defaultProfile = "developer";
 const usage = `Usage: ./dotfiles diff|check [PROFILE]

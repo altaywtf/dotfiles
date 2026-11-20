@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 // Disabling keeps the receipts that interrupted-run recovery needs, so interactive
 // shells read this marker to stop warning about a schedule nobody expects to run.
@@ -17,7 +16,7 @@ export function recordEnrollment(action: string, home: string): void {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
   const implementation =
     process.platform === "darwin" ? "./darwin/schedule.ts" : "./linux/schedule.ts";
   const result = spawnSync(

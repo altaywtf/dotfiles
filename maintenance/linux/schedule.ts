@@ -3,7 +3,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
@@ -131,7 +130,7 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
   }
 });
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program =
     process.argv.length === 3
       ? manageSchedule(process.argv[2] ?? "", process.env.HOME || "", process.getuid?.() ?? -1)

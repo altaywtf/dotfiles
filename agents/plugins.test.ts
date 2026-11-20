@@ -4,13 +4,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
 import { HARNESSES, main, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
 import type { Runtime } from "./runtime.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
@@ -649,7 +648,7 @@ test.each([
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "plugins.ts");
+  const scriptPath = join(import.meta.dirname, "plugins.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);

@@ -2,12 +2,11 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 
 function containsAny(content: string, values: readonly string[]): boolean {
   return values.some((value) => content.includes(value));

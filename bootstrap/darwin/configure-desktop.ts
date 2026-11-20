@@ -3,11 +3,10 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const wallpaperIndex = join(
   process.env.HOME || "",
   "Library/Application Support/com.apple.wallpaper/Store/Index.plist",

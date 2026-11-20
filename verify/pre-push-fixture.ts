@@ -1,9 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
-const verifyDir = dirname(fileURLToPath(import.meta.url));
+const verifyDir = import.meta.dirname;
 const hook = resolve(verifyDir, "pre-push.ts");
 export const installer = resolve(verifyDir, "install-pre-push-hook.ts");
 

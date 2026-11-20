@@ -2,7 +2,6 @@
 
 import { realpathSync } from "node:fs";
 import { Effect } from "effect";
-import { fileURLToPath } from "node:url";
 import { runMain } from "../lib/program.ts";
 import { sqlitePageStats } from "./codex-storage.ts";
 import { findingLocators, summarizeFindings } from "./secrets/findings.ts";
@@ -29,9 +28,6 @@ function main(args: string[]): void {
   } else usage();
 }
 
-if (
-  process.argv[1] &&
-  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
-) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
   runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }));
 }

@@ -7,11 +7,10 @@ import {
   updateChromeLocalStatePreferencesEffect,
   updateChromeProfilesEffect,
 } from "./chrome-state.ts";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 const policyDomain = "com.google.Chrome";
 const flagOverrides = [{ name: "vertical-tabs", value: "vertical-tabs@1" }] as const;
 // Chrome reads this preference domain as mandatory platform policy on macOS, so

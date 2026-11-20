@@ -3,8 +3,8 @@
 import { constants, existsSync, statSync } from "node:fs";
 import { Effect, Option } from "effect";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
@@ -15,11 +15,8 @@ import type { AuditDependencies, CommandResult, CommandRunner } from "./runtime.
 import { classifyTrufflehogFindings } from "./secrets/trufflehog.ts";
 import type { TrufflehogFindings } from "./secrets/trufflehog.ts";
 
-const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const trufflehogAllowlist = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "secrets/trufflehog-allowlist.json",
-);
+const defaultRepoRoot = resolve(import.meta.dirname, "..");
+const trufflehogAllowlist = resolve(import.meta.dirname, "secrets/trufflehog-allowlist.json");
 
 export type RepoAuditOptions = {
   format: AuditFormat;

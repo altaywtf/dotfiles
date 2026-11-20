@@ -16,12 +16,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runMain } from "../lib/program.ts";
 
 import { readProfileModel } from "../profiles/model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = resolve(repoRoot, "chezmoi");
 const profiles = Object.keys(
   readProfileModel(join(sourceDir, ".chezmoidata/profiles.json")).profiles,
@@ -147,7 +146,7 @@ async function verifyTemporarySource(): Promise<void> {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   runMain(
     Effect.tryPromise({
       try: () => Promise.all([verifyProfiles(), verifyTemporarySource()]),

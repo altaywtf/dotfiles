@@ -45,7 +45,6 @@ export default defineConfig({
       "typescript/no-unsafe-return": "off",
       "typescript/no-unsafe-type-assertion": "off",
       "unicorn/consistent-function-scoping": "off",
-      "unicorn/prefer-import-meta-properties": "off",
     },
     options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
     overrides: [
@@ -65,7 +64,6 @@ export default defineConfig({
           "typescript/no-unsafe-return": "off",
           "typescript/no-unsafe-type-assertion": "off",
           "unicorn/consistent-function-scoping": "off",
-          "unicorn/prefer-import-meta-properties": "off",
         },
       },
     ],

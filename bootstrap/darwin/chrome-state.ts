@@ -4,7 +4,6 @@ import { realpathSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Option, Predicate, Schema } from "effect";
 import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
@@ -161,10 +160,7 @@ export const updateChromeProfilesEffect = Effect.fn("updateChromeProfiles")(func
   return { checked: profiles.length, updated };
 });
 
-if (
-  process.argv[1] &&
-  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
-) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
   const program = Effect.gen(function* () {
     const [path, mode, flagName, flagValue] = yield* Schema.decodeUnknownEffect(Arguments)(
       process.argv.slice(2),

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 import { readLayeredSkills, readSkillLock } from "./catalog.ts";
 
@@ -113,7 +112,7 @@ test("manifests reject a source that is neither owner/repository nor an HTTPS UR
 });
 
 test("every tracked skill manifest composes", () => {
-  const manifests = resolve(dirname(fileURLToPath(import.meta.url)));
+  const manifests = resolve(import.meta.dirname);
   const root = fixture();
   const layers = ["developer", "workstation", "devbox", "personal"] as const;
   for (const layer of layers)

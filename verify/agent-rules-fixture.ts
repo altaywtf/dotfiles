@@ -11,9 +11,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = join(repoRoot, "chezmoi");
 export const sharedFixtureRules =
   "## General guidelines\n\nFixture shared rule.\n\n### Delivery\n\nShared fixture delivery rule.\n";

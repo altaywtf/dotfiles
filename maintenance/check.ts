@@ -5,8 +5,8 @@ import { parse as parseToml } from "smol-toml";
 import { Effect, Option, Predicate, Schema } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { managedLockLocation } from "../agents/lock.ts";
 import { readLayeredSkills, readSkillLock } from "../agents/skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
@@ -642,7 +642,7 @@ const main = Effect.fn("maintenanceCheck")(function* () {
     process.stderr.write("Usage: maintenance/check.ts [--fresh] [--verify]\n");
     return 2;
   }
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const repoRoot = resolve(import.meta.dirname, "..");
   const home = process.env.HOME || homedir();
   const profile = yield* Effect.try(() =>
     readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim(),

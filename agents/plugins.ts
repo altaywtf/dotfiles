@@ -2,8 +2,7 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isAbsolute, join, resolve } from "node:path";
 import { Effect, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
@@ -510,7 +509,7 @@ type PluginOptions = {
 const USAGE = "Usage: ./agents/plugins.ts [--profile PROFILE] [--update]";
 
 function apply(runtime: Runtime, options: PluginOptions): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, options.profile);
 
@@ -603,7 +602,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

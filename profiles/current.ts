@@ -1,9 +1,8 @@
 import { Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { readProfileModelEffect, requireProfile } from "./model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModelPath = resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 
 export class ProfileResolutionError extends Schema.TaggedError<ProfileResolutionError>()(

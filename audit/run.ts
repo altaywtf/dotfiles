@@ -3,8 +3,8 @@
 import { spawnSync } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Schema } from "effect";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
@@ -14,7 +14,7 @@ export type AuditFormat = "text" | "json";
 type Result = { error?: Error; status: number | null };
 type Runner = (command: string, args: string[]) => Result;
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const Arguments = Schema.Tuple([
   Schema.Literals(["repo", "mscp", "host", "workstation", "devbox"]),
   Schema.Literals(["text", "json"]),

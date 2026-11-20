@@ -3,7 +3,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, Schema } from "effect";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
@@ -146,5 +145,4 @@ const program = Effect.gen(function* () {
   if (!report.complete) return yield* fail("workload inspection incomplete");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]))
-  runMain(program);
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) runMain(program);

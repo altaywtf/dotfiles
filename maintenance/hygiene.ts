@@ -3,7 +3,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Predicate, Schema } from "effect";
 import { CommandRunner } from "../lib/command.ts";
@@ -151,7 +150,7 @@ export async function hygiene(
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const controller = new AbortController();
   let interrupted: "SIGINT" | "SIGTERM" | undefined;
   const interrupt = (signal: "SIGINT" | "SIGTERM") => {

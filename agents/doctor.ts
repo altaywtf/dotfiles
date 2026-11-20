@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { accessSync, constants, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { Array, Effect, Option, Result, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
@@ -247,7 +246,7 @@ function report(runtime: Runtime, findings: readonly Finding[]): number {
 }
 
 function run(runtime: Runtime, profileOverride: string | undefined): number {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const scriptDir = import.meta.dirname;
   const repoDir = runtime.repoDir ?? resolve(scriptDir, "..");
   const profileName = resolveProfileName(runtime, scriptDir, profileOverride);
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
@@ -276,7 +275,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
+if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {
       process.exitCode = main(process.argv.slice(2));

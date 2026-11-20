@@ -288,7 +288,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
     );
 });
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     if (process.platform !== "darwin")
       return yield* fail("software maintenance scheduling requires macOS");

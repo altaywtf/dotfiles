@@ -4,7 +4,6 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 import { Effect, FileSystem, Result } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
@@ -17,7 +16,7 @@ import {
   updateLabel,
 } from "./schedule.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(import.meta.dirname, "../..");
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
   const calls: string[][] = [];

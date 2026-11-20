@@ -4,13 +4,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
-import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
 import { DEFAULT_SKILLS_CLI_VERSION, main } from "./sync.ts";
 import type { Runtime } from "./sync.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
@@ -575,7 +574,7 @@ test("skips the updater when managed skill installation fails", () => {
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "sync.ts");
+  const scriptPath = join(import.meta.dirname, "sync.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
