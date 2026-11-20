@@ -107,7 +107,6 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
       console.error(message);
     });
   const deadline = now() + (options.waitMs ?? 0);
-  let reclaimed = false;
   let announced = false;
   let delay = initialRetryDelayMs;
   const owner = join(lock, ownerFileName);
@@ -135,12 +134,9 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
       mkdirSync(lock, { mode: 0o700 });
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code !== "EEXIST") throw cause;
-      if (!reclaimed && !lockOwnerAlive(lock, options)) {
+      if (!lockOwnerAlive(lock, options)) {
         log(`reclaiming stale lock left by a dead process: ${lock}`);
-        if (reclaimOwner(lock, options) === "won") {
-          reclaimed = true;
-          return writeOwner();
-        }
+        if (reclaimOwner(lock, options) === "won") return writeOwner();
         // Another contender won the reclaim (and now holds the lock) or the
         // holder released; the wait path observes either outcome.
       }
