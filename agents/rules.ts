@@ -37,18 +37,16 @@ export type RuleRuntime = {
 export const parseRuleSourceConfig = Effect.fn("parseRuleSourceConfig")(function* (
   contents: string,
 ) {
-  const parsed = yield* Effect.try({
-    try: () => JSON.parse(contents) as unknown,
-    catch: (error) =>
-      new RuleConfigurationFailure({
-        message: `agent rule source config is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
-      }),
-  });
-  return yield* Schema.decodeUnknownEffect(RuleSourceConfig, {
+  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(RuleSourceConfig), {
     errors: "all",
     onExcessProperty: "error",
-  })(parsed).pipe(
-    Effect.mapError((error) => new RuleConfigurationFailure({ message: error.message })),
+  })(contents).pipe(
+    Effect.mapError(
+      (error) =>
+        new RuleConfigurationFailure({
+          message: `agent rule source config is invalid: ${error.message}`,
+        }),
+    ),
   );
 });
 

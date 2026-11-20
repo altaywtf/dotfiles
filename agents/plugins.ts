@@ -2,22 +2,24 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
+import { decodeOr, decodeOrThrow, readJsonFile } from "./decode.ts";
 import {
   composeLayers,
   type Harness,
   HARNESS_INFO,
   HARNESSES,
-  isSafeName,
+  LockedHarnesses,
+  ManifestHarnesses,
   parseSyncArgs,
-  readHarnesses,
   reportSyncFailures,
+  SafeName,
+  safeName,
   type SyncFailure,
 } from "./harness.ts";
 import { readLocalOverlay } from "./local.ts";
@@ -59,12 +61,38 @@ function isMarketplaceSource(source: string): boolean {
   );
 }
 
-export type Plugin = {
-  marketplace: string;
-  marketplaceId: string;
-  name: string;
-  harnesses: readonly Harness[];
-};
+const MarketplaceSource = Schema.String.check(Schema.makeFilter(isMarketplaceSource));
+
+const PluginIdentity = Schema.Struct({ marketplace: MarketplaceSource, name: SafeName });
+
+const PluginEntry = Schema.Struct({
+  marketplace: MarketplaceSource,
+  name: SafeName,
+  marketplaceId: Schema.optionalKey(safeName("marketplaceId must be a safe name")),
+  harnesses: ManifestHarnesses,
+});
+
+const LockedPluginIdentity = Schema.Struct({
+  marketplace: MarketplaceSource,
+  marketplaceId: SafeName,
+  name: SafeName,
+  harnesses: Schema.Unknown,
+});
+
+const Plugin = Schema.Struct({
+  marketplace: MarketplaceSource,
+  marketplaceId: SafeName,
+  name: SafeName,
+  harnesses: LockedHarnesses,
+});
+export type Plugin = typeof Plugin.Type;
+
+const PluginManifest = Schema.Struct({ plugins: Schema.Unknown });
+
+const PluginLockDocument = Schema.Struct({
+  version: Schema.Literal(1),
+  plugins: Schema.Array(Schema.Unknown),
+});
 
 type PlannedCommand = {
   command: string;
@@ -112,64 +140,35 @@ export function pluginRef(plugin: Plugin): string {
   return `${plugin.name}@${plugin.marketplaceId}`;
 }
 
-function readManifestHarnesses(value: unknown, context: string, name: string): readonly Harness[] {
-  if (value === undefined) {
-    return HARNESSES;
-  }
-  return readHarnesses(
-    value,
-    `${context}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
-  );
-}
-
 function readPlugin(value: unknown, context: string): Plugin {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("marketplace" in value) ||
-    typeof value.marketplace !== "string" ||
-    !isMarketplaceSource(value.marketplace) ||
-    !("name" in value) ||
-    typeof value.name !== "string" ||
-    !isSafeName(value.name)
-  ) {
-    throw new Error(
-      `${context}: expected a marketplace (owner/repo, HTTPS or SSH Git URL without credentials, or absolute path) and a safe plugin name`,
-    );
-  }
+  const { name } = decodeOr(
+    PluginIdentity,
+    value,
+    `${context}: expected a marketplace (owner/repo, HTTPS or SSH Git URL without credentials, or absolute path) and a safe plugin name`,
+  );
+  const entry = decodeOrThrow(PluginEntry, value, (detail) => `${context}: ${name} ${detail}`);
 
   // Harnesses register a marketplace under the name its manifest declares, which is the
   // repository name for every marketplace we ship; `marketplaceId` overrides the divergent case.
   // Other sources have no repository name to derive it from.
-  const repository = GITHUB_MARKETPLACE.test(value.marketplace)
-    ? value.marketplace.split("/")[1]
-    : undefined;
   const marketplaceId =
-    "marketplaceId" in value && value.marketplaceId !== undefined
-      ? value.marketplaceId
-      : repository;
+    entry.marketplaceId ??
+    (GITHUB_MARKETPLACE.test(entry.marketplace) ? entry.marketplace.split("/")[1] : undefined);
   if (marketplaceId === undefined) {
     throw new Error(
-      `${context}: ${value.name} needs a marketplaceId because its marketplace is not owner/repo`,
+      `${context}: ${name} needs a marketplaceId because its marketplace is not owner/repo`,
     );
   }
-  if (typeof marketplaceId !== "string" || !isSafeName(marketplaceId)) {
-    throw new Error(`${context}: ${value.name} marketplaceId must be a safe name`);
-  }
-
-  const harnesses = readManifestHarnesses(
-    "harnesses" in value ? value.harnesses : undefined,
-    context,
-    value.name,
-  );
-  return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
+  return { marketplace: entry.marketplace, marketplaceId, name, harnesses: entry.harnesses };
 }
 
 function parsePlugins(value: unknown, context: string): Plugin[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${context}: expected a plugins array`);
-  }
-  const plugins = value.map((plugin) => readPlugin(plugin, context));
+  const entries = decodeOr(
+    Schema.Array(Schema.Unknown),
+    value,
+    `${context}: expected a plugins array`,
+  );
+  const plugins = entries.map((plugin) => readPlugin(plugin, context));
   const refs = new Set<string>();
   for (const plugin of plugins) {
     const ref = pluginRef(plugin);
@@ -182,18 +181,13 @@ function parsePlugins(value: unknown, context: string): Plugin[] {
 }
 
 export function readPlugins(manifestPath: string): Plugin[] {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid plugins manifest at ${manifestPath}: ${errorMessage(error)}`);
-  }
-
-  if (typeof parsed !== "object" || parsed === null || !("plugins" in parsed)) {
-    throw new Error(`Invalid plugins manifest at ${manifestPath}: expected a plugins array`);
-  }
-  return parsePlugins(parsed.plugins, `Invalid plugins manifest at ${manifestPath}`);
+  const context = `Invalid plugins manifest at ${manifestPath}`;
+  const { plugins } = decodeOr(
+    PluginManifest,
+    readJsonFile(manifestPath, context),
+    `${context}: expected a plugins array`,
+  );
+  return parsePlugins(plugins, context);
 }
 
 export type PluginLayer = AgentLayer | "local";
@@ -262,34 +256,13 @@ type PluginLock = {
 };
 
 function readLockedPlugin(value: unknown, lockPath: string): Plugin {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("marketplace" in value) ||
-    typeof value.marketplace !== "string" ||
-    !isMarketplaceSource(value.marketplace) ||
-    !("name" in value) ||
-    typeof value.name !== "string" ||
-    !isSafeName(value.name) ||
-    !("marketplaceId" in value) ||
-    typeof value.marketplaceId !== "string" ||
-    !isSafeName(value.marketplaceId) ||
-    !("harnesses" in value)
-  ) {
-    throw new Error(
-      `Invalid managed plugins lock at ${lockPath}: expected explicit marketplace, marketplaceId, name, and harnesses`,
-    );
-  }
-
-  return {
-    marketplace: value.marketplace,
-    marketplaceId: value.marketplaceId,
-    name: value.name,
-    harnesses: readHarnesses(
-      value.harnesses,
-      `Invalid managed plugins lock at ${lockPath}: ${value.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
-    ),
-  };
+  const label = `Invalid managed plugins lock at ${lockPath}`;
+  const { name } = decodeOr(
+    LockedPluginIdentity,
+    value,
+    `${label}: expected explicit marketplace, marketplaceId, name, and harnesses`,
+  );
+  return decodeOrThrow(Plugin, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
 function readPluginLock(lockPath: string): Plugin[] | undefined {
@@ -298,20 +271,12 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
     return undefined;
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("plugins" in parsed) ||
-    !Array.isArray(parsed.plugins)
-  ) {
-    throw new Error(
-      `Invalid managed plugins lock at ${lockPath}: expected version 1 and a plugins array`,
-    );
-  }
-
-  const plugins = parsed.plugins.map((plugin: unknown) => readLockedPlugin(plugin, lockPath));
+  const lock = decodeOr(
+    PluginLockDocument,
+    parsed,
+    `Invalid managed plugins lock at ${lockPath}: expected version 1 and a plugins array`,
+  );
+  const plugins = lock.plugins.map((plugin) => readLockedPlugin(plugin, lockPath));
   const refs = plugins.map(pluginRef);
   if (new Set(refs).size !== refs.length) {
     throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);

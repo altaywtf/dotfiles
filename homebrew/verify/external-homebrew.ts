@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Cause, Console, Effect, FileSystem } from "effect";
+import { Cause, Console, Effect, FileSystem, Predicate, Schema } from "effect";
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,13 +12,14 @@ import { readProfileModelEffect, requireProfile, type ProfileModel } from "../..
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 type Capability = Record<string, unknown>;
+const isArray = Schema.is(Schema.Array(Schema.Unknown));
 const xml = (capabilities: readonly Capability[]) => {
   const value = (input: unknown): string => {
-    if (typeof input === "string")
+    if (Predicate.isString(input))
       return `<string>${input.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</string>`;
-    if (typeof input === "number") return `<integer>${input}</integer>`;
-    if (Array.isArray(input)) return `<array>${input.map(value).join("")}</array>`;
-    if (typeof input === "object" && input !== null)
+    if (Predicate.isNumber(input)) return `<integer>${input}</integer>`;
+    if (isArray(input)) return `<array>${input.map(value).join("")}</array>`;
+    if (Predicate.isObject(input))
       return `<dict>${Object.entries(input)
         .map(([key, item]) => `<key>${key}</key>${value(item)}`)
         .join("")}</dict>`;

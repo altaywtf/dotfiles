@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
+import { Predicate } from "effect";
 
 export type PathSource =
   | { kind: "path"; path: string }
@@ -27,7 +28,7 @@ function present(path: string, skipped: SkippedPath): boolean {
     lstatSync(path);
     return true;
   } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) skipped(path);
+    if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) skipped(path);
     return false;
   }
 }

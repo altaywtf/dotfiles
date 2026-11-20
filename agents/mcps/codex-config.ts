@@ -1,8 +1,22 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Option, Schema } from "effect";
 import { parse as parseToml } from "smol-toml";
 
 import { type McpOAuth } from "./catalog.ts";
+
+const CodexConfig = Schema.Struct({
+  mcp_servers: Schema.Record(Schema.String, Schema.Unknown),
+});
+
+const CodexServer = Schema.Struct({ oauth: Schema.Unknown });
+
+const CodexClient = Schema.Struct({ client_id: Schema.Unknown });
+
+const CodexOAuth = Schema.Struct({
+  client_id: Schema.String,
+  callback_url: Schema.URLFromString,
+});
 
 export function codexCallbackUrl(oauth: McpOAuth): string {
   return `http://localhost:${oauth.callbackPort}/callback`;
@@ -17,15 +31,12 @@ function configuredOAuth(env: NodeJS.ProcessEnv, name: string): unknown {
   } catch {
     return undefined;
   }
-  if (typeof parsed !== "object" || parsed === null || !("mcp_servers" in parsed)) {
-    return undefined;
-  }
-  const servers = parsed.mcp_servers;
-  if (typeof servers !== "object" || servers === null || !Object.hasOwn(servers, name)) {
-    return undefined;
-  }
-  const entry: unknown = Object.getOwnPropertyDescriptor(servers, name)?.value;
-  return typeof entry === "object" && entry !== null && "oauth" in entry ? entry.oauth : undefined;
+  return Schema.decodeUnknownOption(CodexConfig)(parsed).pipe(
+    Option.filter(({ mcp_servers }) => Object.hasOwn(mcp_servers, name)),
+    Option.flatMap(({ mcp_servers }) => Schema.decodeUnknownOption(CodexServer)(mcp_servers[name])),
+    Option.map(({ oauth }) => oauth),
+    Option.getOrUndefined,
+  );
 }
 
 export function codexOAuthMatches(
@@ -35,27 +46,16 @@ export function codexOAuthMatches(
 ): boolean {
   const configured = configuredOAuth(env, name);
   if (oauth === undefined) {
-    return typeof configured !== "object" || configured === null || !("client_id" in configured);
+    return !Schema.is(CodexClient)(configured);
   }
-  if (
-    typeof configured !== "object" ||
-    configured === null ||
-    !("client_id" in configured) ||
-    configured.client_id !== oauth.clientId ||
-    !("callback_url" in configured) ||
-    typeof configured.callback_url !== "string"
-  ) {
-    return false;
-  }
-  try {
-    const callback = new URL(configured.callback_url);
-    const expected = new URL(codexCallbackUrl(oauth));
-    return (
-      callback.protocol === expected.protocol &&
-      callback.hostname === expected.hostname &&
-      callback.port === expected.port
-    );
-  } catch {
-    return false;
-  }
+  const expected = new URL(codexCallbackUrl(oauth));
+  return Schema.decodeUnknownOption(CodexOAuth)(configured).pipe(
+    Option.exists(
+      ({ client_id, callback_url }) =>
+        client_id === oauth.clientId &&
+        callback_url.protocol === expected.protocol &&
+        callback_url.hostname === expected.hostname &&
+        callback_url.port === expected.port,
+    ),
+  );
 }

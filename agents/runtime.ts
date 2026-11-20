@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
+import { Predicate } from "effect";
 
 type CommandResult = {
   status: number;
@@ -71,8 +72,8 @@ export function createRuntime(env: NodeJS.ProcessEnv = process.env): Runtime {
 
       return {
         status: result.status ?? 127,
-        stdout: typeof result.stdout === "string" ? result.stdout : "",
-        stderr: result.error?.message ?? (typeof result.stderr === "string" ? result.stderr : ""),
+        stdout: Predicate.isString(result.stdout) ? result.stdout : "",
+        stderr: result.error?.message ?? (Predicate.isString(result.stderr) ? result.stderr : ""),
       };
     },
   };

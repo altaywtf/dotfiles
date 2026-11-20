@@ -1,23 +1,18 @@
 import { spawn } from "node:child_process";
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
 import { discoverCheckouts, projectTrustEdits, restrictCodexState } from "./projects.ts";
 
-type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
-const RpcMessage = Schema.Struct({
-  id: Schema.optional(Schema.Number),
-  result: Schema.optional(Schema.Unknown),
-  error: Schema.optional(Schema.Struct({ message: Schema.optional(Schema.String) })),
-});
-type Scalar =
-  | boolean
-  | null
-  | number
-  | string
-  | readonly string[]
-  | Readonly<Record<string, string>>;
+const RpcMessage = Schema.fromJsonString(
+  Schema.Struct({
+    id: Schema.optional(Schema.Number),
+    result: Schema.optional(Schema.Unknown),
+    error: Schema.optional(Schema.Struct({ message: Schema.optional(Schema.String) })),
+  }),
+);
+type RpcMessage = typeof RpcMessage.Type;
 const Scalar = Schema.Union([
   Schema.Boolean,
   Schema.Null,
@@ -26,6 +21,7 @@ const Scalar = Schema.Union([
   Schema.Array(Schema.String),
   Schema.Record(Schema.String, Schema.String),
 ]);
+type Scalar = typeof Scalar.Type;
 const LocalSettings = Schema.fromJsonString(Schema.Record(Schema.String, Scalar));
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 type UserConfig = { projects: Readonly<Record<string, unknown>> };
@@ -186,7 +182,7 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
     lines.on("line", (line) => {
       let message: RpcMessage;
       try {
-        message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(line));
+        message = Schema.decodeUnknownSync(RpcMessage)(line);
       } catch {
         fail(new Error("Codex app-server returned invalid JSON"));
         return;
@@ -195,11 +191,11 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits)
         if (message.error)
           return fail(new Error(message.error.message || "Codex app-server initialization failed"));
         send({ method: "initialized", params: {} });
-        if (typeof edits !== "function")
+        if (!Predicate.isFunction(edits))
           send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
         else send({ method: "config/read", id: 2, params: { includeLayers: true } });
       }
-      if (message.id === 2 && typeof edits === "function") {
+      if (message.id === 2 && Predicate.isFunction(edits)) {
         if (message.error)
           return fail(new Error(message.error.message || "Codex config read failed"));
         let current: ReturnType<typeof userLayer>;

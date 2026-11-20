@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem, Option } from "effect";
+import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, runChecked } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../../lib/darwin/launchd.ts";
 import { fail, runMain } from "../../lib/program.ts";
 import { readPersistedProfile } from "../../profiles/current.ts";
+import { dropInvalid } from "../schema.ts";
 
 export const updateLabel = "local.dotfiles.software-update";
 const usage = "Usage: maintenance/darwin/schedule.ts <enable|disable|run|status>";
@@ -54,6 +55,18 @@ export function parseLaunchdPrint(output: string): LoadedJob {
   return job;
 }
 
+const LaunchdPlist = Schema.Struct({
+  ProgramArguments: Schema.Array(Schema.String),
+  EnvironmentVariables: Schema.optionalKey(
+    dropInvalid(Schema.Record(Schema.String, dropInvalid(Schema.String))),
+  ),
+});
+
+const UpdateReceipt = Schema.Struct({
+  startedAt: Schema.optionalKey(dropInvalid(Schema.String)),
+  finishedAt: Schema.optionalKey(dropInvalid(Schema.String)),
+});
+
 // launchd injects variables (XPC_SERVICE_NAME, OSLogRateLimit) into a loaded
 // job, so the environment check requires every plist variable to be loaded with
 // the same value rather than exact equality. Only ProgramArguments and
@@ -63,17 +76,10 @@ export function comparePlist(
   loaded: LoadedJob,
   plist: unknown,
 ): { comparable: boolean; drift: string[] } {
-  const record =
-    typeof plist === "object" && plist !== null ? (plist as Record<string, unknown>) : undefined;
-  const args = record?.ProgramArguments;
+  const decoded = Schema.decodeUnknownOption(LaunchdPlist)(plist);
   const loadedArguments = loaded.arguments;
-  if (
-    !loadedArguments ||
-    !Array.isArray(args) ||
-    !args.every((argument) => typeof argument === "string")
-  ) {
-    return { comparable: false, drift: [] };
-  }
+  if (!loadedArguments || Option.isNone(decoded)) return { comparable: false, drift: [] };
+  const { ProgramArguments: args, EnvironmentVariables: environment } = decoded.value;
   const drift: string[] = [];
   if (
     args.length !== loadedArguments.length ||
@@ -81,10 +87,9 @@ export function comparePlist(
   ) {
     drift.push("ProgramArguments differ between the loaded job and the on-disk plist");
   }
-  const environment = record?.EnvironmentVariables;
-  if (typeof environment === "object" && environment !== null && loaded.environment) {
+  if (environment && loaded.environment) {
     for (const [key, value] of Object.entries(environment)) {
-      if (typeof value === "string" && loaded.environment[key] !== value) {
+      if (loaded.environment[key] !== value) {
         drift.push(
           `EnvironmentVariables.${key} differs between the loaded job and the on-disk plist`,
         );
@@ -98,25 +103,15 @@ export function receiptWarning(receipt: string | undefined, now: number): string
   if (receipt === undefined) {
     return "no update receipt exists; if the job has been loaded past a schedule slot, the wrapper may be failing before it starts (inspect the log and the node shim)";
   }
-  let reference: number | undefined;
-  try {
-    const parsed: unknown = JSON.parse(receipt);
-    if (typeof parsed === "object" && parsed !== null) {
-      const { startedAt, finishedAt } = parsed as { startedAt?: unknown; finishedAt?: unknown };
-      const raw =
-        typeof finishedAt === "string"
-          ? finishedAt
-          : typeof startedAt === "string"
-            ? startedAt
-            : undefined;
-      if (raw !== undefined) reference = Date.parse(raw);
-    }
-  } catch {
-    /* reported below */
-  }
-  if (reference === undefined || Number.isNaN(reference))
+  const parsed = Schema.decodeUnknownOption(Schema.fromJsonString(UpdateReceipt))(receipt);
+  const raw = Option.flatMapNullishOr(
+    parsed,
+    ({ finishedAt, startedAt }) => finishedAt ?? startedAt,
+  );
+  const reference = Option.map(raw, Date.parse);
+  if (Option.isNone(reference) || Number.isNaN(reference.value))
     return "update receipt is unreadable; inspect the log";
-  if (now - reference > staleReceiptMs) {
+  if (now - reference.value > staleReceiptMs) {
     return `update receipt is older than ${Math.round(staleReceiptMs / 3600_000)} hours; the scheduler may be failing before the wrapper runs (inspect the log and the node shim)`;
   }
   return undefined;
@@ -206,7 +201,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
       const rendered = yield* runner.run("plutil", ["-convert", "json", "-o", "-", plist]);
       const parsed =
         rendered.status === 0
-          ? yield* Effect.try(() => JSON.parse(rendered.stdout) as unknown).pipe(Effect.option)
+          ? Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown))(rendered.stdout)
           : Option.none();
       const comparison = Option.isSome(parsed)
         ? comparePlist(parseLaunchdPrint(current.stdout), parsed.value)

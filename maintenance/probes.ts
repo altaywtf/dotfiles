@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 import { spawn } from "node:child_process";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
@@ -57,7 +58,7 @@ export async function runProbe(
       duration_ms,
       error: `timed out after ${spec.timeoutMs ?? defaultTimeoutMs}ms`,
     };
-  if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") {
+  if (Predicate.hasProperty(result.error, "code") && result.error.code === "ENOENT") {
     return {
       status: "unavailable",
       required: spec.required,
