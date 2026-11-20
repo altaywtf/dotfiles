@@ -12,8 +12,8 @@ no_self_update = true
 notify_end = "on_failure"
 
 [brew]
-# Scheduled jobs set HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS so Homebrew
-# leaves self-updating apps to their vendor without quitting running apps.
+# Homebrew upgrades a self-updating app only when its bundle is older than the
+# tap; scheduled jobs set HOMEBREW_NO_UPGRADE_QUIT_CASKS so running apps stay up.
 # greedy_latest still covers `version :latest` casks, which brew must manage.
 greedy_latest = true
 autoremove = false
