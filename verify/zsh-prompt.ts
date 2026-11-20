@@ -74,7 +74,7 @@ const program = Effect.scoped(
       ["-dlc"],
     );
     yield* check(
-      'source "$1" 2>/dev/null; [[ -o promptsubst ]]; cd "$HOME/repo"; helper="$(devbox_git_prompt_info)"; [[ "$helper" == *demo* ]]; rendered="$(print -P -- "$PROMPT")"; [[ "$rendered" == *demo* ]]; [[ "$rendered" != *"\\$(devbox_git_prompt_info)"* ]]',
+      String.raw`source "$1" 2>/dev/null; [[ -o promptsubst ]]; cd "$HOME/repo"; helper="$(devbox_git_prompt_info)"; [[ "$helper" == *demo* ]]; rendered="$(print -P -- "$PROMPT")"; [[ "$rendered" == *demo* ]]; [[ "$rendered" != *"\$(devbox_git_prompt_info)"* ]]`,
       { HOME: home, PATH: "/usr/bin:/bin", SSH_CONNECTION: "test", TERM: "xterm-256color" },
       ["-dfc"],
     );

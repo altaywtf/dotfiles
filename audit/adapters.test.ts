@@ -262,6 +262,6 @@ test("strict UTF-8 output keeps a literal U+FFFD and rejects invalid bytes", () 
   const valid = runCommand("printf", ["report-�.txt"], { strictUtf8: true });
   assert.equal(valid.error, undefined);
   assert.equal(valid.stdout, "report-�.txt");
-  const invalid = runCommand("printf", ["report-\\377.txt"], { strictUtf8: true });
+  const invalid = runCommand("printf", [String.raw`report-\377.txt`], { strictUtf8: true });
   assert.match(invalid.error?.message ?? "", /not valid UTF-8/);
 });

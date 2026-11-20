@@ -179,7 +179,7 @@ const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function* (
 const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context: ServiceContext) {
   yield* runAsTarget(context.target, "/bin/sh", [
     "-c",
-    'set -eu; umask 077; mkdir -p "$1"; chmod 0700 "$1"; tmp=$(mktemp "$1/.launchd-namespace.XXXXXX"); printf "%s\\n" "$2" > "$tmp"; mv -f "$tmp" "$1/launchd-namespace"',
+    String.raw`set -eu; umask 077; mkdir -p "$1"; chmod 0700 "$1"; tmp=$(mktemp "$1/.launchd-namespace.XXXXXX"); printf "%s\n" "$2" > "$tmp"; mv -f "$tmp" "$1/launchd-namespace"`,
     "persist-launchd-namespace",
     join(context.target.home, ".config/dotfiles"),
     context.namespace,

@@ -196,7 +196,7 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       );
     }
     const inUse = Effect.fn("cacheCleanup.inUse")(function* (path: string) {
-      const pattern = path.replace(/[.[\]()*+?{}|^$\\]/g, "\\$&");
+      const pattern = path.replace(/[.[\]()*+?{}|^$\\]/g, String.raw`\$&`);
       const probe = yield* runner
         .run("pgrep", ["-f", pattern], {
           cwd: home,
