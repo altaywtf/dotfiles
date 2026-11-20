@@ -35,7 +35,6 @@ test("system updates keep packages and tools in one headless owner job", async (
       HOMEBREW_NO_AUTO_UPDATE: "1",
       HOMEBREW_NO_INSTALL_CLEANUP: "1",
       HOMEBREW_NO_UPGRADE_QUIT_CASKS: "1",
-      HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS: "1",
     },
     RunAtLoad: true,
     KeepAlive: false,
