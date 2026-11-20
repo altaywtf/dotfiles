@@ -22,20 +22,23 @@ export function codexCallbackUrl(oauth: McpOAuth): string {
   return `http://localhost:${oauth.callbackPort}/callback`;
 }
 
-function configuredOAuth(env: NodeJS.ProcessEnv, name: string): unknown {
+function configuredOAuth<S extends Schema.ConstraintDecoder<unknown>>(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  schema: S,
+): Option.Option<S["Type"]> {
   const home = env.CODEX_HOME || (env.HOME ? join(env.HOME, ".codex") : undefined);
-  if (home === undefined) return undefined;
+  if (home === undefined) return Option.none();
   let parsed: unknown;
   try {
     parsed = parseToml(readFileSync(join(home, "config.toml"), "utf8"));
   } catch {
-    return undefined;
+    return Option.none();
   }
   return Schema.decodeUnknownOption(CodexConfig)(parsed).pipe(
     Option.filter(({ mcp_servers }) => Object.hasOwn(mcp_servers, name)),
     Option.flatMap(({ mcp_servers }) => Schema.decodeUnknownOption(CodexServer)(mcp_servers[name])),
-    Option.map(({ oauth }) => oauth),
-    Option.getOrUndefined,
+    Option.flatMap(({ oauth }) => Schema.decodeUnknownOption(schema)(oauth)),
   );
 }
 
@@ -44,12 +47,11 @@ export function codexOAuthMatches(
   name: string,
   oauth: McpOAuth | undefined,
 ): boolean {
-  const configured = configuredOAuth(env, name);
   if (oauth === undefined) {
-    return !Schema.is(CodexClient)(configured);
+    return Option.isNone(configuredOAuth(env, name, CodexClient));
   }
   const expected = new URL(codexCallbackUrl(oauth));
-  return Schema.decodeUnknownOption(CodexOAuth)(configured).pipe(
+  return configuredOAuth(env, name, CodexOAuth).pipe(
     Option.exists(
       ({ client_id, callback_url }) =>
         client_id === oauth.clientId &&

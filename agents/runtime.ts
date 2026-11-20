@@ -17,7 +17,7 @@ type RunOptions = {
 };
 
 export type Writer = {
-  write(message: string): unknown;
+  write(message: string): void;
 };
 
 export type Runtime = {

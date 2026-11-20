@@ -26,7 +26,7 @@ export function decodeOr<S extends Schema.ConstraintDecoder<unknown>>(
   return Option.getOrThrowWith(Schema.decodeUnknownOption(schema)(input), () => new Error(message));
 }
 
-export function readJsonFile(path: string, label: string): unknown {
+export function readJsonFile(path: string, label: string): Schema.Json {
   let contents: string;
   try {
     contents = readFileSync(path, "utf8");
@@ -34,7 +34,7 @@ export function readJsonFile(path: string, label: string): unknown {
     throw new Error(`${label}: ${errorMessage(error)}`, { cause: error });
   }
   return decodeOrThrow(
-    Schema.fromJsonString(Schema.Unknown),
+    Schema.fromJsonString(Schema.Json),
     contents,
     (detail) => `${label}: ${detail}`,
   );

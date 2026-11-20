@@ -62,7 +62,7 @@ type BrewBacklog = typeof BrewOutdated.Type & {
   }>;
 };
 
-const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const JsonObject = Schema.Record(Schema.String, Schema.Json);
 
 function decodeJsonOutput<S extends Schema.Decoder<unknown>>(
   schema: S,
@@ -206,13 +206,14 @@ function firstLine(result: RawCommandResult): string {
 
 function parseDisk(result: RawCommandResult) {
   const fields = result.stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
-  if (fields.length < 6) throw new Error("df returned an unsupported shape");
+  const mount = fields.at(-1);
+  if (fields.length < 6 || mount === undefined) throw new Error("df returned an unsupported shape");
   return {
     total_kb: Number(fields[1]),
     used_kb: Number(fields[2]),
     available_kb: Number(fields[3]),
     capacity: fields[4],
-    mount: fields.at(-1),
+    mount,
   };
 }
 

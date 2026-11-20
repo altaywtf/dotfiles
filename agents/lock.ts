@@ -13,7 +13,7 @@ import { Option, Schema } from "effect";
 
 import { decodeOr, readJsonFile } from "./decode.ts";
 
-export function readLockFile(lockPath: string, label: string): unknown {
+export function readLockFile(lockPath: string, label: string): Schema.Json | undefined {
   if (!existsSync(lockPath)) {
     return undefined;
   }

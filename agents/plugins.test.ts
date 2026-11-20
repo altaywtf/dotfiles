@@ -140,11 +140,7 @@ function pluginLockPath(home: string): string {
   return join(home, ".local/state/dotfiles/agents", "plugins.lock.json");
 }
 
-function lockPlugin(plugin: {
-  marketplace: string;
-  name: string;
-  harnesses?: readonly string[];
-}): unknown {
+function lockPlugin(plugin: { marketplace: string; name: string; harnesses?: readonly string[] }) {
   return {
     marketplace: plugin.marketplace,
     marketplaceId: plugin.marketplace.split("/")[1],

@@ -1,11 +1,12 @@
 import { Predicate } from "effect";
+import type { Schema } from "effect";
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 import { spawn } from "node:child_process";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
 
 type ProbeStatus = "ok" | "failed" | "timed_out" | "unavailable";
 
-export type ProbeResult<Value = unknown> = {
+export type ProbeResult<Value = Schema.Json> = {
   status: ProbeStatus;
   required: boolean;
   duration_ms: number;
@@ -21,7 +22,7 @@ export type Probe = {
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
   allowedStatuses?: readonly number[];
-  parse: (result: RawCommandResult) => unknown;
+  parse: (result: RawCommandResult) => Schema.Json;
 };
 
 const defaultTimeoutMs = 15_000;
