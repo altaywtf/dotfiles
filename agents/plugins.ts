@@ -63,12 +63,14 @@ function isMarketplaceSource(source: string): boolean {
 
 const MarketplaceSource = Schema.String.check(Schema.makeFilter(isMarketplaceSource));
 
+const MarketplaceId = safeName("marketplaceId must be a safe name");
+
 const PluginIdentity = Schema.Struct({ marketplace: MarketplaceSource, name: SafeName });
 
 const PluginEntry = Schema.Struct({
   marketplace: MarketplaceSource,
   name: SafeName,
-  marketplaceId: Schema.optionalKey(safeName("marketplaceId must be a safe name")),
+  marketplaceId: Schema.optionalKey(MarketplaceId),
   harnesses: ManifestHarnesses,
 });
 
@@ -159,7 +161,16 @@ function readPlugin(value: unknown, context: string): Plugin {
       `${context}: ${name} needs a marketplaceId because its marketplace is not owner/repo`,
     );
   }
-  return { marketplace: entry.marketplace, marketplaceId, name, harnesses: entry.harnesses };
+  return {
+    marketplace: entry.marketplace,
+    marketplaceId: decodeOrThrow(
+      MarketplaceId,
+      marketplaceId,
+      (detail) => `${context}: ${name} ${detail}`,
+    ),
+    name,
+    harnesses: entry.harnesses,
+  };
 }
 
 function parsePlugins(value: unknown, context: string): Plugin[] {
