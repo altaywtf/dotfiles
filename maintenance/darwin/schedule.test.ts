@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { Effect, FileSystem, Result } from "effect";
+import { Effect, FileSystem, Result, Schema } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
 import { isCliFailure } from "../../lib/program.ts";
@@ -17,6 +17,17 @@ import {
 } from "./schedule.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
+const RenderedJob = Schema.fromJsonString(
+  Schema.Struct({
+    Label: Schema.String,
+    Disabled: Schema.Boolean,
+    RunAtLoad: Schema.Boolean,
+    KeepAlive: Schema.optionalKey(Schema.Json),
+    StartCalendarInterval: Schema.Json,
+    ProgramArguments: Schema.Json,
+    EnvironmentVariables: Schema.Record(Schema.String, Schema.String),
+  }),
+);
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
   const calls: string[][] = [];
@@ -479,7 +490,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
         encoding: "utf8",
       });
       assert.equal(parsed.status, 0, parsed.stderr);
-      const job = JSON.parse(parsed.stdout);
+      const job = Schema.decodeUnknownSync(RenderedJob)(parsed.stdout);
       assert.equal(job.Label, "local.dotfiles.software-update");
       assert.equal(job.Disabled, true, "applying dotfiles alone must not enroll a scheduler");
       assert.equal(job.RunAtLoad, true);

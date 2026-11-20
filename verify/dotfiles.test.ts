@@ -17,8 +17,10 @@ import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
 import { readProfileModel } from "../profiles/model.ts";
+import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
+const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const profiles = Object.keys(readProfileModel(modelPath).profiles);
 
@@ -172,7 +174,7 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     const nodeVersion = "24.99.1";
     writeFileSync(join(root, ".node-version"), `${nodeVersion}\n`);
     cpSync(join(repoRoot, "package.json"), join(root, "package.json"));
-    const pnpmVersion = JSON.parse(
+    const pnpmVersion = Schema.decodeUnknownSync(PackageManifest)(
       readFileSync(join(root, "package.json"), "utf8"),
     ).packageManager.replace(/^pnpm@/, "");
     const bin = join(root, "bin");

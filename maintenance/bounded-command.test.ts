@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Schema } from "effect";
 import { test } from "vite-plus/test";
 import type { TestContext } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
@@ -40,6 +40,10 @@ async function diagnostics(t: TestContext, prefix = "dotfiles-bounded-") {
 }
 
 const clean = { timedOut: false, diagnosticPath: undefined, cleanupComplete: true };
+
+const Diagnostic = Schema.fromJsonString(
+  Schema.Struct({ processes: Schema.Array(Schema.Struct({ pid: Schema.Number })) }),
+);
 
 async function waitForPid(path: string): Promise<number> {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -154,7 +158,9 @@ for (const diagnosticFailure of [false, true]) {
     else {
       assert.ok(result.diagnosticPath);
       const content = await readFile(result.diagnosticPath, "utf8");
-      assert.ok(JSON.parse(content).processes.some((row: { pid: number }) => row.pid === child));
+      assert.ok(
+        Schema.decodeUnknownSync(Diagnostic)(content).processes.some((row) => row.pid === child),
+      );
       assert.doesNotMatch(content, /setInterval|SIGTERM|child.pid|PATH=/);
       if (process.platform === "darwin") {
         const stacks = JSON.parse(content).stacks;

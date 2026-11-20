@@ -9,6 +9,7 @@ import { readProfileModel } from "../profiles/model.ts";
 import { main } from "./mcps.ts";
 import { HARNESSES } from "./harness.ts";
 import type { Runtime } from "./runtime.ts";
+import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
@@ -114,6 +115,15 @@ afterEach(() => {
     rmSync(path, { force: true, recursive: true });
   }
 });
+
+const JsonRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
+const LockedMcps = Schema.fromJsonString(
+  Schema.Struct({
+    mcps: Schema.Array(
+      Schema.Struct({ name: Schema.String, harnesses: Schema.Array(Schema.String) }),
+    ),
+  }),
+);
 
 type Fixture = { repoDir: string; home: string };
 
@@ -494,8 +504,8 @@ test("prunes dropped mcps on present harnesses and defers absent ones until thei
     harnessCalls(runtime, binary).filter((call) => call.startsWith("mcp remove "));
   const lockedHarnesses = () =>
     Object.fromEntries(
-      JSON.parse(readFileSync(mcpLockPath(home), "utf8")).mcps.map(
-        (mcp: { name: string; harnesses: string[] }) => [mcp.name, [...mcp.harnesses].sort()],
+      Schema.decodeUnknownSync(LockedMcps)(readFileSync(mcpLockPath(home), "utf8")).mcps.map(
+        (mcp) => [mcp.name, [...mcp.harnesses].sort()],
       ),
     );
 
@@ -548,10 +558,10 @@ test("prunes from a lock written under the old servers key and rewrites it as mc
 
   assert.equal(main([], runtime), 0);
   assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
-  const lock = JSON.parse(readFileSync(mcpLockPath(home), "utf8"));
-  assert.equal("servers" in lock, false);
+  const raw = Schema.decodeUnknownSync(JsonRecord)(readFileSync(mcpLockPath(home), "utf8"));
+  assert.equal("servers" in raw, false);
   assert.deepEqual(
-    lock.mcps.map((mcp: { name: string }) => mcp.name),
+    Schema.decodeUnknownSync(LockedMcps.to)(raw).mcps.map((mcp) => mcp.name),
     ["shared-mcp"],
   );
 });

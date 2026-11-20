@@ -4,10 +4,32 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
-import type { Schema } from "effect";
+import { Schema } from "effect";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const tools = `${read("chezmoi/.chezmoitemplates/mise.toml")}\n${read("chezmoi/.chezmoitemplates/mise-tasks.toml")}`;
+
+const MiseSettings = Schema.fromJsonString(
+  Schema.Struct({
+    minimum_release_age: Schema.String,
+    minimum_release_age_excludes: Schema.Array(Schema.String),
+  }),
+);
+const Renovate = Schema.fromJsonString(
+  Schema.Struct({
+    packageRules: Schema.Array(
+      Schema.Struct({
+        groupName: Schema.optionalKey(Schema.String),
+        matchManagers: Schema.optionalKey(Schema.Array(Schema.String)),
+        matchDepNames: Schema.optionalKey(Schema.Array(Schema.String)),
+        matchPackageNames: Schema.optionalKey(Schema.Array(Schema.String)),
+        matchUpdateTypes: Schema.optionalKey(Schema.Array(Schema.String)),
+        minimumReleaseAge: Schema.optionalKey(Schema.Json),
+        schedule: Schema.optionalKey(Schema.Json),
+      }),
+    ),
+  }),
+);
 
 function miseSettings() {
   const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
@@ -21,7 +43,7 @@ function miseSettings() {
     { input: settings, encoding: "utf8" },
   );
   assert.equal(parsed.status, 0, parsed.stderr);
-  return JSON.parse(parsed.stdout);
+  return Schema.decodeUnknownSync(MiseSettings)(parsed.stdout);
 }
 
 test("Xcode pin is a dotted release and its build", () => {
@@ -79,9 +101,9 @@ test("mise package convergence repeats without runtime installs and stops on fai
 
 test("mise and Renovate agree on CLI age exemptions without exempting runtimes or holds", () => {
   const mise = miseSettings();
-  const renovate = JSON.parse(read("renovate.json"));
+  const renovate = Schema.decodeUnknownSync(Renovate)(read("renovate.json"));
   const cliRule = renovate.packageRules.find(
-    (rule: { groupName?: string }) => rule.groupName === "mise CLI patch and minor",
+    (rule) => rule.groupName === "mise CLI patch and minor",
   );
   assert.ok(cliRule);
   assert.deepEqual(mise.minimum_release_age_excludes, cliRule.matchDepNames);
@@ -103,32 +125,28 @@ test("mise and Renovate agree on CLI age exemptions without exempting runtimes o
   }
 });
 
-const matches = (names: string[] | undefined, name: string) =>
+const matches = (names: readonly string[] | undefined, name: string) =>
   names === undefined ||
   ((names.some((pattern) => pattern === name) ||
     names.every((pattern) => pattern.startsWith("!"))) &&
     !names.includes(`!${name}`));
 
+const settle = (manager: string) =>
+  Schema.decodeUnknownSync(Renovate)(read("renovate.json"))
+    .packageRules.filter(
+      (rule) =>
+        (rule.matchManagers === undefined || rule.matchManagers.includes(manager)) &&
+        matches(rule.matchDepNames, "pnpm") &&
+        matches(rule.matchPackageNames, "pnpm"),
+    )
+    .reduce<Record<string, Schema.Json>>((merged, rule) => {
+      if (rule.minimumReleaseAge !== undefined) merged.minimumReleaseAge = rule.minimumReleaseAge;
+      if (rule.schedule !== undefined) merged.schedule = rule.schedule;
+      if (rule.groupName !== undefined) merged.groupName = rule.groupName;
+      return merged;
+    }, {});
+
 test("both pnpm pins share one Renovate release gate and schedule", () => {
-  type Rule = Record<string, Schema.Json> & {
-    matchManagers?: string[];
-    matchDepNames?: string[];
-    matchPackageNames?: string[];
-  };
-  const settle = (manager: string) =>
-    (JSON.parse(read("renovate.json")).packageRules as Rule[])
-      .filter(
-        (rule) =>
-          (rule.matchManagers === undefined || rule.matchManagers.includes(manager)) &&
-          matches(rule.matchDepNames, "pnpm") &&
-          matches(rule.matchPackageNames, "pnpm"),
-      )
-      .reduce<Record<string, Schema.Json>>((merged, rule) => {
-        if ("minimumReleaseAge" in rule) merged.minimumReleaseAge = rule.minimumReleaseAge;
-        if ("schedule" in rule) merged.schedule = rule.schedule;
-        if ("groupName" in rule) merged.groupName = rule.groupName;
-        return merged;
-      }, {});
   assert.deepEqual(settle("mise"), settle("npm"));
   assert.equal(settle("mise").groupName, "pnpm");
 });

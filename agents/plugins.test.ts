@@ -8,6 +8,7 @@ import { afterEach, test } from "vite-plus/test";
 import { readProfileModel } from "../profiles/model.ts";
 import { HARNESSES, main, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
 import type { Runtime } from "./runtime.ts";
+import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
@@ -97,6 +98,18 @@ afterEach(() => {
     rmSync(path, { force: true, recursive: true });
   }
 });
+
+const LockedPlugins = Schema.fromJsonString(
+  Schema.Struct({
+    plugins: Schema.Array(
+      Schema.Struct({
+        marketplaceId: Schema.String,
+        name: Schema.String,
+        harnesses: Schema.Array(Schema.String),
+      }),
+    ),
+  }),
+);
 
 type Fixture = { repoDir: string; home: string };
 
@@ -523,12 +536,12 @@ test("prunes dropped plugins on present harnesses and defers absent ones until t
     harnessCalls(runtime, binary).filter((call) => /^plugin (uninstall|remove) /.test(call));
   const lockedHarnesses = () =>
     Object.fromEntries(
-      JSON.parse(readFileSync(pluginLockPath(home), "utf8")).plugins.map(
-        (plugin: { marketplaceId: string; name: string; harnesses: string[] }) => [
-          `${plugin.name}@${plugin.marketplaceId}`,
-          [...plugin.harnesses].sort(),
-        ],
-      ),
+      Schema.decodeUnknownSync(LockedPlugins)(
+        readFileSync(pluginLockPath(home), "utf8"),
+      ).plugins.map((plugin) => [
+        `${plugin.name}@${plugin.marketplaceId}`,
+        [...plugin.harnesses].sort(),
+      ]),
     );
 
   const withoutCodex = new FixtureRuntime(repoDir, home);
