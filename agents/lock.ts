@@ -94,7 +94,8 @@ export function guardOverlay(
   const others = Object.entries(previous ?? {}).filter(
     ([path]) => path !== checkout && existsSync(path),
   );
-  const entries = overlayNames === undefined ? others : [...others, [checkout, [...overlayNames]]];
+  const entries =
+    overlayNames === undefined ? others : others.concat([[checkout, [...overlayNames]]]);
   return {
     kept: new Set(others.flatMap(([, names]) => names)),
     next: entries.length > 0 ? Object.fromEntries(entries) : undefined,

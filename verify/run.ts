@@ -128,7 +128,7 @@ const readRegistry = Effect.fn("readRegistry")(function* () {
 
 const runCheck = Effect.fn("runCheck")(function* (
   check: Check,
-  timeoutMs = 300_000,
+  timeoutMs: number = 300_000,
 ): Effect.fn.Return<Result, never, CommandRunner> {
   const started = yield* Clock.currentTimeMillis;
   const runner = yield* CommandRunner;
@@ -149,8 +149,8 @@ const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
 
 export const runChecks = Effect.fn("runChecks")(function* (
   checks: readonly Check[],
-  timeoutMs = 300_000,
-  concurrency = checkConcurrency,
+  timeoutMs: number = 300_000,
+  concurrency: number = checkConcurrency,
 ) {
   const results = yield* Effect.forEach(
     checks,
