@@ -4,8 +4,6 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-// Disabling keeps the receipts that interrupted-run recovery needs, so interactive
-// shells read this marker to stop warning about a schedule nobody expects to run.
 export function recordEnrollment(action: string, home: string): void {
   const directory = join(home, ".local/state/dotfiles/updates");
   const marker = join(directory, "software-update.disabled");

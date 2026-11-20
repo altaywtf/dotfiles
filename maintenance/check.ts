@@ -389,7 +389,6 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
         }),
       );
     }
-    // Only the devbox and personal Brewfiles install Tailscale.
     if (context.profileConfig.capabilities.devbox || context.profileConfig.capabilities.personal) {
       probes.push(
         probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),

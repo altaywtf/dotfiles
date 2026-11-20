@@ -13,7 +13,6 @@ export type CommandOptions = {
   input?: "inherit" | "pipe";
   timeoutMs?: number;
   maxBuffer?: number;
-  // Fail instead of substituting U+FFFD for bytes that are not UTF-8.
   strictUtf8?: boolean;
 };
 export type CommandRunner = (

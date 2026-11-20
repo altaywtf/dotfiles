@@ -189,7 +189,6 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   if (!execution.cleanupComplete) {
     yield* Console.error("Update process cleanup is incomplete; inspect before retrying.");
   }
-  // Persist cleanup before network delivery: cancellation must not reopen the retry gate.
   yield* receipt({
     state: "running",
     exitCode: status,
@@ -224,8 +223,6 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         "Inspect with `mise run maintenance:status` and the update log.",
         "",
       ].join("\n");
-      // One attempt only: a timed-out send may have been accepted. An unconfirmed
-      // transition stays pending, so the next scheduled run notifies again.
       alert = yield* Effect.tryPromise(async (signal) => {
         const response = await send(destination.endpoint, {
           method: "POST",

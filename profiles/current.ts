@@ -66,7 +66,6 @@ function profileMarkerPath(env: NodeJS.ProcessEnv): string {
   return env.DOTFILES_PROFILE_FILE || join(env.HOME || "", ".config/dotfiles/profile");
 }
 
-// None only when no marker exists; an unsafe marker fails.
 const readRecordedProfile = Effect.fn("readRecordedProfile")(function* (
   env: NodeJS.ProcessEnv,
   expectedUid: number | undefined,

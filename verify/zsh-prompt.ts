@@ -42,7 +42,6 @@ const program = Effect.scoped(
     ]) {
       yield* fs.makeDirectory(join(home, path), { recursive: true });
     }
-    // .zshrc fronts the shims ahead of Homebrew, so a host mise cannot win there.
     for (const dir of ["fake-tools", ".local/share/mise/shims"]) {
       yield* fs.writeFileString(
         join(home, dir, "mise"),

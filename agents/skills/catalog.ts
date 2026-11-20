@@ -30,8 +30,6 @@ function parseSkills(value: unknown, label: string): ReadonlyArray<Skill> {
   return skills;
 }
 
-// Tracked manifests name a GitHub owner/repository or an HTTPS URL; the local
-// overlay may use any source the skills CLI accepts.
 const MANIFEST_SOURCE = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/\S+)$/;
 
 function readSkills(manifestPath: string): ReadonlyArray<Skill> {

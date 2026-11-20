@@ -16,9 +16,6 @@ const caches = [
   ["Library/Logs/DiagnosticReports", 30],
 ] as const;
 
-// Codex entries name session subtrees, never the Codex root: that root holds
-// config, skills, memories, and the sqlite databases owning live state. Codex
-// synchronises curated plugins through lock files under `.tmp`, so those stay.
 const codexCaches = [
   ["archived_sessions", 30, undefined],
   ["sessions", 90, undefined],
@@ -26,12 +23,6 @@ const codexCaches = [
   [".tmp", 7, "*.lock"],
 ] as const;
 
-// Build output declares itself regenerable with a CACHEDIR.TAG
-// (https://bford.info/cachedir/), as Cargo's target/ does. One idle build tree
-// per agent worktree reached hundreds of gigabytes before any PR merged, so the
-// sweep does not wait for worktree removal. Other tools tag live environments
-// too (uv virtualenvs, Tuist dependencies), so only Cargo and SwiftPM output at
-// a checkout root qualifies, and only when Git confirms the path is ignored.
 const buildRoots = [".codex/worktrees", ".claude/worktrees", "projects"];
 const buildNames = new Set(["target", ".build"]);
 const buildIdleDays = 3;
@@ -39,10 +30,6 @@ const cacheTagSignature = "Signature: 8a477f597d28d172789f06886806bc55";
 
 const claudeRemoteInstalls = [".claude/remote/ccd-cli", ".claude/remote/srv"];
 
-// Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
-// same tree Codex writes to. Empty and relative values fall back rather than
-// resolving against the working directory, where they would name siblings of
-// the real cache roots and delete them.
 const codexHome = (home: string) => {
   const configured = process.env.CODEX_HOME;
   return configured && isAbsolute(configured) ? configured : join(home, ".codex");
@@ -136,7 +123,6 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         `+${days}`,
         apply ? "-delete" : "-print0",
       ]);
-      // -mindepth 1 keeps the cache root itself when every file under it expired.
       if (apply) {
         yield* checked("find", [path, "-mindepth", "1", "-type", "d", "-empty", "-delete"]);
       } else {
@@ -286,9 +272,6 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
       yield* log("pnpm store prune");
       yield* mutate("pnpm", ["store", "prune"]);
     }
-    // Runtime pins move forward, but superseded installs stay runnable. Pruning
-    // keeps every version a tracked config uses. mise 2026.10.9 is the first to
-    // also keep running versions and inline task tools (jdx/mise#14020, #14334).
     if (yield* commandAvailable("mise")) {
       const version = (yield* command("mise", ["--version"])).stdout.match(/^(\d+)\.(\d+)\.(\d+)/);
       const [year, month, patch] = (version?.slice(1) ?? []).map(Number);

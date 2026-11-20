@@ -85,8 +85,6 @@ function busy(path: string, openPaths: ReadonlyArray<string>): boolean {
 }
 
 export function openFiles(home: string, runner: Runner = run): Array<string> {
-  // -w suppresses warning-induced nonzero exits (for example unreadable mounts);
-  // real failures still exit nonzero and fail closed below.
   const output = checked(runner, home, "lsof", [
     "-w",
     "-n",
@@ -167,7 +165,6 @@ export function candidates(
   if (!possibleTree && !possibleBranch) {
     return { eligible: [], kept: [] };
   }
-  // Observe the remote's current default rather than trusting a stale origin/HEAD.
   const remote = git("ls-remote", "--symref", "origin", "HEAD", "refs/heads/*");
   const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(remote)?.[1];
   const target = /^([0-9a-f]{40,64})\tHEAD$/m.exec(remote)?.[1];
@@ -226,8 +223,6 @@ export function candidates(
     ) {
       return "non-canonical worktree path";
     }
-    // A detached worktree has no branch to protect; merged() below is what proves
-    // its HEAD is already in the remote default and nothing unique is lost.
     if (tree.branch) {
       if (tree.branch === `refs/heads/${defaultBranch}`) {
         return "default branch";
@@ -357,11 +352,7 @@ export function cleanRepository(
       candidate.kind === "worktree"
         ? ["worktree", "remove", candidate.path]
         : ["branch", "-d", "--", candidate.branch.replace(/^refs\/heads\//, "")];
-    // No force flags: Git rechecks dirty/locked worktrees and checked-out branches.
     const result = runner(repo, "git", args);
-    // Eligibility is judged against the remote default, but `git branch -d`
-    // judges against local HEAD. A lagging checkout makes them disagree forever,
-    // so say which one to fix instead of reporting an opaque refusal.
     const behind =
       result.status !== 0 &&
       candidate.kind === "branch" &&
@@ -398,8 +389,6 @@ export function lastChanged(root: string): number {
     latest = Math.max(latest, info.mtimeMs, info.ctimeMs, info.birthtimeMs);
     if (info.isDirectory()) {
       for (const entry of readdirSync(path, { withFileTypes: true })) {
-        // Dependency contents are regenerable; the directory itself still
-        // records installs/removals without scanning an entire package store.
         if (entry.name === "node_modules" && entry.isDirectory()) {
           const dependency = lstatSync(join(path, entry.name));
           latest = Math.max(latest, dependency.mtimeMs, dependency.ctimeMs, dependency.birthtimeMs);

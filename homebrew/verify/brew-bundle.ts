@@ -37,7 +37,6 @@ exit "\${FAKE_BREW_EXIT:-0}"
       { mode: 0o755 },
     );
     const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
-    // Fixtures never read the operator's checkout-local Brewfile.
     const missingLocal = join(temporary, "missing/Brewfile.local");
     const execute = (
       script: string,

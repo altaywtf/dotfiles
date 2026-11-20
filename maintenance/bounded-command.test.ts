@@ -14,7 +14,6 @@ import type { BoundedCommandOptions } from "./bounded-command.ts";
 
 type Runner = Parameters<typeof CommandRunner.of>[0];
 
-// Runs `command` under the real layers; `wrap` may replace the process inventory runner.
 const bounded = (
   command: string,
   args: ReadonlyArray<string>,
@@ -63,8 +62,6 @@ function alive(pid: number): boolean {
     return false;
   }
 }
-// The fixtures ignore SIGTERM; they exit once the test worker is gone so a
-// failed cleanup cannot outlive the run and hold the runner's process group open.
 const untilWorkerExits = `setInterval(()=>{try{process.kill(${process.pid},0)}catch{process.exit(0)}},500)`;
 const treeScript = (path: string) => `
 const {spawn}=require('node:child_process');
@@ -97,7 +94,6 @@ test("a command that exits before the first inventory still proves cleanup", asy
 
 test("a command that dies before release still returns", { timeout: 10_000 }, async (t) => {
   const diagnosticDirectory = await diagnostics(t);
-  // Kill the gate shell during the first inventory, before it is released.
   let armed = true;
   const exit = await Effect.runPromise(
     bounded(

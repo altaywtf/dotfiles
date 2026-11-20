@@ -37,13 +37,9 @@ import type { Runtime } from "./runtime.ts";
 
 export { HARNESSES } from "./harness.ts";
 
-// `owner/repo` as accepted by the marketplace-add subcommands.
 const GITHUB_MARKETPLACE = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-// scp-like SSH Git source, such as `git@host:owner/repo.git`.
 const SCP_MARKETPLACE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/;
 
-// Both harnesses accept owner/repo, an HTTPS or SSH Git URL, or a local path.
-// URLs must not embed credentials: the source lands in harness config and locks.
 function isMarketplaceSource(source: string): boolean {
   if (GITHUB_MARKETPLACE.test(source) || SCP_MARKETPLACE.test(source)) {
     return true;
@@ -101,7 +97,6 @@ type PlannedCommand = {
   args: ReadonlyArray<string>;
   marketplace?: string;
   plugin?: string;
-  // Refresh commands must not run after their marketplace add or plugin install failed.
   refresh?: boolean;
 };
 
@@ -111,11 +106,8 @@ type HarnessSpec = {
   binary: string;
   label: string;
   marketplaceArgs?: (plugin: Plugin) => Array<string>;
-  // Codex refreshes Git marketplace snapshots by configured name, not plugin ref.
   upgradeMarketplaceArgs?: (plugin: Plugin) => Array<string>;
   installArgs?: (plugin: Plugin) => Array<string>;
-  // `--update` refreshes an already-installed plugin. Claude needs `-y` because
-  // apply captures stdout and is therefore not a TTY.
   updateArgs?: (plugin: Plugin) => Array<string>;
 };
 
@@ -129,7 +121,6 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
   codex: {
     ...HARNESS_INFO.codex,
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", plugin.marketplace],
-    // `marketplace upgrade` refreshes Git snapshots only; a local path is read in place.
     upgradeMarketplaceArgs: (plugin) =>
       isAbsolute(plugin.marketplace)
         ? []
@@ -150,9 +141,6 @@ function readPlugin(value: unknown, context: string): Plugin {
   );
   const entry = decodeOrThrow(PluginEntry, value, (detail) => `${context}: ${name} ${detail}`);
 
-  // Harnesses register a marketplace under the name its manifest declares, which is the
-  // repository name for every marketplace we ship; `marketplaceId` overrides the divergent case.
-  // Other sources have no repository name to derive it from.
   const marketplaceId =
     entry.marketplaceId ??
     (GITHUB_MARKETPLACE.test(entry.marketplace) ? entry.marketplace.split("/")[1] : undefined);
@@ -238,8 +226,6 @@ export function readLayeredPlugins(
     pluginRef,
     (ref) => `Invalid layered plugins: ${ref} is defined more than once`,
   );
-  // Marketplace registration is planned once per repository, so every plugin
-  // from one repository must install against the same registered id.
   const marketplaceIds = new Map<string, string>();
   for (const plugin of plugins) {
     const known = marketplaceIds.get(plugin.marketplace);
@@ -304,7 +290,6 @@ function writePluginLock(
   writeLockFile(lockPath, lock);
 }
 
-// Another checkout's overlay keeps its harnesses even when this checkout selects the same ref.
 function withKept(next: ReadonlyArray<Plugin>, kept: ReadonlyArray<Plugin>): Array<Plugin> {
   const merged = new Map(next.map((plugin) => [pluginRef(plugin), plugin]));
   for (const plugin of kept) {
@@ -328,8 +313,6 @@ function uninstallArgs(harness: Harness, plugin: Plugin): Array<string> {
   }
 }
 
-// Claude exits 1 when asked to uninstall a plugin it no longer has; Codex exits 0. Claude says
-// "not installed in user scope" once the plugin's marketplace is gone.
 function alreadyUninstalled(harness: Harness, output: string): boolean {
   return (
     harness === "claude" &&

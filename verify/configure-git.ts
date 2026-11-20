@@ -111,7 +111,6 @@ const program = Effect.scoped(
     const source = yield* renderSsh('{"dotfilesProfile":"devbox"}');
     assert.equal(source.split("\n")[0], "Include ~/.ssh/github.config");
     assert.match(source, /^Include ~\/\.ssh\/config\.d\/\*\.conf$/m);
-    // The Colima include is macOS-only; a missing non-glob Include breaks OpenSSH on Linux.
     const darwin = yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"darwin"}}');
     assert.match(darwin, /^Include ~\/\.colima\/ssh_config$/m);
     const linux = yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"linux"}}');

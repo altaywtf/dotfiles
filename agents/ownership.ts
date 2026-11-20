@@ -1,9 +1,6 @@
 import { HARNESSES } from "./harness.ts";
 import type { Harness } from "./harness.ts";
 
-// Ownership-lock algebra shared by the plugin and MCP syncs. Each lock entry
-// records the harness subset the sync owns for one named thing; apply drops
-// stale ownership, keeps ownership for absent CLIs, and merges the remainder.
 type HarnessOwned = { harnesses: ReadonlyArray<Harness> };
 
 function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
@@ -87,8 +84,6 @@ function mergeLockEntries<T extends HarnessOwned>(
   return [...byKey.values()];
 }
 
-// Inputs are validated manifest/lock entries. Persist nextLock only after all
-// apply/remove operations succeed; deferred removals remain owned for retry.
 type OwnershipPlan<T> = { removals: Array<T>; nextLock: (deferred: ReadonlyArray<T>) => Array<T> };
 
 export function planOwnership<T extends HarnessOwned>(options: {

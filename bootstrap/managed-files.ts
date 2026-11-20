@@ -58,11 +58,6 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   return false;
 });
 
-// Every drifted apply creates one timestamped backup, so enrolled hosts
-// accumulate them forever; keep only the most recent backup per target. The
-// backup written by this run is the most recent by definition and is never a
-// prune candidate: timestamps come from the host clock, so a clock behind an
-// existing backup would otherwise prune the file just written.
 export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function* (
   target: string,
   created?: string,
@@ -157,8 +152,6 @@ const managedTargets = Effect.fn("managedTargets")(function* (
 export const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
   context: ChezmoiContext,
 ) {
-  // Rules used to render at ~/AGENTS.md, which harnesses also load as
-  // project rules for every directory under home.
   yield* removeLegacyAgentRules(context);
   for (const target of yield* managedTargets(context, "files")) {
     if (target === join(context.home, ".agents/AGENTS.md")) {

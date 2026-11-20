@@ -3,8 +3,6 @@ import { join, relative, sep } from "node:path";
 import type { ConfigEdit } from "./config.ts";
 import type { Schema } from "effect";
 
-// Codex creates its state with the process umask; the devbox audit requires
-// these directories and matching files to stay private.
 export const codexPrivateDirectories = [
   "",
   "sessions",
@@ -36,9 +34,6 @@ function childDirectories(path: string): Array<string> {
 
 const checkout = (path: string) => isDirectory(join(path, ".git"));
 
-// Checkouts sit at ROOT/NAME or ROOT/OWNER/NAME. Linked worktrees carry a
-// .git file and resolve to their main checkout's trust, so only primary
-// checkouts qualify.
 export function discoverCheckouts(root: string): Array<string> {
   return childDirectories(root)
     .flatMap((path) => [path, ...childDirectories(path)])
@@ -46,7 +41,6 @@ export function discoverCheckouts(root: string): Array<string> {
     .sort();
 }
 
-// Codex parses quoted key-path segments; paths that would need escaping are skipped.
 function projectKey(path: string): string | undefined {
   return /["\\\p{Cc}]/u.test(path) ? undefined : `projects."${path}"`;
 }
@@ -56,9 +50,6 @@ function withinRoot(root: string, path: string): boolean {
   return parts.length <= 2 && parts.every((part) => part !== "" && part !== "..");
 }
 
-// Adds missing checkouts and drops entries for checkout-shaped paths under the
-// root that no longer exist. Existing entries keep their trust level, and paths
-// outside the root are never touched.
 export function projectTrustEdits(
   root: string,
   checkouts: ReadonlyArray<string>,

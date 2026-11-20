@@ -186,7 +186,6 @@ const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function* (
   return yield* fail(`run this step as root or ${target.user}`);
 });
 
-// The target owns this directory, so write it as the target: root must not follow its symlinks.
 const persistNamespace = Effect.fn("persistLaunchdNamespace")(function* (context: ServiceContext) {
   yield* runAsTarget(context.target, "/bin/sh", [
     "-c",

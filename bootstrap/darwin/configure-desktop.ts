@@ -82,8 +82,6 @@ const dockHasOnlyChrome = Effect.fn("dockHasOnlyChrome")(function* () {
   if (bundleCount !== 1 || chromeCount !== 1) {
     return false;
   }
-  // `defaults read` prints a string "15" and an integer 15 identically; the Dock
-  // only resolves the integer and shows a question mark otherwise.
   const exported = yield* runner.run("defaults", ["export", "com.apple.dock", "-"]);
   if (exported.status !== 0) {
     return false;
@@ -170,7 +168,6 @@ const program = Effect.gen(function* () {
     "com.apple.dock",
     "persistent-apps",
     "-array",
-    // XML keeps _CFURLStringType an integer; the old-style plist syntax makes it a string.
     `<dict>
   <key>tile-data</key>
   <dict>

@@ -16,7 +16,16 @@ import { tmpdir } from "node:os";
 import { logDirectory } from "./logs.ts";
 import { hygiene, readState } from "./hygiene.ts";
 import { join } from "node:path";
+import { Predicate } from "effect";
 import { test } from "vite-plus/test";
+
+function killIfAlive(pid: number): void {
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch (error) {
+    assert.equal(Predicate.hasProperty(error, "code") ? error.code : undefined, "ESRCH");
+  }
+}
 
 test("applied hygiene retains successive reports when stdout is not redirected", async (t) => {
   const home = mkdtempSync(join(tmpdir(), "hygiene-log-"));
@@ -56,7 +65,6 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
     };
     writeFileSync(statePath, JSON.stringify(valid));
     assert.deepEqual(readState(statePath), { state: valid, recovered: false });
-    // A directory at the state path is neither missing nor undecodable JSON: it must not bypass the scheduled interval.
     const directoryPath = join(root, "state-directory.json");
     mkdirSync(directoryPath);
     assert.throws(() => readState(directoryPath), { code: "EISDIR" });
@@ -138,11 +146,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
           parent.kill("SIGKILL");
         }
         if (childPid !== undefined) {
-          try {
-            process.kill(childPid, "SIGKILL");
-          } catch {
-            /* Already reaped. */
-          }
+          killIfAlive(childPid);
         }
         rmSync(home, { recursive: true, force: true });
       });

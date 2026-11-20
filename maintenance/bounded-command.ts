@@ -96,7 +96,6 @@ export class BoundedCommand extends Context.Service<
               ? Effect.try(() => parseProcesses(result.stdout))
               : Effect.fail(new Error("Process inventory failed")),
           ),
-          // One inventory can catch a process mid-exit; only a persistent failure voids cleanup proof.
           Effect.retry({ times: 2, schedule: Schedule.spaced("50 millis") }),
         );
       const run = Effect.fn("BoundedCommand.run")(function* (
@@ -129,7 +128,6 @@ export class BoundedCommand extends Context.Service<
             owned.set(rootPid, root);
           }
           rootInspected = true;
-          // Remember identities before descendants can become reparented or start a new session.
           let added = true;
           while (added) {
             added = false;
@@ -156,7 +154,6 @@ export class BoundedCommand extends Context.Service<
         const signal = Effect.fnUntraced(function* (kind: NodeJS.Signals) {
           const rows = yield* observe;
           for (const row of rows.toReversed()) {
-            // Recheck each identity immediately before signaling; never use a process-group kill.
             const current = yield* snapshot;
             if (
               !current.some(
@@ -185,7 +182,6 @@ export class BoundedCommand extends Context.Service<
           ),
         );
         return yield* Effect.gen(function* () {
-          // Hold the command until the first inventory records the root; exec keeps its identity.
           const handle = yield* spawner.spawn(
             ChildProcess.make("/bin/sh", ["-c", gate, command, ...args], {
               stdin: "pipe",
@@ -199,7 +195,6 @@ export class BoundedCommand extends Context.Service<
           rootPid = Number(handle.pid);
           yield* Effect.addFinalizer(() => (completed ? Effect.void : cleanup));
           yield* observe.pipe(Effect.catch(() => Effect.void));
-          // A write to a child that already exited never settles.
           yield* Stream.run(Stream.make(release), handle.stdin).pipe(
             Effect.raceFirst(handle.exitCode),
             Effect.catch(() => Effect.void),

@@ -62,7 +62,6 @@ test("mise package convergence repeats without runtime installs and stops on fai
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const bin = join(root, "bin");
   mkdirSync(bin);
-  // Keep the real task; runtime downloads are outside this fixture's scope.
   const task = tools.slice(tools.indexOf('[tasks."dotfiles:runtime-packages"]'));
   assert.ok(task.startsWith("[tasks."));
   writeFileSync(join(root, "mise.toml"), task);

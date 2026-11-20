@@ -74,7 +74,6 @@ async function tempHome(t: TestContext, prefix: string) {
   return home;
 }
 
-// Counts launches and finishes each one with `outcome`.
 function fixedCommand(outcome: { status: number; timedOut?: boolean; cleanupComplete?: boolean }) {
   const command = {
     executions: 0,
@@ -419,7 +418,6 @@ test("a pre-spawn failure remains retryable without removing the receipt", async
   assert.equal(await execute(process.execPath, ["-e", "process.exit(0)"]), 0);
 });
 
-// A failed gate write must refuse the launch without leaving a cleanup block.
 test("a transient initial receipt failure does not leave a cleanup block for an unstarted command", async (t) => {
   const home = await tempHome(t, "dotfiles-update-transient-storage-");
   let rejectInitialWrite = true;

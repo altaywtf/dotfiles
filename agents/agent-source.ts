@@ -3,8 +3,6 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { CliFailure, fail, isCliFailure } from "../lib/program.ts";
 
-// Machine-local fragments linked from a directory the operator names once.
-// Keys are the files the rule renderer reads; values are paths in the source.
 const ruleLinks = (host: string) =>
   [
     ["agents.start.md", "rules/agents.md"],
@@ -81,8 +79,6 @@ export const linkAgentSource = Effect.fn("linkAgentSource")(function* (
     const current = yield* fs.readLink(destination).pipe(Effect.option);
     const targetExists = yield* fs.exists(target);
     if (!targetExists) {
-      // A link left pointing into the source for a file it no longer has would
-      // fail rule rendering; anything else at the destination stays the operator's.
       if (Option.isSome(current) && current.value.startsWith(`${source.value}/`)) {
         if (dryRun) {
           yield* Console.log(`would remove stale rule link ${destination}`);

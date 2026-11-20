@@ -33,7 +33,6 @@ type FixtureResult = {
 type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   outputs?: ReadonlyMap<string, string>;
-  // Consumed one result per call for commands whose outcome changes between calls.
   sequences?: ReadonlyMap<string, Array<FixtureResult>>;
   profile?: string;
 };
@@ -509,7 +508,6 @@ test("prunes dropped mcps on present harnesses and defers absent ones until thei
       ),
     );
 
-  // Selected Claude mcps already match, so every remove is an ownership prune.
   const outputs = new Map(
     [
       ["shared-mcp", "https://mcp.fixture.test/mcp"],

@@ -17,8 +17,6 @@ async function fixture(t: TestContext) {
   await mkdir(bin);
   const previousPath = process.env.PATH;
   process.env.PATH = bin;
-  // An inherited CODEX_HOME would point the live `find` at the developer's real
-  // Codex tree, so every fixture run is pinned inside the temporary home.
   const previousCodexHome = process.env.CODEX_HOME;
   process.env.CODEX_HOME = join(home, ".codex");
   t.onTestFinished(() => {

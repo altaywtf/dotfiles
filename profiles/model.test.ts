@@ -43,8 +43,6 @@ function rawModel(): RawModel {
   return document.profileModel;
 }
 
-// Chezmoi reads the model from a data file, as in production; --override-data
-// would turn every number into a float and fail the version check for any model.
 function renderProfile(profile: string, profileData?: string) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-render-"));
   let source = sourceDir;

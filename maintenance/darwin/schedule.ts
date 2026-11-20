@@ -12,8 +12,6 @@ import { dropInvalid } from "../schema.ts";
 
 export const updateLabel = "local.dotfiles.software-update";
 const usage = "Usage: maintenance/darwin/schedule.ts <enable|disable|run|status>";
-// Two six-hour schedule slots plus jitter: an older receipt means the wrapper
-// is not running even though the job is loaded (for example a broken node shim).
 const staleReceiptMs = 13 * 3_600_000;
 
 export type LoadedJob = {
@@ -23,14 +21,10 @@ export type LoadedJob = {
 
 type MutableLoadedJob = { arguments?: Array<string>; environment?: Record<string, string> };
 
-// Extract ProgramArguments and EnvironmentVariables from `launchctl print` text.
-// The format is undocumented, so parsing is defensive: an unrecognized layout
-// yields an empty result and the caller reports the comparison as unavailable.
 export function parseLaunchdPrint(output: string): LoadedJob {
   const lines = output.split("\n");
   const job: MutableLoadedJob = {};
   for (let index = 0; index < lines.length; index += 1) {
-    // Anchored so "default environment = {" and "inherited environment = {" do not match.
     const open = /^(\s*)(arguments|environment) = {$/.exec(lines[index] ?? "");
     if (!open) {
       continue;
@@ -74,11 +68,6 @@ const UpdateReceipt = Schema.Struct({
   finishedAt: Schema.optionalKey(dropInvalid(Schema.String)),
 });
 
-// launchd injects variables (XPC_SERVICE_NAME, OSLogRateLimit) into a loaded
-// job, so the environment check requires every plist variable to be loaded with
-// the same value rather than exact equality. Only ProgramArguments and
-// EnvironmentVariables are compared; schedule and working-directory drift is
-// outside this check, and the status message says so.
 type PlistComparison = { comparable: boolean; drift: Array<string> };
 
 export function comparePlist(loaded: LoadedJob, plist: unknown): PlistComparison {
@@ -141,8 +130,6 @@ const systemUpdater = Effect.fn("systemSoftwareUpdater")(function* (home: string
   return { service: `system/${label}`, plist: `/Library/LaunchDaemons/${label}.plist` };
 });
 
-// Starting a system-domain job needs root. Devboxes enrolled in the SOPS sudo
-// helper start it unattended; otherwise sudo prompts on a terminal or fails.
 const kickstartSystemUpdater = Effect.fn("kickstartSystemSoftwareUpdater")(function* (
   home: string,
   service: string,
@@ -249,7 +236,6 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
     return;
   }
   if (action === "run") {
-    // Without -k, kickstart never terminates or replaces an already-running update.
     if (current.status === 0) {
       yield* runChecked("launchctl", ["kickstart", service]);
     } else {
@@ -267,8 +253,6 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
     if (current.status === 0) {
       yield* runChecked("launchctl", ["bootout", service]);
     }
-    // Only an administrator can stop the system updater, and a success here
-    // tells shells to stop watching for stalled runs.
     const system = yield* systemUpdater(home, uid);
     if ((yield* runner.run("launchctl", ["print", system.service])).status === 0) {
       return yield* fail(

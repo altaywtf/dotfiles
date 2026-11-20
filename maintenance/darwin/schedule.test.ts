@@ -49,7 +49,6 @@ test("on-demand updates reuse the loaded service without killing its current wor
     [`gui/501/${updateLabel}`],
   );
   assert.equal(kickstarts[0]?.includes("-k"), false);
-  // Only read-only inspection and a plain kickstart leave the running job alone.
   assert.deepEqual(
     calls.filter(([, subcommand]) => subcommand !== "print" && subcommand !== "kickstart"),
     [],
@@ -287,7 +286,6 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
   });
 }
 
-// Captured from `launchctl print gui/501/local.dotfiles.software-update` on macOS 15.
 const launchdPrintFixture = `gui/501/local.dotfiles.software-update = {
 \tactive count = 0
 \tpath = /Users/fixture/Library/LaunchAgents/local.dotfiles.software-update.plist
@@ -422,7 +420,6 @@ test("stale, missing, and unreadable receipts are flagged while fresh ones pass"
   assert.match(receiptWarning("not json", now) ?? "", /unreadable/);
   assert.match(receiptWarning(JSON.stringify({ startedAt: 42 }), now) ?? "", /unreadable/);
   assert.match(receiptWarning(undefined, now) ?? "", /no update receipt exists/);
-  // A running receipt has no finishedAt yet; a fresh startedAt is enough.
   assert.equal(
     receiptWarning(JSON.stringify({ state: "running", startedAt: "2026-09-07T11:00:00Z" }), now),
     undefined,
@@ -471,7 +468,6 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
 test("rendered profiles keep updater scope, scheduling, and paths valid", async () => {
   const root = await mkdtemp(join(tmpdir(), "dotfiles-updates-"));
   try {
-    // Spaces and XML metacharacters must survive launchd's argument boundary.
     const home = join(root, "home & space");
     await mkdir(home);
     for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {

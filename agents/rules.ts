@@ -168,7 +168,6 @@ const readCachedRules = Effect.fn("readCachedAgentRules")(function* (path: strin
   if (!(yield* fs.exists(path))) {
     return Option.none<string>();
   }
-  // Only trust state this account alone could have written, as writeCache creates it.
   const untrusted = new RuleConfigurationFailure({
     message: `agent rule cache is not an owner-only regular file: ${path}`,
   });

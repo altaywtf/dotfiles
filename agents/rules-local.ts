@@ -40,8 +40,6 @@ export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(func
     if ((info.mode & 0o022) !== 0) {
       return yield* fail(`local agent rules must not grant group or other write access: ${path}`);
     }
-    // A Git checkout updated under umask 022 widens a linked fragment to 0644;
-    // write access by others would be an integrity problem, read access is not yet.
     if ((info.mode & 0o077) !== 0) {
       if (dryRun) {
         yield* Console.warn(`would restrict local agent rules to owner-only access: ${path}`);

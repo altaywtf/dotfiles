@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-// This entrypoint must run before the checkout's locked dependencies are installed.
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
@@ -9,9 +8,7 @@ import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
 import { acquireDirectoryLock, sleepSync } from "../lib/lock.ts";
 import type { LockOptions } from "../lib/lock.ts";
 
-// Concurrent manual and scheduled convergence wait for the checkout owner.
 const lockWaitMs = 15 * 60_000;
-// GitHub intermittently refuses SSH or drops connections; a fetch is idempotent.
 const fetchRetryDelaysMs = [5000, 20_000];
 
 const updateFailure = Symbol("UpdateFailure");
@@ -52,7 +49,6 @@ function run(repo: string, command: string, args: Array<string>, capture = false
   return result.stdout?.trim() ?? "";
 }
 
-// Local work blocks a fast-forward without making the checkout unusable.
 class LocalWork extends UpdateFailure {
   readonly [localWork] = true;
 }
@@ -149,8 +145,6 @@ export function acquireCheckoutLock(repo: string, options: LockOptions = {}): ()
   }
 }
 
-// Local rule fragments may link into another checkout, whose default branch
-// then has to advance for rendered rules to follow it.
 function ruleSourceCheckouts(home: string, repo: string): Array<string> {
   const checkouts = new Set<string>();
   for (const name of ["agents.start.md", "agents.end.md"]) {
@@ -162,7 +156,7 @@ function ruleSourceCheckouts(home: string, repo: string): Array<string> {
       }
       target = realpathSync(fragment);
     } catch {
-      continue; // profile setup reports broken fragment links
+      continue;
     }
     const root = spawnSync("git", ["-C", dirname(target), "rev-parse", "--show-toplevel"], {
       encoding: "utf8",
@@ -176,8 +170,6 @@ function ruleSourceCheckouts(home: string, repo: string): Array<string> {
   return [...checkouts];
 }
 
-// Git writes changed files under the process umask; a shell's 022 would widen
-// an owner-only fragment, even briefly, and profile setup then rejects it.
 function privately<T>(update: () => T): T {
   const previous = process.umask(0o077);
   try {
@@ -219,7 +211,6 @@ export function converge(repo: string, options: LockOptions = {}, home = homedir
     }
     process.stdout.write(`Converging dotfiles ${revision}\n`);
     run(repo, "mise", ["trust", join(repo, "mise.toml")]);
-    // The shell bootstrap selects the new repository Node pin before loading dependencies.
     run(repo, join(repo, "dotfiles"), ["maintain"]);
     process.stdout.write(`Dotfiles converged at ${revision}\n`);
     if (failed.length > 0) {

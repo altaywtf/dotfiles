@@ -203,6 +203,9 @@ importers:
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
+      '@uinaf/oxlint-plugin-no-comments':
+        specifier: 1.1.0
+        version: 1.1.0
       knip:
         specifier: 6.46.1
         version: 6.46.1
@@ -1288,6 +1291,10 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
+
+  '@uinaf/oxlint-plugin-no-comments@1.1.0':
+    resolution: {integrity: sha512-Jc1LomQyspHZCKNRX+5OLXqzWgz+Z1Jey1JxpbBITSxTrQ7RLR3JmWsSpbReyP8p6Xa/Bzx1+tVJJ67tD57kPw==}
+    engines: {node: '>=20.19.0'}
 
   '@vitest/browser-preview@5.1.0':
     resolution: {integrity: sha512-z9SbodBSMoJtYy5VTCaSP5SSZfNYRlfIlR0P/uH1PAuhUJbstSyOYvxXCYmqG+EemIiZzd3uGUtREX5zbXLR8A==}
@@ -2882,6 +2889,8 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  '@uinaf/oxlint-plugin-no-comments@1.1.0': {}
 
   '@vitest/browser-preview@5.1.0(@voidzero-dev/vite-plus-core@8.3.8000(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@5.1.0)':
     dependencies:

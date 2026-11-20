@@ -125,8 +125,6 @@ test("dirty, ignored, locked and active worktrees are retained", () => {
   }
 });
 
-// A detached worktree has no branch to protect, so remote-default ancestry is
-// the only thing standing between it and removal.
 test("a detached worktree is removable once merged and retained while it is not", () => {
   const f = fixture();
   try {
@@ -181,7 +179,6 @@ test("a worktree beside its owning clone is evaluated, and unpushed work still r
 test("scheduled hygiene reports a stray worktree beside its owning clone", async () => {
   const f = fixture();
   try {
-    // fixture() already owns <root>/projects, which is the tree hygiene scans.
     const home = f.root;
     mkdirSync(join(home, ".local/state/dotfiles"), { recursive: true });
     writeFileSync(
@@ -206,8 +203,6 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", async
   }
 });
 
-// Eligibility is judged against the remote default, `git branch -d` against
-// local HEAD. A lagging checkout makes them disagree on every run.
 test("a branch merged upstream but absent from a lagging local HEAD names the cause", () => {
   const f = fixture();
   try {
@@ -449,12 +444,10 @@ test("process inventory suppresses lsof warning-induced exits but stays fail-clo
   });
   assert.equal(seen[0], "-w");
   assert.deepEqual(paths, ["/fixture/file"]);
-  // A warning-free nonzero exit (a real lsof failure) still fails closed.
   assert.throws(
     () => openFiles("/fixture", () => ({ status: 1, stdout: "" })),
     /retained local work/,
   );
-  // No paths at all is indistinguishable from a broken inventory: fail closed.
   assert.throws(
     () => openFiles("/fixture", () => ({ status: 0, stdout: "" })),
     /process activity unavailable/,

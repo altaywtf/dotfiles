@@ -81,8 +81,6 @@ export function walkFiles(
       if (entry.isFile()) {
         return [path];
       }
-      // Follow file links; directory links are reported instead of recursively
-      // expanding arbitrary trees or cycles outside the selected audit scope.
       if (!entry.isSymbolicLink()) {
         return [];
       }

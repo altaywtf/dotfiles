@@ -126,8 +126,6 @@ function filesReferencing(directory: string, needle: string): Array<string> {
     .filter((path) => lstatSync(path).isFile() && readFileSync(path, "utf8").includes(needle));
 }
 
-// Scoped provisioning applies from a clone it deletes afterwards; nothing it
-// installs may point back into that clone.
 async function verifyTemporarySource(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-temporary-source-"));
   try {

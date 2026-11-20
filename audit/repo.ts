@@ -105,7 +105,6 @@ function scannerResult(
   return true;
 }
 
-// --json output carries raw secrets, so only finding locations are reported.
 function trufflehogHistoryResult(report: AuditReport, result: CommandResult): boolean {
   if (result.error?.message.includes("ENOENT")) {
     report.warn("trufflehog is not installed");
@@ -150,10 +149,6 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
   return source && existsSync(join(source, ".git")) ? source : repoRoot;
 }
 
-// The filesystem pass covers what Git would commit: tracked and unignored
-// files. Ignored dependency trees such as node_modules carry third-party
-// test fixtures that look like credentials. A path that does not decode as
-// UTF-8 fails the listing instead of dropping out of the scan.
 function worktreeFiles(repoRoot: string, command: CommandRunner): Array<string> | undefined {
   const listed = command(
     "git",

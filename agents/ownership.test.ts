@@ -18,7 +18,6 @@ const SUBSETS: ReadonlyArray<ReadonlyArray<Harness>> = (
   [[], ["claude"], ["codex"], ["claude", "codex"]] satisfies Array<Array<Harness>>
 ).map((harnesses) => Object.freeze(harnesses));
 
-// Every list with at most one non-empty-harness entry per name, in the given name order.
 function entryLists(names: ReadonlyArray<string>): Array<ReadonlyArray<Entry>> {
   return names
     .reduce<Array<Array<Entry>>>(
@@ -33,7 +32,6 @@ function entryLists(names: ReadonlyArray<string>): Array<ReadonlyArray<Entry>> {
     .map((list) => Object.freeze(list));
 }
 
-// Frozen inputs, lists included, make any mutation by the planner throw.
 function frozen(entry: Entry): Entry {
   Object.freeze(entry.harnesses);
   return Object.freeze(entry);
@@ -60,9 +58,6 @@ function subsets<T>(items: ReadonlyArray<T>): Array<Array<T>> {
   );
 }
 
-// Exhaustive over three names and both harnesses; selected runs in reverse name
-// order so lock merging never relies on matching input order. With deferral,
-// deferred ranges over every subset of the removals the spec requires.
 function* cases(withDeferral: boolean): Generator<Case> {
   const previousLists = entryLists(NAMES);
   const selectedLists = entryLists([...NAMES].reverse());

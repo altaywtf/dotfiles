@@ -69,7 +69,6 @@ function result(stdout: string, status = 0): RawCommandResult {
   return { status, stdout, stderr: "" };
 }
 
-// Healthy host probe answers; `override` handles the calls a test cares about.
 const cacheServer = {
   advice: { connectTimeout: 0.5, supportsUrgency: true, validUntil: "2026-11-02 08:57:51 +0000" },
   favored: false,
@@ -667,7 +666,6 @@ const pinnedInstall = {
 const claude = "github:anthropics/claude-code";
 for (const scenario of [
   {
-    // Source pin changes stay pending although the mise catalog reports no updates.
     name: "a changed source pin",
     config: undefined,
     template: undefined,
@@ -680,7 +678,6 @@ for (const scenario of [
     },
   },
   {
-    // A missing declared install counts once alongside upstream availability.
     name: "a missing declared installation",
     config: `[tools]\nnode = "24.21.0"\n"${claude}" = "2.1.292"\n`,
     template: undefined,
@@ -701,7 +698,6 @@ for (const scenario of [
     },
   },
   {
-    // Converged runtime selectors and source pins do not invent an upgrade.
     name: "converged selectors",
     config: `[tools]\nnode = "24.21.0"\njava = "temurin-25"\n"${claude}" = "2.1.292"\n`,
     template: '[tools]\nnode = "24.21.0"\njava = "temurin-25"\n',

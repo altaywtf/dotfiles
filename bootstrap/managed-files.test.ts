@@ -13,7 +13,7 @@ test("only the most recent timestamped backup per target survives pruning", asyn
   const target = join(root, "local.dotfiles.software-update.plist");
   await writeFile(target, "managed content");
   await writeFile(`${target}.backup.20240101010101`, "oldest");
-  await mkdir(`${target}.backup.20250101010101`); // a backed-up directory is removed recursively
+  await mkdir(`${target}.backup.20250101010101`);
   await symlink(target, `${target}.backup.20250601010101`);
   await writeFile(`${target}.backup.20260101010101`, "newest");
   await writeFile(`${target}.backup.notatimestamp`, "unrelated suffix");
@@ -34,7 +34,7 @@ test("the backup written by this run survives pruning even when the host clock i
   await writeFile(target, "current");
   await writeFile(`${target}.backup.20240101010101`, "old");
   await writeFile(`${target}.backup.20270101010101`, "written by a host whose clock ran ahead");
-  const created = `${target}.backup.20260101010101`; // this run, lexically older than the existing one
+  const created = `${target}.backup.20260101010101`;
   await writeFile(created, "just written");
   await Effect.runPromise(
     pruneOlderBackups(target, created).pipe(Effect.provide(NodeServices.layer)),

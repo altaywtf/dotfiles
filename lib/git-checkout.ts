@@ -1,19 +1,10 @@
-// Pure checkout-readiness rules shared by the unattended convergence job and
-// the devbox installer bundle. Callers run Git themselves (spawnSync or the
-// Effect CommandRunner) and pass the raw outputs in.
-// This module must stay dependency-free: converge.ts imports it before the
-// checkout's locked dependencies are installed.
-
 const remoteHeadPrefix = "refs/remotes/origin/";
 
-// `git symbolic-ref refs/remotes/origin/HEAD` -> branch name, or undefined
-// when origin/HEAD is unset.
 export function defaultBranchFromRemoteHead(remoteHead: string): string | undefined {
   const ref = remoteHead.trim();
   return ref.startsWith(remoteHeadPrefix) ? ref.slice(remoteHeadPrefix.length) : undefined;
 }
 
-// `git status --porcelain` output -> reason, or undefined when clean.
 export function dirtyCheckoutReason(status: string): string | undefined {
   const lines = status
     .split("\n")
@@ -26,14 +17,12 @@ export function dirtyCheckoutReason(status: string): string | undefined {
 }
 
 export type CheckoutPosition = {
-  readonly headRef: string; // git symbolic-ref HEAD (fails when detached)
-  readonly remoteHead: string; // git symbolic-ref refs/remotes/origin/HEAD
-  readonly head: string; // git rev-parse HEAD
-  readonly remoteTip: string; // git rev-parse refs/remotes/origin/<default>
+  readonly headRef: string;
+  readonly remoteHead: string;
+  readonly head: string;
+  readonly remoteTip: string;
 };
 
-// Reason HEAD is not the default branch at origin's tip (detached, other
-// branch, ahead, or behind), or undefined when it is exactly there.
 export function unpublishedCheckoutReason(position: CheckoutPosition): string | undefined {
   const branch = defaultBranchFromRemoteHead(position.remoteHead);
   if (!branch) {

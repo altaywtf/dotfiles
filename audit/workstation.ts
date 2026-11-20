@@ -15,8 +15,6 @@ const homeDotfiles = {
 const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
 const launchAgents = { kind: "files", path: "Library/LaunchAgents" } as const;
 
-// A .env copied from its example inherits the umask, so real env files can end
-// up world-readable.
 export const projectEnvFiles = {
   kind: "private-mode",
   sources: [
@@ -33,10 +31,6 @@ export const projectEnvFiles = {
   mismatch: "warn",
 } as const;
 
-// The compromised eMudhra intermediates chain to these roots
-// (https://emudhra.we-have-a-problem.com/). On macOS, curl, git and mise Python
-// trust cert.pem, which macOS updates restore; Debian and Ubuntu build their
-// bundle from the enabled ca-certificates.conf entries.
 export function compromisedRoots(systemRoot: string) {
   const label = "roots of the compromised eMudhra intermediates";
   return [

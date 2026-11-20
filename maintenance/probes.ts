@@ -126,7 +126,6 @@ export function runProcess(
       options.signal?.removeEventListener("abort", cancel);
       child.stdout.destroy();
       child.stderr.destroy();
-      // A timed-out child must not retain the collector if it cannot be reaped yet.
       if (timedOut) {
         child.unref();
       }
@@ -155,7 +154,6 @@ export function runProcess(
       if (exited) {
         drain();
       } else {
-        // Wait for the owned child to be reaped before finishing cancellation.
         child.once("exit", drain);
         child.kill("SIGTERM");
         killTimer = setTimeout(() => child.kill("SIGKILL"), 200);
@@ -166,8 +164,6 @@ export function runProcess(
       timer = setTimeout(() => {
         timedOut = true;
         killTimer = setTimeout(() => {
-          // Own only the direct ChildProcess; descendants may still hold its pipes.
-          // Never signal a saved PID after Node has reaped the direct child.
           drainTimer = setTimeout(() => {
             complete({
               status: exitStatus ?? 1,

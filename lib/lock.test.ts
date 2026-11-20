@@ -65,14 +65,13 @@ test("a holder recorded before the current boot is reclaimed even when its pid l
 });
 
 test("EPERM from the liveness probe means alive", () => {
-  // pid 1 (launchd) rejects signal 0 from an unprivileged user with EPERM.
   assert.equal(processAlive(1), true);
   assert.equal(processAlive(process.pid), true);
 });
 
 test("malformed or missing metadata is treated as a live holder", (t) => {
   const lock = fixture(t);
-  mkdirSync(lock); // bare mkdir lock without metadata
+  mkdirSync(lock);
   assert.equal(lockOwnerAlive(lock, { processAlive: () => false }), true);
   assert.throws(
     () => acquireDirectoryLock(lock, { ...silent, processAlive: () => false }),
@@ -142,8 +141,6 @@ test("an unreleased lock fails loudly after the wait budget", (t) => {
 const alive = (pid: number) => pid === process.pid;
 
 test("two contenders reclaiming the same dead owner yield exactly one holder", (t) => {
-  // Interleaving: B reads the dead owner metadata, then A reclaims and
-  // acquires before B acts on its verdict. B must not evict A.
   const lock = fixture(t);
   mkdirSync(lock);
   writeFileSync(
@@ -184,8 +181,6 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
     join(lock, "owner.json"),
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
-  // The owner file vanishes between B's verdict and its rename: another
-  // contender already moved it. B sees ENOENT and waits.
   let vanished = false;
   const slept: Array<number> = [];
   const release = acquireDirectoryLock(lock, {

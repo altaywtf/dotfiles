@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Option } from "effect";
 import { delimiter, join } from "node:path";
 
-// PATH lookup without spawning a shell.
 export const commandAvailable = Effect.fn("commandAvailable")(function* (name: string) {
   const fs = yield* FileSystem.FileSystem;
   for (const directory of (process.env.PATH || "").split(delimiter).filter(Boolean)) {

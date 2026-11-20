@@ -87,8 +87,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
   }
 });
 
-// Steps after install-runtimes call tools mise just installed (gh, chezmoi on
-// Linux), and the launching shell may predate any mise activation.
 const miseShims = join(
   process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"),
   "shims",

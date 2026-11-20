@@ -12,7 +12,6 @@ export const convergeUserManager = Effect.fn("convergeUserManager")(function* (
     return;
   }
   const runner = yield* CommandRunner;
-  // Containers and non-systemd sessions can apply without a user manager.
   const environment = yield* runner
     .run("systemctl", ["--user", "show-environment"], { output: "capture" })
     .pipe(Effect.catch(() => Effect.succeed(undefined)));

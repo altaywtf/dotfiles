@@ -63,8 +63,6 @@ function readMcpLock(lockPath: string): Array<LockedMcp> | undefined {
   const label = `Invalid managed MCP lock at ${lockPath}`;
   const shapeMessage = `${label}: expected version 1 and an mcps array`;
   const lock = decodeOr(McpLockDocument, parsed, shapeMessage);
-  // Locks written before the rename keep their entries under `servers`; the
-  // next write stores them as `mcps`.
   const entries = lock.mcps ?? lock.servers;
   if (entries === undefined) {
     throw new Error(shapeMessage);
@@ -96,7 +94,6 @@ function writeMcpLock(
 
 const mcpName = (mcp: { name: string; harnesses: ReadonlyArray<Harness> }) => mcp.name;
 
-// Another checkout's overlay keeps its harnesses even when this checkout selects the same name.
 function withKept(
   next: ReadonlyArray<LockedMcp>,
   kept: ReadonlyArray<LockedMcp>,
@@ -142,9 +139,6 @@ function runPlanned(
   return true;
 }
 
-// `codex mcp add` upserts the config but then probes the mcp and can start an
-// interactive OAuth login, so converge through get: a matching URL and OAuth client is a no-op,
-// and an add whose config landed before the login step failed is a warning.
 function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<McpFailure>): void {
   const label = "Codex";
   const selected = mcps.filter((mcp) => mcp.harnesses.includes("codex"));
@@ -228,9 +222,6 @@ function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): Array<strin
   return ["mcp", "add-json", "-s", "user", mcp.name, config];
 }
 
-// `claude mcp add` refuses an existing name instead of updating it, so converge
-// through get: matching URL, headers helper, and OAuth client is a no-op, anything else is
-// removed and re-added.
 function applyClaude(
   runtime: Runtime,
   mcps: ReadonlyArray<Mcp>,

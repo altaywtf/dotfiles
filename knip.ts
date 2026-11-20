@@ -2,7 +2,6 @@ import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { KnipConfig } from "knip";
 
-// CLI commands are also invoked by mise, schedulers, templates, and operators.
 const commands = globSync("**/*.ts", {
   cwd: import.meta.dirname,
   exclude: ["node_modules/**", "chezmoi/**", ".git/**"],
@@ -16,8 +15,6 @@ export default {
   entry: commands,
   project: ["**/*.ts", "!chezmoi/**"],
   includeEntryExports: true,
-  // Vite+'s migrator installs this alias to satisfy the bundled tools' peers.
   ignoreDependencies: ["vite"],
-  // Native host tools are provisioned outside the npm dependency graph.
   ignoreBinaries: ["brew", "chezmoi", "codex", "mise", "ruby"],
 } satisfies KnipConfig;

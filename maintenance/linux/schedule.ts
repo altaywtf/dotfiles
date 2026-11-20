@@ -6,7 +6,6 @@ import { join, resolve } from "node:path";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-// chezmoi renders the unit and timer; this script only flips their state.
 const updateUnit = "dotfiles-software-update";
 const usage = "Usage: maintenance/linux/schedule.ts <enable|disable|run|status>";
 
@@ -22,8 +21,6 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
   const fs = yield* FileSystem.FileSystem;
   const systemctl = (...args: Array<string>) =>
     runner.run("systemctl", ["--user", ...args], { output: "capture" });
-  // disable, run, and status address units systemd already loaded, even after
-  // the files are gone.
   if (action === "enable") {
     for (const suffix of ["timer", "service"]) {
       const unitFile = join(home, ".config/systemd/user", `${updateUnit}.${suffix}`);
@@ -32,7 +29,6 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
       }
     }
   }
-  // Without lingering the user manager, and this timer with it, stops at logout.
   const linger = Effect.gen(function* () {
     const result = yield* runner.run(
       "loginctl",
@@ -65,8 +61,6 @@ export const manageSchedule = Effect.fn("manageSchedule")(function* (
       );
     }
     case "disable": {
-      // disable is a unit-file operation and stop a loaded-unit one; a missing
-      // timer file must not keep a running update alive, so both always run.
       const failures: Array<string> = [];
       for (const args of [
         ["disable", "--now", `${updateUnit}.timer`],

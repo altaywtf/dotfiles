@@ -71,7 +71,6 @@ const program = Effect.gen(function* () {
     return yield* fail("invalid operator arguments", 2);
   }
   const commandName = args[0];
-  // A stored marker wins; only a missing marker falls back to the default.
   const requestedProfile =
     args[1] ??
     (yield* resolveProfile(undefined, { ...process.env, DOTFILES_PROFILE: defaultProfile }).pipe(

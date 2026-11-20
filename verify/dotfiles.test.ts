@@ -116,8 +116,6 @@ test("operator command validates and delegates every profile", async () => {
     assert.equal((await run(["apply", "unknown"], log)).status, 2);
     assert.equal((await run(["unknown", "workstation"], log)).status, 2);
     assert.equal(readFileSync(log, "utf8"), "");
-    // No profile: a fresh home converges developer; a stored marker wins; an
-    // unsafe marker still refuses rather than defaulting.
     const defaulted = await run(["apply"], log);
     assert.equal(defaulted.status, 0, defaulted.stderr);
     assert.equal(readFileSync(log, "utf8"), "install.ts --profile developer\n");

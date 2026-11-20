@@ -6,9 +6,6 @@ import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
-// oh-my-zsh is a git checkout every shell sources, so it is pinned like any
-// other dependency: Renovate moves the revision, maintenance converges to it,
-// and the framework's own updater stays disabled in .zshrc.
 // renovate: datasource=git-refs depName=https://github.com/ohmyzsh/ohmyzsh branch=master
 const OH_MY_ZSH_REVISION = "c0140703a53eb0d22be44f7bac318d0baacc927c";
 
@@ -35,7 +32,6 @@ const program = Effect.gen(function* () {
       return yield* fail(`git init exited ${init.status}: ${init.stderr.trim()}`);
     }
   }
-  // The remote is converged too, so a checkout seeded elsewhere still follows the pin.
   const origin = yield* git("remote", "set-url", "origin", remote);
   if (origin.status !== 0) {
     const added = yield* git("remote", "add", "origin", remote);

@@ -27,8 +27,6 @@ export function safeName(message: string) {
 
 export const SafeName = safeName("must be a safe name");
 
-// Selection uses membership, never order; normalize so composition compares
-// manifests by meaning rather than authoring order.
 function harnessSet(message: string) {
   return Schema.Array(Harness.annotate({ message }))
     .annotate({ message })
@@ -126,8 +124,6 @@ export function parseSyncArgs(
   return { kind: "run", profile, update };
 }
 
-// Compose the selected manifest layers, tolerating an identical entry selected
-// by more than one layer and rejecting a conflicting redefinition.
 export function composeLayers<T, Layer extends string = AgentLayer>(
   selected: ReadonlyArray<Layer>,
   manifests: ReadonlyMap<Layer, ReadonlyArray<T>>,

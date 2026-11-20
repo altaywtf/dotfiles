@@ -15,8 +15,6 @@ type UpdateOptions = {
   check: boolean;
 };
 
-// The administrator enrolls another user, whose environment is not visible
-// here, so the job assumes mise's default data directory in that home.
 function miseData(home: string): string {
   return join(home, ".local/share/mise");
 }
@@ -137,7 +135,6 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
   const brew = process.arch === "arm64" ? "/opt/homebrew/bin/brew" : "/usr/local/bin/brew";
-  // The prefix owner can edit brew, so never run it as root.
   const prefix = (yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", brew, "--prefix"], {
     cwd: home,
   })).stdout.trim();
@@ -156,7 +153,6 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   }
 
   const jobs = updateJobs(options, prefix);
-  // Preflight every job before changing any plist or launchd state.
   const states = yield* Effect.forEach(
     jobs,
     Effect.fn("inspectUpdateJob")(function* (job) {
@@ -217,7 +213,6 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/usr/bin/touch", job.log]);
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/bin/chmod", "0600", job.log]);
   }
-  // User and GUI domains share disabled overrides; the user domain also exists without a GUI login.
   yield* runChecked("/bin/launchctl", [
     "disable",
     `user/${target.uid}/local.dotfiles.software-update`,

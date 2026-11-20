@@ -144,7 +144,6 @@ const runCheck = Effect.fn("runCheck")(function* (
   return { check, durationMs: finished - started, ...result };
 });
 
-// Checks can spawn their own workers; reserve capacity for their children and reporting.
 const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
 
 export const runChecks = Effect.fn("runChecks")(function* (
@@ -196,9 +195,6 @@ const listRegistry = Effect.fn("listRegistry")(function* (registry: Registry, js
   }
 });
 
-// chezmoi and gitleaks are mise shims. Checks swap HOME and the XDG
-// directories into disposable fixtures, which would otherwise hide mise's
-// install directory and trust store from those shims.
 const home = process.env.HOME || "";
 process.env.MISE_DATA_DIR ||= join(home, ".local/share/mise");
 process.env.MISE_TRUSTED_CONFIG_PATHS ||= join(home, ".config/mise/config.toml");

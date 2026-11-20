@@ -35,7 +35,7 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
     writeFileSync(join(logs, "notes.txt"), "x".repeat(cap * 2));
     symlinkSync(big, join(logs, "linked.log"));
     const before = statSync(big).ino;
-    const appender = openSync(big, "a"); // simulates launchd's held O_APPEND descriptor
+    const appender = openSync(big, "a");
     const entries = capLogs(logs, cap);
     assert.deepEqual(
       entries.map((entry) => entry.target),
@@ -70,7 +70,7 @@ test("a concurrent append between truncate and the tail write is interleaved, no
         "\n",
       ) + "\n",
     );
-    const appender = openSync(log, "a"); // the other user's live launchd descriptor
+    const appender = openSync(log, "a");
     const entries = capLogs(root, cap, () => {
       writeSync(appender, Buffer.from("concurrent append\n"));
     });

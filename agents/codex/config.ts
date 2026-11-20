@@ -60,8 +60,6 @@ function managedEdits(): Array<ConfigEdit> {
     { keyPath: "model", value: "gpt-6.2-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
-    // Auto review needs interactive approvals and a sandbox to escalate from.
-    // Permission profiles replace sandbox_mode; Codex rejects combining them.
     { keyPath: "approval_policy", value: "on-request", mergeStrategy: "replace" },
     { keyPath: "approvals_reviewer", value: "auto_review", mergeStrategy: "replace" },
     { keyPath: "default_permissions", value: ":workspace", mergeStrategy: "replace" },
@@ -75,9 +73,6 @@ function managedEdits(): Array<ConfigEdit> {
       value: true,
       mergeStrategy: "upsert",
     },
-    // Every wait_agent poll re-sends the parent context. Codex defaults the
-    // floor to 10 s and the default to 30 s; two minutes cuts empty polls
-    // without stopping a worker from returning early on completion.
     {
       keyPath: "features.multi_agent_v2.min_wait_timeout_ms",
       value: 120_000,
@@ -93,7 +88,6 @@ function managedEdits(): Array<ConfigEdit> {
   ];
 }
 
-// ~/.config/dotfiles/codex.json maps key paths to values that win over the managed ones.
 function localEdits(path: string): Array<ConfigEdit> {
   if (!existsSync(path)) {
     return [];
@@ -150,8 +144,6 @@ function codexHomePath(): string {
   return resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
 }
 
-// A planner reads the user layer first and writes against its version, so a
-// concurrent Codex edit fails the write instead of being overwritten.
 export async function writeConfigEdits(
   edits: ReadonlyArray<ConfigEdit> | PlanEdits,
 ): Promise<string> {
@@ -256,7 +248,6 @@ export async function writeConfigEdits(
 
 export type CodexDefaults = { configPath: string; restricted: ReadonlyArray<string> };
 
-// projectRoot opts into trusting every checkout directly under it.
 export async function configureDefaults(
   projectRoot?: string,
   gateway = false,

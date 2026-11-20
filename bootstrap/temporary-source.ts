@@ -34,8 +34,6 @@ const updaterUnits = (home: string) => [
   },
 ];
 
-// A temporary source renders no updater, so it must not take over a home whose
-// updater still runs from an existing persistent checkout.
 export const checkTemporarySource = Effect.fn("checkTemporarySource")(function* (home: string) {
   const fs = yield* FileSystem.FileSystem;
   for (const unit of updaterUnits(home)) {

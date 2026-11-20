@@ -73,7 +73,6 @@ function withWarnings(action: () => void): Array<Array<unknown>> {
   return warnings;
 }
 
-// Publishes a `dotfiles` bootstrap script and puts a no-op `mise` first on PATH.
 function publishBootstrap(t: TestContext, f: ReturnType<typeof fixture>, script: string) {
   const bin = join(f.root, "bin");
   mkdirSync(bin);
@@ -157,7 +156,7 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   assert.deepEqual(slept, [5000, 20_000]);
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
-  mkdirSync(lock); // metadata-free lock: the owner is unknown, so it is kept
+  mkdirSync(lock);
   assert.throws(() => converge(repo, { waitMs: 0, log: () => {} }), /lock unavailable/);
   assert.ok(existsSync(lock));
 });
@@ -237,7 +236,6 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
       RULES: join(home, ".config/dotfiles/agents.end.md"),
       RENDERED: rendered,
     });
-    // Git writes changed files under the umask of an interactive shell.
     const umask = process.umask(0o022);
     t.onTestFinished(() => {
       process.umask(umask);

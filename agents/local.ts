@@ -21,9 +21,6 @@ export type LocalOverlay = {
   document: typeof LocalOverlayDocument.Type;
 };
 
-// The overlay is trusted checkout-local configuration applied after every
-// profile layer, so it follows the Brewfile.local ownership contract: a regular
-// file owned by the current user that nobody else may write.
 export function readLocalOverlay(repoDir: string): LocalOverlay | undefined {
   const path = join(repoDir, "agents", "local.json");
   const info = lstatSync(path, { throwIfNoEntry: false });

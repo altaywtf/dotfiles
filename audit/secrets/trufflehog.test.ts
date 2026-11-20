@@ -8,7 +8,6 @@ import { test } from "vite-plus/test";
 
 import { classifyTrufflehogFindings } from "./trufflehog.ts";
 
-// Shape captured from trufflehog 3.99.7 `git --json`, secret fields dropped.
 const finding = (commit: string, verified: boolean) =>
   JSON.stringify({
     SourceMetadata: { Data: { Git: { commit, file: "a.test.ts", line: 7 } } },

@@ -31,9 +31,6 @@ export function readState(statePath: string): LoadedState {
   try {
     text = readFileSync(statePath, "utf8");
   } catch (error) {
-    // Only a missing file is an empty state. Any other read failure (EACCES,
-    // EIO, EISDIR) must not silently restart grace periods or bypass the
-    // scheduled interval, so it propagates and fails the run.
     if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") {
       return { state: empty, recovered: false };
     }
@@ -45,8 +42,6 @@ export function readState(statePath: string): LoadedState {
       recovered: false,
     };
   } catch {
-    // Undecodable state only restarts every grace period and the cache
-    // interval — strictly conservative — instead of failing every later run.
     return { state: empty, recovered: true };
   }
 }
@@ -73,8 +68,6 @@ export async function hygiene(
   }
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   let release: () => void;
-  // A lock left by a dead or pre-reboot process is reclaimed automatically;
-  // a live or ambiguous owner still fails the run for inspection.
   try {
     release = acquireDirectoryLock(join(directory, "hygiene.lock"));
   } catch (error) {
@@ -83,8 +76,6 @@ export async function hygiene(
     });
   }
   try {
-    // Eligibility rests entirely on the per-worktree checks below, which retain
-    // anything dirty, busy, protected, detached, or not yet in the remote default.
     const roots = [".codex/worktrees", ".claude/worktrees", "projects"].map((path) =>
       join(home, path),
     );
@@ -189,7 +180,6 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   } finally {
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
-    // Preserve signal termination after the Effect scopes and hygiene lock close.
     if (interrupted) {
       process.kill(process.pid, interrupted);
     }
