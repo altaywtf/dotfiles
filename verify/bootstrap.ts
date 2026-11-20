@@ -30,8 +30,7 @@ const program = Effect.gen(function* () {
   let requested: string | undefined;
   let desktop = false;
   let verbose = false;
-  while (argv.length > 0) {
-    const argument = argv.shift()!;
+  for (let argument = argv.shift(); argument !== undefined; argument = argv.shift()) {
     if (argument === "--profile") {
       if (requested || argv.length === 0) return yield* fail(usage, 2);
       requested = argv.shift();

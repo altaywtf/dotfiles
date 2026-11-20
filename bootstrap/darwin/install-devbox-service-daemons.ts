@@ -65,8 +65,7 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
     if (!value) throw new CliFailure({ exitCode: 1, message: `${flag} requires a value` });
     return value;
   };
-  while (args.length > 0) {
-    const flag = args.shift()!;
+  for (let flag = args.shift(); flag !== undefined; flag = args.shift()) {
     switch (flag) {
       case "--user":
         values.user = take(flag);
