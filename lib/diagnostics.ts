@@ -4,7 +4,7 @@ const MAX_DIAGNOSTIC_LINES = 3;
 export function sanitizeDiagnostic(stderr: string): string {
   const lines = stderr
     // oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences before printing diagnostics.
-    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0)

@@ -39,7 +39,7 @@ type Finding = {
 };
 
 // oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences from CLI output.
-const stripAnsi = (text: string) => text.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
+const stripAnsi = (text: string) => text.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
 
 function capture(runtime: Runtime, command: string, args: readonly string[]) {
   const result = runtime.run(command, args, { stdout: "capture", stderr: "capture" });
