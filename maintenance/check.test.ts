@@ -206,12 +206,12 @@ test("maintenance probes run concurrently and summarize package drift", async ()
     active += 1;
     maxActive = Math.max(maxActive, active);
     if (maxActive === 1) {
-      await new Promise<void>((resolve, reject) =>
+      await new Promise<void>((resolve, reject) => {
         queueMicrotask(() => {
           if (maxActive > 1) resolve();
           else reject(new Error("maintenance probes ran sequentially"));
-        }),
-      );
+        });
+      });
     }
     active -= 1;
     return host(command, args, options);

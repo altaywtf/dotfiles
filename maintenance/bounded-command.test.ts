@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Exit } from "effect";
@@ -45,7 +46,7 @@ async function waitForPid(path: string): Promise<number> {
     try {
       return Number(await readFile(path, "utf8"));
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await delay(20);
     }
   }
   throw new Error("Fixture did not start");
@@ -192,7 +193,7 @@ test("cancellation cleans a detached child before returning", async (t) => {
     await rm(directory, { recursive: true, force: true });
   });
   const child = await waitForPid(pidFile);
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await delay(100);
   controller.abort();
   assert.equal(Exit.isFailure(await completion), true);
   assert.equal(alive(child), false);
