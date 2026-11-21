@@ -6,8 +6,6 @@
 {{- $before := toJson $trust -}}
 {{- $profile := includeTemplate "profile" . | fromJson -}}
 {{- if $profile.capabilities.personal -}}
-{{- range list "altaywtf" "uinaf" "putdotio" -}}
-{{- $_ := set $trust (joinPath $.chezmoi.homeDir "projects" .) true -}}
-{{- end -}}
+{{- $_ := set $trust (joinPath .chezmoi.homeDir "projects") true -}}
 {{- end -}}
 {{ if eq (toJson $trust) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $trust | toPrettyJson }}{{ end }}

@@ -15,8 +15,14 @@
         "instanceId": "codex",
         "model": "gpt-6.2-sol",
         "options": [
-          { "id": "reasoningEffort", "value": "medium" },
-          { "id": "serviceTier", "value": "default" }
+          {
+            "id": "reasoningEffort",
+            "value": "medium"
+          },
+          {
+            "id": "serviceTier",
+            "value": "default"
+          }
         ]
       },
       "textGenerationModelSelection": {
@@ -28,7 +34,21 @@
       "enableDeviceSupport": true,
       "idleCompaction": "onReturn",
       "sidebarAutoSettleAfterDays": null,
-      "sidebarAutoSettleOnMerge": false
+      "sidebarAutoSettleOnMerge": false,
+      "favorites": [
+        {
+          "provider": "pi",
+          "model": "anthropic/claude-fable-5-2"
+        },
+        {
+          "provider": "pi",
+          "model": "anthropic/claude-opus-5-5"
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6.2-sol"
+        }
+      ]
     },
     "clientSettings": {
       "notificationMode": "off",
@@ -39,7 +59,9 @@
       "loadBalancingEnabled": false,
       "appearanceContrast": 100,
       "panelAnimationDurationMs": 0,
-      "browserDefaultViewport": { "_tag": "fill" },
+      "browserDefaultViewport": {
+        "_tag": "fill"
+      },
       "browserDefaultZoomFactor": 1,
       "browserDefaultAppearance": "system",
       "browserRecordingFrameRate": 60,
