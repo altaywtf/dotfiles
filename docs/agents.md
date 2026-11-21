@@ -71,10 +71,13 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   exclusive.
 - A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
+- Pi gets every Claude plugin through `pi-claude-marketplace`: sync owns
+  `~/.pi/agent/claude-plugins.json`, so add Pi-only plugins with
+  `/claude:plugin install --local`.
 
 ## MCP Authentication
 
-Plugin-shipped MCPs sign in through each harness's MCP menu. For manifest
+Plugin-shipped MCPs sign in through each harness's MCP menu (`/mcp` in Pi). For manifest
 MCPs, `mise run agents:doctor` prints a repair command per row.
 
 Over SSH, run the login under `ssh -t` and forward the printed loopback port

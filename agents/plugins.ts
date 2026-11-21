@@ -2,6 +2,7 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
+import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { Effect, Schema } from "effect";
 
@@ -490,6 +491,41 @@ function applyHarness(
   }
 }
 
+function piPluginConfig(plugins: ReadonlyArray<Plugin>) {
+  const claudePlugins = plugins.filter((plugin) => plugin.harnesses.includes("claude"));
+  return {
+    autoapply: true,
+    marketplaces: Object.fromEntries(
+      claudePlugins.map((plugin) => [plugin.marketplaceId, { source: plugin.marketplace }]),
+    ),
+    plugins: Object.fromEntries(claudePlugins.map((plugin) => [pluginRef(plugin), {}])),
+  };
+}
+
+function writePiPlugins(runtime: Runtime, plugins: ReadonlyArray<Plugin>): void {
+  if (!runtime.commandExists("pi")) {
+    writeLine(runtime.stdout, "Skipping Pi plugins: 'pi' is not installed");
+    return;
+  }
+  if (!runtime.env.HOME) {
+    throw new Error("HOME is required to locate the Pi plugin config");
+  }
+  const configPath = join(runtime.env.HOME, ".pi/agent/claude-plugins.json");
+  const config = piPluginConfig(plugins);
+  const next = `${JSON.stringify(config, null, 2)}\n`;
+  let current: string | undefined;
+  try {
+    current = readFileSync(configPath, "utf8");
+  } catch {
+    current = undefined;
+  }
+  if (current === next) {
+    return;
+  }
+  writeLockFile(configPath, config);
+  writeLine(runtime.stdout, `Pi: wrote ${configPath}`);
+}
+
 type PluginOptions = {
   profile?: string;
   update: boolean;
@@ -533,6 +569,8 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   for (const harness of HARNESSES) {
     applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
+
+  writePiPlugins(runtime, plugins);
 
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);

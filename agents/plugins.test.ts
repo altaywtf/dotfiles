@@ -319,6 +319,35 @@ test("applies the developer layer across every installed harness", () => {
   assert.match(runtime.stdout.value, /Done\./);
 });
 
+test("mirrors the Claude plugins into Pi's desired-state config when Pi is installed", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
+  runtime.installedCommands.add("pi");
+
+  assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
+  assert.deepEqual(JSON.parse(readFileSync(join(home, ".pi/agent/claude-plugins.json"), "utf8")), {
+    autoapply: true,
+    marketplaces: {
+      "shared-market": { source: "fixture/shared-market" },
+      "personal-market": { source: "fixture/personal-market" },
+    },
+    plugins: {
+      "shared-plugin@shared-market": {},
+      "second-plugin@shared-market": {},
+      "personal-plugin@personal-market": {},
+    },
+  });
+});
+
+test("leaves Pi's config alone when Pi is not installed", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.throws(() => readFileSync(join(home, ".pi/agent/claude-plugins.json")));
+  assert.match(runtime.stdout.value, /Skipping Pi plugins/);
+});
+
 test("refreshes installed plugins and marketplaces on --update", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
