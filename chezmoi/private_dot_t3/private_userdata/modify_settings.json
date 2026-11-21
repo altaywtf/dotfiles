@@ -9,6 +9,8 @@
 {{- $settings = $settings | setValueAtPath $key $value -}}
 {{- end -}}
 {{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- $settings = $settings | setValueAtPath "providerInstances.pi.driver" "pi" | setValueAtPath "providerInstances.pi.enabled" true -}}
+{{- $_ := unset $settings.providerInstances.pi "displayName" -}}
 {{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
 {{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
 {{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
