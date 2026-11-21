@@ -33,6 +33,45 @@ GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
 - Inbound SSH needs the administrator's public key in `authorized_keys`, not a
   private key on the target user.
 
+### Directory Identities
+
+A second account gets its own identity under a directory. Put `includeIf`
+blocks in `~/.config/git/identities`; `configure-git.ts` never writes it.
+
+```ini
+# ~/.config/git/identities
+[includeIf "gitdir:~/work/"]
+	path = ~/.config/git/work
+
+# ~/.config/git/work
+[user]
+	name = Developer Name
+	email = developer@work.example
+	signingkey = ~/.ssh/work_ed25519
+```
+
+- Rerun `configure-git.ts` after a change. It adds each identity's public key
+  to `allowed_signers.local`, so its commits verify locally.
+- The workstation audit warns when an included file is missing.
+- Use the real path in `gitdir:` patterns; Git resolves symlinks first.
+
+GitHub picks the account by SSH key. Give the second account a host alias in
+`~/.ssh/config.d/<name>.conf`, and clone from `git@github-<name>:owner/repo`:
+
+```sshconfig
+Host github-work
+  HostName github.com
+  User git
+  CanonicalizeHostname no
+  IdentityFile ~/.ssh/work_ed25519
+  IdentitiesOnly yes
+  IdentityAgent none
+```
+
+Keep `CanonicalizeHostname no`. Without it, an inherited
+`CanonicalizeHostname yes` re-matches `Host github.com` and adds the default
+key.
+
 ## SOPS Age Identity
 
 The age **identity** is the private key; its **recipient** is the public

@@ -4,6 +4,12 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema, Terminal } from "effect";
 import { dirname, join } from "node:path";
 import { CommandRunner, runCommand } from "../lib/command.ts";
+import {
+  gitIdentitiesPath,
+  includeIfPathArgs,
+  parseIncludeIfPaths,
+  resolveGitPath,
+} from "../lib/git-identities.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -16,6 +22,7 @@ identity.
 
 Writes:
   ~/.gitconfig.local
+  ~/.config/git/allowed_signers.local with the default and directory identity keys
   ~/.ssh/github.config when GIT_SSH_IDENTITY_FILE is set or inferred
 
 Environment:
@@ -25,6 +32,9 @@ Environment:
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
+
+Directory identities:
+  includeIf blocks in ~/.config/git/identities; this script reads them and never writes them
 `;
 
 const PrivateKeyHeader = Schema.String.pipe(
@@ -293,6 +303,70 @@ Host github.com
   yield* Console.log(`wrote ${target}`);
 });
 
+const publicKeyFor = Effect.fn("publicKeyForSigningKey")(function* (
+  home: string,
+  configFile: string,
+  signingKey: string,
+) {
+  if (signingKey.startsWith("key::")) {
+    return signingKey.slice("key::".length).trim();
+  }
+  const path = resolveGitPath(home, configFile, signingKey);
+  if (path.endsWith(".pub")) {
+    const fs = yield* FileSystem.FileSystem;
+    const contents = yield* fs
+      .readFileString(path)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new CliFailure({ exitCode: 1, message: `cannot read public key ${path}: ${cause}` }),
+        ),
+      );
+    return contents.trim();
+  }
+  yield* validatePrivateKey(`directory identity signing in ${configFile}`, path);
+  const result = yield* runCommand("ssh-keygen", ["-y", "-P", "", "-f", path]);
+  if (result.status !== 0) {
+    return yield* fail(
+      `cannot configure directory identity in ${configFile}; signing key must be an unencrypted SSH private key: ${path}`,
+    );
+  }
+  return result.stdout.trim();
+});
+
+const directoryIdentitySigners = Effect.fn("directoryIdentitySigners")(function* (home: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const identities = join(home, gitIdentitiesPath);
+  if (!(yield* fs.exists(identities))) {
+    return [];
+  }
+  const listed = yield* runCommand("git", ["config", "--file", identities, ...includeIfPathArgs]);
+  if (listed.status !== 0 && listed.status !== 1) {
+    return yield* fail(`cannot read ${identities}: ${listed.stderr.trim()}`);
+  }
+  const signers: Array<string> = [];
+  for (const include of parseIncludeIfPaths(home, identities, listed.stdout)) {
+    if (!(yield* fs.exists(include))) {
+      yield* Console.error(`warning: directory identity include file is missing: ${include}`);
+      continue;
+    }
+    const read = (key: string) =>
+      runCommand("git", ["config", "--file", include, "--get", key]).pipe(
+        Effect.map((result) => (result.status === 0 ? result.stdout.trim() : "")),
+      );
+    const signingKey = yield* read("user.signingkey");
+    if (!signingKey) {
+      continue;
+    }
+    const email = yield* read("user.email");
+    if (!email) {
+      return yield* fail(`directory identity sets user.signingkey without user.email: ${include}`);
+    }
+    signers.push(`${email} ${yield* publicKeyFor(home, include, signingKey)}`);
+  }
+  return signers;
+});
+
 const getGlobal = Effect.fn("getGlobalGitConfig")(function* (key: string) {
   const result = yield* runCommand("git", ["config", "--global", "--get", key]);
   return result.status === 0 ? result.stdout.trimEnd() : "";
@@ -388,6 +462,12 @@ const program = Effect.gen(function* () {
   const profileConfig = requireProfile(model, profile);
   const values = yield* buildConfiguration(args, profile, profileConfig);
   const home = process.env.HOME || "";
+  const allowedSigners = [
+    ...(values.signCommits === "true"
+      ? [`${process.env.GIT_ALLOWED_SIGNER_PRINCIPAL || values.email} ${values.publicKey}`]
+      : []),
+    ...(yield* directoryIdentitySigners(home)),
+  ];
   const fs = yield* FileSystem.FileSystem;
   const gitconfig = join(home, ".gitconfig.local");
   const signers = join(home, ".config/git/allowed_signers.local");
@@ -406,8 +486,10 @@ const program = Effect.gen(function* () {
       }
       if (values.signCommits === "true") {
         yield* run("git", ["config", "--file", temporary, "user.signingkey", values.signingKey]);
-        yield* run("git", ["config", "--file", temporary, "gpg.ssh.allowedSignersFile", signers]);
         yield* run("git", ["config", "--file", temporary, "gpg.ssh.program", signerProgram]);
+      }
+      if (allowedSigners.length > 0) {
+        yield* run("git", ["config", "--file", temporary, "gpg.ssh.allowedSignersFile", signers]);
       }
       if (profileConfig.capabilities.devbox && process.platform === "darwin") {
         yield* run("git", ["config", "--file", temporary, "safe.directory", "/opt/homebrew"]);
@@ -416,16 +498,13 @@ const program = Effect.gen(function* () {
       if (values.sshIdentity) {
         yield* writeGithubSshConfig(home, values.sshIdentity);
       }
-      if (values.signCommits === "true") {
+      if (allowedSigners.length > 0) {
         yield* fs.makeDirectory(dirname(signers), { recursive: true });
         const temporarySigners = yield* fs.makeTempFileScoped({
           directory: dirname(signers),
           prefix: ".allowed-signers.",
         });
-        yield* fs.writeFileString(
-          temporarySigners,
-          `${process.env.GIT_ALLOWED_SIGNER_PRINCIPAL || values.email} ${values.publicKey}\n`,
-        );
+        yield* fs.writeFileString(temporarySigners, `${allowedSigners.join("\n")}\n`);
         yield* fs.chmod(temporarySigners, 0o600);
         yield* fs.rename(temporarySigners, signers);
         yield* Console.log(`wrote ${signers}`);

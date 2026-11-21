@@ -12,6 +12,7 @@ import type {
 import { homePath, resolveSources, walkFiles } from "./paths.ts";
 import type { PathSource } from "./paths.ts";
 import { checkCodexStorage } from "./codex-storage.ts";
+import { includeIfPathArgs, parseIncludeIfPaths } from "../lib/git-identities.ts";
 import { scanSecrets } from "./secrets/scan.ts";
 import type { SecretScanCounts } from "./secrets/scan.ts";
 
@@ -61,6 +62,7 @@ type AuditCheck =
       missing: Exclude<FindingSeverity, "ok">;
       identity: "combined" | "separate";
     }
+  | { kind: "git-directory-identities"; path: string }
   | { kind: "github-auth" }
   | { kind: "github-ssh-auth" }
   | { kind: "ssh-private-key-modes"; path: string }
@@ -283,6 +285,28 @@ function checkGitIdentity(
   );
 }
 
+function checkGitDirectoryIdentities(
+  run: AuditRun,
+  check: Extract<AuditCheck, { kind: "git-directory-identities" }>,
+): void {
+  const file = homePath(run.home, check.path);
+  if (!existsSync(file)) {
+    return;
+  }
+  const listed = run.command("git", ["config", "--file", file, ...includeIfPathArgs]);
+  if (listed.status !== 0 && listed.status !== 1) {
+    return run.finding("warn", `cannot read directory identities in ${file}`);
+  }
+  for (const include of parseIncludeIfPaths(run.home, file, listed.stdout)) {
+    run.finding(
+      existsSync(include) ? "ok" : "warn",
+      existsSync(include)
+        ? `directory identity ${include} exists`
+        : `directory identity include file is missing: ${include}`,
+    );
+  }
+}
+
 export function readSettingsFile(path: string) {
   if (!existsSync(path)) {
     return {};
@@ -503,6 +527,8 @@ function runCheck(run: AuditRun, check: AuditCheck): void {
       );
     case "git-identity":
       return checkGitIdentity(run, check);
+    case "git-directory-identities":
+      return checkGitDirectoryIdentities(run, check);
     case "github-auth":
       return checkGithubAuth(run);
     case "github-ssh-auth":

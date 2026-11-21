@@ -325,3 +325,27 @@ test("audit follows file symlinks and reports broken links and directory cycles"
   assert.match(output.join(""), /coverage skipped: .*broken/);
   assert.match(output.join(""), /coverage skipped: .*cycle/);
 });
+
+test("directory identities warn when an include file is missing", (t) => {
+  const { home } = fixture(t);
+  mkdirSync(join(home, ".config/git"), { recursive: true });
+  writeFileSync(join(home, ".config/git/work"), "[user]\n\temail = work@example.invalid\n");
+  writeFileSync(
+    join(home, ".config/git/identities"),
+    '[includeIf "gitdir:~/work/"]\n\tpath = work\n[includeIf "gitdir:~/club/"]\n\tpath = ~/.config/git/club\n',
+  );
+  const output: Array<string> = [];
+  const result = runPolicy(
+    policy({ kind: "git-directory-identities", path: ".config/git/identities" }),
+    "text",
+    {
+      home,
+      env: { HOME: home },
+      stdout: (value) => output.push(value),
+      stderr: (value) => output.push(value),
+    },
+  );
+  assert.equal(result.summary.warnings, 1);
+  assert.match(output.join(""), /include file is missing: .*\/\.config\/git\/club/);
+  assert.doesNotMatch(output.join(""), /missing: .*\/\.config\/git\/work/);
+});

@@ -175,6 +175,73 @@ const program = Effect.scoped(
       0,
     );
 
+    const workKey = join(personal.home, ".ssh/work");
+    assert.equal(
+      (yield* run("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-f", workKey])).status,
+      0,
+    );
+    const workDir = join(personal.home, "work");
+    const identities = join(personal.home, ".config/git/identities");
+    const workPattern = join(yield* fs.realPath(personal.home), "work");
+    const identitiesSource = `[includeIf "gitdir:${workPattern}/"]\n\tpath = work\n[includeIf "gitdir:~/absent/"]\n\tpath = absent\n`;
+    yield* fs.writeFileString(identities, identitiesSource);
+    yield* fs.writeFileString(
+      join(personal.home, ".config/git/work"),
+      `[user]\n\tname = Work User\n\temail = work@example.com\n\tsigningkey = ~/.ssh/work\n`,
+    );
+    assert.equal(
+      (yield* run("git", ["config", "--global", "--add", "include.path", identities], {
+        HOME: personal.home,
+      })).status,
+      0,
+    );
+    const rerun = yield* configure(personal.home, "personal-workstation", personal.key);
+    assert.equal(rerun.status, 0, rerun.stderr);
+    assert.match(rerun.stderr, /directory identity include file is missing: .*\/absent$/m);
+    assert.equal(yield* fs.readFileString(identities), identitiesSource);
+    assert.match(
+      yield* fs.readFileString(join(personal.home, ".config/git/allowed_signers.local")),
+      /^work@example\.com ssh-ed25519 /m,
+    );
+    assert.equal((yield* run("git", ["init", "-q", workDir], { HOME: personal.home })).status, 0);
+    yield* fs.writeFileString(join(workDir, "proof.txt"), "directory identity proof\n");
+    assert.equal(
+      (yield* run("git", ["-C", workDir, "add", "proof.txt"], { HOME: personal.home })).status,
+      0,
+    );
+    const workCommit = yield* run(
+      "git",
+      ["-C", workDir, "commit", "-q", "-m", "test: prove directory identity"],
+      { HOME: personal.home },
+    );
+    assert.equal(workCommit.status, 0, workCommit.stderr);
+    const workLog = yield* run("git", ["-C", workDir, "log", "-1", "--format=%an|%ae|%G?|%GF"], {
+      HOME: personal.home,
+    });
+    const workFingerprint = (yield* run("ssh-keygen", ["-lf", workKey])).stdout.split(" ")[1];
+    assert.equal(workLog.stdout.trim(), `Work User|work@example.com|G|${workFingerprint}`);
+
+    yield* fs.writeFileString(
+      join(personal.home, ".ssh/config.d/github-work.conf"),
+      `Host github-work\n  HostName github.com\n  User git\n  CanonicalizeHostname no\n  IdentityFile ${workKey}\n  IdentitiesOnly yes\n  IdentityAgent none\n`,
+    );
+    yield* fs.writeFileString(
+      join(personal.home, ".ssh/config.local"),
+      `Host *\n  CanonicalizeHostname yes\n`,
+    );
+    const alias = yield* run("ssh", [
+      "-F",
+      join(personal.home, ".ssh/config"),
+      "-G",
+      "github-work",
+    ]);
+    assert.equal(alias.status, 0, alias.stderr);
+    assert.match(alias.stdout, /^hostname github\.com$/m);
+    assert.deepEqual(
+      alias.stdout.split("\n").filter((line) => line.startsWith("identityfile ")),
+      [`identityfile ${workKey}`],
+    );
+
     const encrypted = yield* makeHome("encrypted", true);
     const encryptedResult = yield* configure(encrypted.home, "personal-workstation", encrypted.key);
     assert.equal(encryptedResult.status, 1);

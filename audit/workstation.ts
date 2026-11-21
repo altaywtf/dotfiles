@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Effect } from "effect";
 
+import { gitIdentitiesPath } from "../lib/git-identities.ts";
 import { runMain } from "../lib/program.ts";
 import { runPolicy } from "./engine.ts";
 import type { AuditFormat, AuditPolicy } from "./engine.ts";
@@ -120,6 +121,7 @@ export const workstationPolicy = (systemRoot = "/") =>
         title: "Git and GitHub identity",
         checks: [
           { kind: "git-identity", config: ".gitconfig", missing: "warn", identity: "combined" },
+          { kind: "git-directory-identities", path: gitIdentitiesPath },
           { kind: "github-auth" },
         ],
       },
