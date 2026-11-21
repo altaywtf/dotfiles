@@ -324,7 +324,7 @@
         "agents/plugins.test.ts",
         "agents/ownership.test.ts"
       ],
-      "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
+      "output": "Declarative coding-agent plugin marketplaces, per-harness install planning, and Pi project trust"
     },
     {
       "id": "agent-mcps",

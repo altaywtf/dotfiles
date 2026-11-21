@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
@@ -337,6 +337,38 @@ test("mirrors the Claude plugins into Pi's desired-state config when Pi is insta
       "personal-plugin@personal-market": {},
     },
   });
+});
+
+test("merges Pi project trust for personal and devbox profiles only", () => {
+  const { repoDir, home } = createFixture();
+  const trustPath = join(home, ".pi/agent/trust.json");
+  mkdirSync(dirname(trustPath), { recursive: true });
+  writeFileSync(trustPath, JSON.stringify({ "/srv/other": false, [join(home, "projects")]: true }));
+
+  const workstation = new FixtureRuntime(repoDir, home);
+  workstation.installedCommands.add("pi");
+  assert.equal(main([], workstation), 0);
+  assert.deepEqual(JSON.parse(readFileSync(trustPath, "utf8")), {
+    "/srv/other": false,
+    [join(home, "projects")]: true,
+  });
+
+  const devbox = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
+  devbox.installedCommands.add("pi");
+  assert.equal(main(["--profile", "personal-devbox"], devbox), 0);
+  assert.deepEqual(JSON.parse(readFileSync(trustPath, "utf8")), {
+    "/srv/other": false,
+    [join(home, "projects")]: true,
+    [join(home, ".t3/worktrees")]: true,
+  });
+  assert.equal(statSync(trustPath).mode & 0o777, 0o600);
+
+  const written = statSync(trustPath).mtimeMs;
+  const again = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
+  again.installedCommands.add("pi");
+  assert.equal(main(["--profile", "personal-devbox"], again), 0);
+  assert.equal(statSync(trustPath).mtimeMs, written);
+  assert.doesNotMatch(again.stdout.value, /Pi: trusted/);
 });
 
 test("leaves Pi's config alone when Pi is not installed", () => {

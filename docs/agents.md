@@ -74,6 +74,9 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
 - Pi gets every Claude plugin through `pi-claude-marketplace`: sync owns
   `~/.pi/agent/claude-plugins.json`, so add Pi-only plugins with
   `/claude:plugin install --local`.
+- On personal and devbox profiles, sync also trusts `~/projects` and
+  `~/.t3/worktrees` in `~/.pi/agent/trust.json`; it only adds entries, so
+  manage other folders with Pi's `/trust`.
 
 ## MCP Authentication
 
