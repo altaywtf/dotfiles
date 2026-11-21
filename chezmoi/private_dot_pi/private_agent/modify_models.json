@@ -1,0 +1,9 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $models := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $models = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $before := toJson $models -}}
+{{- $gateway := includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json") | fromJson -}}
+{{- $models = $models | setValueAtPath "providers.anthropic.baseUrl" (trimSuffix "/v1" $gateway.baseUrl) | setValueAtPath "providers.anthropic.apiKey" (printf "!%s" $gateway.keyCommand) -}}
+{{ if eq (toJson $models) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $models | toPrettyJson }}{{ end }}

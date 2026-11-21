@@ -19,6 +19,7 @@
       "matchManagers": ["mise"],
       "matchDepNames": [
         "npm:@openai/codex",
+        "npm:@earendil-works/pi-coding-agent",
         "gh",
         "jq",
         "ripgrep",

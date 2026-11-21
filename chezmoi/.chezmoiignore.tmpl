@@ -7,6 +7,7 @@ Library/Application Support/com.mitchellh.ghostty
 {{ $t3Gateway := and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json")) }}
 {{ if not $t3Gateway }}
 .config/t3-gateway
+.pi
 {{ end }}
 {{ if not (or $profile.capabilities.workstation $t3Gateway) }}
 .t3
