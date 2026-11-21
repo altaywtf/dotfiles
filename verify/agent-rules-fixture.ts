@@ -127,5 +127,6 @@ export function assertManagedRules(home: string): string {
   assert.equal(lstatSync(join(home, ".codex/AGENTS.md")).isSymbolicLink(), true);
   assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../.agents/AGENTS.md");
   assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../.agents/AGENTS.md");
+  assert.equal(readlinkSync(join(home, ".pi/agent/AGENTS.md")), "../../.agents/AGENTS.md");
   return readFileSync(rules, "utf8");
 }

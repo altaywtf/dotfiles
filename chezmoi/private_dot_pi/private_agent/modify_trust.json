@@ -1,0 +1,13 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $trust := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $trust = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $before := toJson $trust -}}
+{{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- if $profile.capabilities.personal -}}
+{{- range list "altaywtf" "uinaf" "putdotio" -}}
+{{- $_ := set $trust (joinPath $.chezmoi.homeDir "projects" .) true -}}
+{{- end -}}
+{{- end -}}
+{{ if eq (toJson $trust) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $trust | toPrettyJson }}{{ end }}
