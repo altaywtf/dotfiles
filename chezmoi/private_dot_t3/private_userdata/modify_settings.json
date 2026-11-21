@@ -20,7 +20,17 @@
 {{- $claudeSettings := joinPath .chezmoi.homeDir ".config/t3-gateway/claude-settings.json" -}}
 {{- $claudeArgs := list (printf "--settings %s" (squote $claudeSettings)) -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
-{{- $_ := unset $settings.providerInstances.codex.config "homePath" -}}
+{{- $claudeEnvironment := list -}}
+{{- range $settings.providerInstances.claudeAgent.environment -}}
+{{- if ne .name "ANTHROPIC_BASE_URL" -}}
+{{- $claudeEnvironment = append $claudeEnvironment . -}}
+{{- end -}}
+{{- end -}}
+{{- $claudeEnvironment = append $claudeEnvironment (dict "name" "ANTHROPIC_BASE_URL" "value" (trimSuffix "/v1" $gateway.baseUrl)) -}}
+{{- $settings = $settings | setValueAtPath "providerInstances.claudeAgent.environment" $claudeEnvironment -}}
+{{- $_ := unset $settings.providerInstances.codex "displayName" -}}
+{{- $_ = unset $settings.providerInstances.claudeAgent "displayName" -}}
+{{- $_ = unset $settings.providerInstances.codex.config "homePath" -}}
 {{- $_ = unset $settings.providerInstances.codex.config "setupMode" -}}
 {{- $_ = unset $settings.providerInstances.claudeAgent.config "homePath" -}}
 {{- end -}}
