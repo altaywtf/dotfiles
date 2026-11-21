@@ -21,7 +21,7 @@
 {{- $claudeArgs := list (printf "--settings %s" (squote $claudeSettings)) -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
 {{- $claudeEnvironment := list -}}
-{{- range $settings.providerInstances.claudeAgent.environment -}}
+{{- range index $settings.providerInstances.claudeAgent "environment" -}}
 {{- if ne .name "ANTHROPIC_BASE_URL" -}}
 {{- $claudeEnvironment = append $claudeEnvironment . -}}
 {{- end -}}
@@ -33,5 +33,6 @@
 {{- $_ = unset $settings.providerInstances.codex.config "homePath" -}}
 {{- $_ = unset $settings.providerInstances.codex.config "setupMode" -}}
 {{- $_ = unset $settings.providerInstances.claudeAgent.config "homePath" -}}
+{{- $_ = unset $settings.providerInstances.claudeAgent.config "binaryPath" -}}
 {{- end -}}
 {{ if eq (toJson $settings) $before }}{{ .chezmoi.stdin }}{{ else }}{{ $settings | toPrettyJson }}{{ end }}

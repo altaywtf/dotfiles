@@ -28,3 +28,11 @@ if [ ! -L "$zshenv_local_dir" ] && [ ! -L "$zshenv_local" ] \
   source "$zshenv_local"
 fi
 unset zshenv_local zshenv_local_dir
+
+{{ $profile := includeTemplate "profile" . | fromJson -}}
+{{ if and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json")) -}}
+claude() {
+  command claude --settings "$HOME/.config/t3-gateway/claude-settings.json" "$@"
+}
+
+{{ end -}}
