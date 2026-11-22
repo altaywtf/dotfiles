@@ -4,5 +4,5 @@
 description = "Converge packages inside the managed runtimes"
 run = [
   "npm install --global npm@12.2.3",
-  "python -m pip install --disable-pip-version-check PyYAML==6.0.3",
+  "python -m pip install --disable-pip-version-check PyYAML==6.0.4",
 ]
