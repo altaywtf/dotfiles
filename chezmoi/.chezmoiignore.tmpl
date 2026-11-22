@@ -12,6 +12,9 @@ Library/Application Support/com.mitchellh.ghostty
 {{ if not (or $profile.capabilities.workstation $t3Gateway) }}
 .t3
 {{ end }}
+{{ if not $profile.capabilities.personal }}
+.gemini
+{{ end }}
 {{ if ne .chezmoi.os "darwin" }}
 Library
 {{ end }}

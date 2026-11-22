@@ -24,7 +24,7 @@ import {
 import type { Harness, SyncFailure } from "./harness.ts";
 import { readLocalOverlay } from "./local.ts";
 import { planOwnership } from "./ownership.ts";
-import { writePiTrust } from "./pi-trust.ts";
+import { writeAgentTrust } from "./agent-trust.ts";
 import {
   guardOverlay,
   managedLockLocation,
@@ -587,7 +587,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   if (options.update && runtime.commandExists("pi")) {
     updatePiPlugins(runtime, failures);
   }
-  writePiTrust(runtime, profile.capabilities);
+  writeAgentTrust(runtime, profile.capabilities);
 
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
