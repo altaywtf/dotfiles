@@ -25,7 +25,7 @@ function evaluate(files: ReadonlyArray<string>): Array<string> {
     encoding: "utf8",
     env: { ...process.env, HOMEBREW_BUNDLE_DOTFILES_PROFILE: undefined },
   });
-  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.equal(result.status, 0, result.stderr || result.error?.message || "ruby failed");
   return result.stdout.trim().split("\n").filter(Boolean);
 }
 
