@@ -23,7 +23,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const usage = "Usage:\n  verify/bootstrap.ts [--profile PROFILE] [--desktop] [--verbose]";
 // renovate: datasource=pypi depName=PyYAML
-const PYYAML_VERSION = "6.0.3";
+const PYYAML_VERSION = "6.0.4";
 
 const program = Effect.gen(function* () {
   const argv = process.argv.slice(2);
