@@ -503,6 +503,18 @@ function piPluginConfig(plugins: ReadonlyArray<Plugin>) {
   };
 }
 
+function updatePiPlugins(runtime: Runtime, failures: Array<PluginFailure>): void {
+  const args = ["-p", "/claude:plugin update"];
+  writeLine(runtime.stdout, `Pi: pi ${args.join(" ")}`);
+  const result = runtime.run("pi", args, { stdout: "capture", stderr: "capture" });
+  if (result.status !== 0) {
+    failures.push({
+      diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
+      summary: `Pi: ${args.join(" ")} (exit ${result.status})`,
+    });
+  }
+}
+
 function writePiPlugins(runtime: Runtime, plugins: ReadonlyArray<Plugin>): void {
   if (!runtime.commandExists("pi")) {
     writeLine(runtime.stdout, "Skipping Pi plugins: 'pi' is not installed");
@@ -572,6 +584,9 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   }
 
   writePiPlugins(runtime, plugins);
+  if (options.update && runtime.commandExists("pi")) {
+    updatePiPlugins(runtime, failures);
+  }
   writePiTrust(runtime, profile.capabilities);
 
   if (failures.length > 0) {

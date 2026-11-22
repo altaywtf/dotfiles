@@ -400,6 +400,25 @@ test("refreshes installed plugins and marketplaces on --update", () => {
   ]);
 });
 
+test("updates Pi's installed plugins on --update only", () => {
+  const { repoDir, home } = createFixture();
+  const plain = new FixtureRuntime(repoDir, home);
+  plain.installedCommands.add("pi");
+  assert.equal(main([], plain), 0);
+  assert.deepEqual(harnessCalls(plain, "pi"), []);
+
+  const updating = new FixtureRuntime(repoDir, home);
+  updating.installedCommands.add("pi");
+  assert.equal(main(["--update"], updating), 0);
+  assert.deepEqual(harnessCalls(updating, "pi"), ["-p /claude:plugin update"]);
+
+  const failing = new FixtureRuntime(repoDir, home, {
+    failures: new Map([["pi -p /claude:plugin update", { stdout: "", stderr: "clone failed" }]]),
+  });
+  failing.installedCommands.add("pi");
+  assert.equal(main(["--update"], failing), 1);
+});
+
 test("skips refresh commands after their marketplace add or plugin install fails", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
