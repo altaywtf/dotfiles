@@ -539,6 +539,56 @@ function writePiPlugins(runtime: Runtime, plugins: ReadonlyArray<Plugin>): void 
   writeLine(runtime.stdout, `Pi: wrote ${configPath}`);
 }
 
+const AgyPluginList = Schema.Array(Schema.Struct({ name: Schema.String }));
+
+function agyPluginSource(plugin: Plugin): string {
+  return GITHUB_MARKETPLACE.test(plugin.marketplace)
+    ? `https://github.com/${plugin.marketplace}`
+    : plugin.marketplace;
+}
+
+function syncAgyPlugins(
+  runtime: Runtime,
+  plugins: ReadonlyArray<Plugin>,
+  failures: Array<PluginFailure>,
+  update: boolean,
+): void {
+  if (!runtime.commandExists("agy")) {
+    writeLine(runtime.stdout, "Skipping Antigravity plugins: 'agy' is not installed");
+    return;
+  }
+  const listArgs = ["plugin", "list", "--json"];
+  const listed = runtime.run("agy", listArgs, { stdout: "capture", stderr: "capture" });
+  if (listed.status !== 0) {
+    failures.push({
+      diagnostic: sanitizeDiagnostic(`${listed.stdout}\n${listed.stderr}`),
+      summary: `Antigravity: ${listArgs.join(" ")} (exit ${listed.status})`,
+    });
+    return;
+  }
+  const installed = new Set(
+    decodeOrThrow(
+      Schema.fromJsonString(AgyPluginList),
+      listed.stdout,
+      (detail) => `Antigravity: unexpected plugin list: ${detail}`,
+    ).map((plugin) => plugin.name),
+  );
+  const selected = plugins.filter(
+    (plugin) => plugin.harnesses.includes("claude") && (update || !installed.has(plugin.name)),
+  );
+  for (const plugin of selected) {
+    const args = ["plugin", "install", agyPluginSource(plugin)];
+    writeLine(runtime.stdout, `Antigravity: agy ${args.join(" ")}`);
+    const result = runtime.run("agy", args, { stdout: "capture", stderr: "capture" });
+    if (result.status !== 0) {
+      failures.push({
+        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
+        summary: `Antigravity: ${args.join(" ")} (exit ${result.status})`,
+      });
+    }
+  }
+}
+
 type PluginOptions = {
   profile?: string;
   update: boolean;
@@ -587,6 +637,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   if (options.update && runtime.commandExists("pi")) {
     updatePiPlugins(runtime, failures);
   }
+  syncAgyPlugins(runtime, plugins, failures, options.update);
   writeAgentTrust(runtime, profile.capabilities);
 
   if (failures.length > 0) {
