@@ -74,6 +74,9 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
 - Pi gets every Claude plugin through `pi-claude-marketplace`: sync owns
   `~/.pi/agent/claude-plugins.json`, so add Pi-only plugins with
   `/claude:plugin install --local`.
+- When `agy` is installed, plugin sync installs Claude-layer plugins into
+  `~/.gemini/config/plugins/` and links each enabled plugin into existing T3
+  Code Antigravity profiles under `~/.t3/userdata/providers/antigravity/*/config/plugins/`.
 - On personal and devbox profiles, sync also trusts `~/projects` and
   `~/.t3/worktrees` in `~/.pi/agent/trust.json`; it only adds entries, so
   manage other folders with Pi's `/trust`.
