@@ -11,6 +11,9 @@
 {{- $profile := includeTemplate "profile" . | fromJson -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.pi.driver" "pi" | setValueAtPath "providerInstances.pi.enabled" true -}}
 {{- $_ := unset $settings.providerInstances.pi "displayName" -}}
+{{- if $profile.capabilities.personal -}}
+{{- $settings = $settings | setValueAtPath "providerInstances.antigravity.driver" "antigravity" | setValueAtPath "providerInstances.antigravity.enabled" true -}}
+{{- end -}}
 {{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
 {{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
 {{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
