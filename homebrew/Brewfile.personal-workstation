@@ -3,6 +3,9 @@ tap "basecamp/tap", trusted: true
 # App Store automation
 brew "mas"
 
+# Security keys
+brew "ykman"
+
 # Browsers and sync
 cask "firefox"
 cask "brave-browser"
