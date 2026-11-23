@@ -222,7 +222,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.model, "claude-opus-5-5[1m]");
         assert.equal(actual.modelSettings?.["claude-opus-5-5"]?.effortLevel, "medium");
         assert.equal(actual.effortLevel, "medium");
-        assert.equal(actual.autoCompactWindow, 400000);
+        assert.equal(actual.autoCompactWindow, 400_000);
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.syncClaudeAiPlugins, false);
         assert.equal(actual.autoMemoryEnabled, true);
