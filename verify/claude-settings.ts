@@ -27,6 +27,7 @@ type Settings = Record<string, Schema.Json | undefined> & {
 };
 type Fixture = {
   contents: string;
+  profile?: string;
   expected?: Settings;
   malformed?: boolean;
 };
@@ -108,6 +109,11 @@ const fixtures: Array<Fixture> = [
     contents: '{"env":{"ENABLE_CLAUDEAI_MCP_SERVERS":"false","KEEP":"yes"}}',
     expected: { env: { KEEP: "yes" } },
   },
+  {
+    contents: '{"env":{"KEEP":"yes"}}',
+    profile: "personal-workstation",
+    expected: { env: { ENABLE_CLAUDEAI_MCP_SERVERS: "false", KEEP: "yes" } },
+  },
   { contents: '{"env":', malformed: true },
 ];
 
@@ -139,7 +145,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         "--source",
         sourceDir,
         "--override-data",
-        JSON.stringify({ agentRulesPath, dotfilesProfile: "workstation" }),
+        JSON.stringify({ agentRulesPath, dotfilesProfile: fixture.profile ?? "workstation" }),
         "execute-template",
         "--with-stdin",
         "--file",
