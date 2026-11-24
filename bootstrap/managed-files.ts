@@ -163,8 +163,7 @@ export const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(fu
   for (const target of yield* managedTargets(context, "symlinks")) {
     if (
       target === join(context.home, ".claude/CLAUDE.md") ||
-      target === join(context.home, ".codex/AGENTS.md") ||
-      target === join(context.home, ".pi/agent/AGENTS.md")
+      target === join(context.home, ".codex/AGENTS.md")
     ) {
       yield* replaceAgentPath(context, target, "symlink");
     } else {

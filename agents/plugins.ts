@@ -2,7 +2,6 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { Effect, Schema } from "effect";
 
@@ -493,53 +492,6 @@ function applyHarness(
   }
 }
 
-function piPluginConfig(plugins: ReadonlyArray<Plugin>) {
-  const claudePlugins = plugins.filter((plugin) => plugin.harnesses.includes("claude"));
-  return {
-    autoapply: true,
-    marketplaces: Object.fromEntries(
-      claudePlugins.map((plugin) => [plugin.marketplaceId, { source: plugin.marketplace }]),
-    ),
-    plugins: Object.fromEntries(claudePlugins.map((plugin) => [pluginRef(plugin), {}])),
-  };
-}
-
-function updatePiPlugins(runtime: Runtime, failures: Array<PluginFailure>): void {
-  const args = ["-p", "/claude:plugin update"];
-  writeLine(runtime.stdout, `Pi: pi ${args.join(" ")}`);
-  const result = runtime.run("pi", args, { stdout: "capture", stderr: "capture" });
-  if (result.status !== 0) {
-    failures.push({
-      diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
-      summary: `Pi: ${args.join(" ")} (exit ${result.status})`,
-    });
-  }
-}
-
-function writePiPlugins(runtime: Runtime, plugins: ReadonlyArray<Plugin>): void {
-  if (!runtime.commandExists("pi")) {
-    writeLine(runtime.stdout, "Skipping Pi plugins: 'pi' is not installed");
-    return;
-  }
-  if (!runtime.env.HOME) {
-    throw new Error("HOME is required to locate the Pi plugin config");
-  }
-  const configPath = join(runtime.env.HOME, ".pi/agent/claude-plugins.json");
-  const config = piPluginConfig(plugins);
-  const next = `${JSON.stringify(config, null, 2)}\n`;
-  let current: string | undefined;
-  try {
-    current = readFileSync(configPath, "utf8");
-  } catch {
-    current = undefined;
-  }
-  if (current === next) {
-    return;
-  }
-  writeLockFile(configPath, config);
-  writeLine(runtime.stdout, `Pi: wrote ${configPath}`);
-}
-
 const AgyPluginList = Schema.Array(Schema.Struct({ name: Schema.String }));
 
 function agyPluginSource(plugin: Plugin): string {
@@ -634,10 +586,6 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
 
-  writePiPlugins(runtime, plugins);
-  if (options.update && runtime.commandExists("pi")) {
-    updatePiPlugins(runtime, failures);
-  }
   syncAgyPlugins(runtime, plugins, failures, options.update);
   linkT3AgyPlugins(runtime);
   writeAgentTrust(runtime, profile.capabilities);

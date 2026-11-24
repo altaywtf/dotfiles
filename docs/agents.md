@@ -15,15 +15,15 @@ start with a `##` heading. Apply renders `~/.agents/AGENTS.md`, which
 `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link to. Apply replaces these
 files without backup, so keep private edits in fragments:
 
-| File                                      | Effect                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.config/dotfiles/agents.start.md`      | Markdown before the shared rules                                                                                                                                                                                                                                                                                                                                             |
-| `~/.config/dotfiles/agents.end.md`        | Markdown after the shared rules                                                                                                                                                                                                                                                                                                                                              |
-| `~/.config/dotfiles/claude-automode.json` | Claude `autoMode`; without it, `autoMode` is kept                                                                                                                                                                                                                                                                                                                            |
-| `~/.config/dotfiles/claude-settings.json` | Deep-merged over the managed Claude settings                                                                                                                                                                                                                                                                                                                                 |
-| `~/.config/dotfiles/codex.json`           | Codex key paths to values; each replaces the managed value                                                                                                                                                                                                                                                                                                                   |
-| `~/.config/dotfiles/codex.rules`          | Renders to `~/.codex/rules/local.rules`                                                                                                                                                                                                                                                                                                                                      |
-| `~/.config/dotfiles/t3-gateway.json`      | Personal workstations and devboxes: T3 Code, the Codex CLI and app, and the `claude` shell command run on their usual homes, plugins and MCPs, but through the `baseUrl` gateway with the `keyCommand` key. Pi's Anthropic and OpenAI providers use the same gateway. The Claude desktop app keeps its own login. `keyCommand` runs without your shell's `PATH` or directory |
+| File                                      | Effect                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `~/.config/dotfiles/agents.start.md`      | Markdown before the shared rules                                                                                                                                                                                                                                                                                   |
+| `~/.config/dotfiles/agents.end.md`        | Markdown after the shared rules                                                                                                                                                                                                                                                                                    |
+| `~/.config/dotfiles/claude-automode.json` | Claude `autoMode`; without it, `autoMode` is kept                                                                                                                                                                                                                                                                  |
+| `~/.config/dotfiles/claude-settings.json` | Deep-merged over the managed Claude settings                                                                                                                                                                                                                                                                       |
+| `~/.config/dotfiles/codex.json`           | Codex key paths to values; each replaces the managed value                                                                                                                                                                                                                                                         |
+| `~/.config/dotfiles/codex.rules`          | Renders to `~/.codex/rules/local.rules`                                                                                                                                                                                                                                                                            |
+| `~/.config/dotfiles/t3-gateway.json`      | Personal workstations and devboxes: T3 Code, the Codex CLI and app, and the `claude` shell command run on their usual homes, plugins and MCPs, but through the `baseUrl` gateway with the `keyCommand` key. The Claude desktop app keeps its own login. `keyCommand` runs without your shell's `PATH` or directory |
 
 - Each fragment, or its symlink target, must be owned by the user and
   writable by nobody else.
@@ -71,19 +71,15 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   exclusive.
 - A plugin `marketplace` is `owner/repo`, an HTTPS or SSH Git URL, or an
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
-- Pi gets every Claude plugin through `pi-claude-marketplace`: sync owns
-  `~/.pi/agent/claude-plugins.json`, so add Pi-only plugins with
-  `/claude:plugin install --local`.
 - When `agy` is installed, plugin sync installs Claude-layer plugins into
   `~/.gemini/config/plugins/` and links each enabled plugin into existing T3
   Code Antigravity profiles under `~/.t3/userdata/providers/antigravity/*/config/plugins/`.
 - On personal and devbox profiles, sync also trusts `~/projects` and
-  `~/.t3/worktrees` in `~/.pi/agent/trust.json`; it only adds entries, so
-  manage other folders with Pi's `/trust`.
+  `~/.t3/worktrees` for Antigravity; it only adds entries.
 
 ## MCP Authentication
 
-Plugin-shipped MCPs sign in through each harness's MCP menu (`/mcp` in Pi). For manifest
+Plugin-shipped MCPs sign in through each harness's MCP menu. For manifest
 MCPs, `mise run agents:doctor` prints a repair command per row.
 
 Over SSH, run the login under `ssh -t` and forward the printed loopback port

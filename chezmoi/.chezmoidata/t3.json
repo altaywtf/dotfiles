@@ -41,18 +41,6 @@
       "sidebarAutoSettleOnMerge": false,
       "favorites": [
         {
-          "provider": "pi",
-          "model": "anthropic/claude-fable-5-2"
-        },
-        {
-          "provider": "pi",
-          "model": "anthropic/claude-opus-5-5"
-        },
-        {
-          "provider": "pi",
-          "model": "anthropic/claude-sonnet-5-5"
-        },
-        {
           "provider": "claudeAgent",
           "model": "claude-fable-5-2"
         },

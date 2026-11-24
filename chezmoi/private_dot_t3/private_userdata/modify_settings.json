@@ -9,8 +9,9 @@
 {{- $settings = $settings | setValueAtPath $key $value -}}
 {{- end -}}
 {{- $profile := includeTemplate "profile" . | fromJson -}}
-{{- $settings = $settings | setValueAtPath "providerInstances.pi.driver" "pi" | setValueAtPath "providerInstances.pi.enabled" true -}}
-{{- $_ := unset $settings.providerInstances.pi "displayName" -}}
+{{- if dig "providerInstances" "pi" "" $settings -}}
+{{- $settings = $settings | setValueAtPath "providerInstances.pi.enabled" false -}}
+{{- end -}}
 {{- if $profile.capabilities.personal -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.antigravity.driver" "antigravity" | setValueAtPath "providerInstances.antigravity.enabled" true -}}
 {{- end -}}
