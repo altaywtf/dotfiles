@@ -4,8 +4,9 @@ import { configureExternalCapabilities } from "./external-capabilities.ts";
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { resolve } from "node:path";
-import { CommandRunner } from "../lib/command.ts";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { CommandRunner, runCommand } from "../lib/command.ts";
 import { commandAvailable } from "../lib/command-available.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import {
@@ -18,7 +19,7 @@ import {
   withLocalBrewfile,
 } from "./homebrew.ts";
 import { normalizeProfile, profileModelFile } from "../profiles/current.ts";
-import { readProfileModelEffect } from "../profiles/model.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const usage = `Usage:
@@ -106,6 +107,25 @@ const execute = Effect.fn("executeBrewBundleCommand")(function* (
   }
 });
 
+const headlessCasks = ["antigravity-cli"];
+
+const releaseHeadlessCasks = Effect.fn("releaseHeadlessCasks")(function* () {
+  const caskroom = yield* runCommand("brew", ["--caskroom"]);
+  if (caskroom.status !== 0) {
+    return yield* fail(`brew --caskroom exited ${caskroom.status}`);
+  }
+  for (const cask of headlessCasks) {
+    const path = join(caskroom.stdout.trim(), cask);
+    if (!existsSync(path)) {
+      continue;
+    }
+    const result = yield* runCommand("/usr/bin/xattr", ["-dr", "com.apple.quarantine", path]);
+    if (result.status !== 0) {
+      return yield* fail(`clearing quarantine on ${path} exited ${result.status}`);
+    }
+  }
+});
+
 const program = Effect.gen(function* () {
   const raw = process.argv.slice(2);
   if (raw.length === 1 && (raw[0] === "-h" || raw[0] === "--help")) {
@@ -130,6 +150,7 @@ const program = Effect.gen(function* () {
     return yield* fail("brew is required before running this script");
   }
   const external = yield* configureExternalCapabilities(repoRoot, model, profile);
+  const headless = !args.sharedOnly && requireProfile(model, profile).capabilities.devbox;
   if (args.maintenance) {
     const checks = yield* Effect.forEach(files, (file) =>
       runHomebrewRaw(
@@ -146,6 +167,9 @@ const program = Effect.gen(function* () {
     );
     if (checks.every((result) => result.status === 0)) {
       yield* Console.log("All declared Homebrew packages are installed.");
+      if (headless) {
+        yield* releaseHeadlessCasks();
+      }
       return;
     }
   }
@@ -156,6 +180,9 @@ const program = Effect.gen(function* () {
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile };
     const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
     yield* execute("brew", bundleArgs, env);
+  }
+  if (headless) {
+    yield* releaseHeadlessCasks();
   }
   if (!args.cleanup) {
     return;
