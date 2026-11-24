@@ -3,3 +3,5 @@
 # mise shims, the dotfiles agent launchers, and ~/.local/bin.
 # Sort after the distro 99-environment.conf import so its baseline is preserved.
 PATH={{ .chezmoi.homeDir }}/.local/share/mise/shims:{{ .chezmoi.homeDir }}/.local/libexec/dotfiles/bin:{{ .chezmoi.homeDir }}/.local/bin:${PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}
+T3CODE_TELEMETRY_ENABLED=false
+T3CODE_OTEL_SDK_DISABLED=true

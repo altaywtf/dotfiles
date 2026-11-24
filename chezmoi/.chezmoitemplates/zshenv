@@ -10,6 +10,9 @@ path+=(/usr/local/bin /usr/bin /bin /usr/sbin /sbin)
 typeset -U path PATH
 export PATH
 
+export T3CODE_TELEMETRY_ENABLED="false"
+export T3CODE_OTEL_SDK_DISABLED="true"
+
 if [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
   export HOMEBREW_NO_AUTO_UPDATE="1"
 fi
