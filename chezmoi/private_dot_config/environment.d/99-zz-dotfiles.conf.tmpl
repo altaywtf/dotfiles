@@ -1,11 +1,5 @@
-{{- $profile := includeTemplate "profile" . | fromJson -}}
-{{- $t3Gateway := and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json")) -}}
 # systemd user services (the maintenance timer) do not read shell
 # startup files. This gives the user manager the same PATH front as .zprofile:
 # mise shims, the dotfiles agent launchers, and ~/.local/bin.
 # Sort after the distro 99-environment.conf import so its baseline is preserved.
 PATH={{ .chezmoi.homeDir }}/.local/share/mise/shims:{{ .chezmoi.homeDir }}/.local/libexec/dotfiles/bin:{{ .chezmoi.homeDir }}/.local/bin:${PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}
-{{ if or $profile.capabilities.workstation $t3Gateway -}}
-T3CODE_TELEMETRY_ENABLED=false
-T3CODE_OTEL_SDK_DISABLED=true
-{{ end -}}
