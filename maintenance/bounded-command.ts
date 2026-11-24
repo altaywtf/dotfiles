@@ -93,8 +93,14 @@ export class BoundedCommand extends Context.Service<
         .pipe(
           Effect.flatMap((result) =>
             result.status === 0
-              ? Effect.try(() => parseProcesses(result.stdout))
-              : Effect.fail(new Error("Process inventory failed")),
+              ? Effect.try({
+                  try: () => parseProcesses(result.stdout),
+                  catch: (cause) =>
+                    new Error(`ps output did not parse: ${String(cause).slice(0, 200)}`, { cause }),
+                })
+              : Effect.fail(
+                  new Error(`ps exited ${result.status}: ${result.stderr.trim().slice(-200)}`),
+                ),
           ),
           Effect.retry({ times: 2, schedule: Schedule.spaced("50 millis") }),
         );
@@ -110,15 +116,15 @@ export class BoundedCommand extends Context.Service<
         let rootPid = 0;
         let completed = false;
         let cleanupComplete = true;
-        let inventoryFailed = false;
         let inventoryFailures = 0;
+        let lastInventoryError = "";
         let rootInspected = false;
         const observe = Effect.gen(function* () {
           const rows = yield* snapshot.pipe(
-            Effect.tapError(() =>
+            Effect.tapError((error) =>
               Effect.sync(() => {
-                inventoryFailed = true;
                 inventoryFailures += 1;
+                lastInventoryError = error.message;
               }),
             ),
           );
@@ -172,7 +178,7 @@ export class BoundedCommand extends Context.Service<
           yield* Effect.sleep(graceMs);
           yield* signal("SIGKILL");
           yield* Effect.sleep(Math.min(intervalMs, 100));
-          cleanupComplete = (yield* observe).length === 0 && owned.has(rootPid) && !inventoryFailed;
+          cleanupComplete = (yield* observe).length === 0 && owned.has(rootPid);
         }).pipe(
           Effect.timeout(graceMs + 10_000),
           Effect.catch(() =>
@@ -286,11 +292,11 @@ export class BoundedCommand extends Context.Service<
             );
             yield* cleanup;
           } else {
-            const remaining = yield* observe.pipe(Effect.catch(() => Effect.succeed([])));
-            if (remaining.length > 0) {
-              yield* cleanup;
-            } else if (inventoryFailed || !owned.has(rootPid)) {
+            const remaining = yield* observe.pipe(Effect.option);
+            if (Option.isNone(remaining) || !owned.has(rootPid)) {
               cleanupComplete = false;
+            } else if (remaining.value.length > 0) {
+              yield* cleanup;
             }
           }
           completed = true;
@@ -300,7 +306,7 @@ export class BoundedCommand extends Context.Service<
               Effect.catch(() => Effect.succeed(-1)),
             );
             yield* Console.error(
-              `Cleanup proof missing: ${inventoryFailures} failed process inventories, root ${owned.has(rootPid) ? "recorded" : "not recorded"}, ${alive < 0 ? "survivors unknown" : `${alive} survivors`}.`,
+              `Cleanup proof missing: ${inventoryFailures} failed process inventories${lastInventoryError ? ` (last: ${lastInventoryError})` : ""}, root ${owned.has(rootPid) ? "recorded" : "not recorded"}, ${alive < 0 ? "survivors unknown" : `${alive} survivors`}.`,
             );
           }
           return { ...outcome, diagnosticPath, cleanupComplete };

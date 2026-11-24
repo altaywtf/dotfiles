@@ -246,6 +246,27 @@ test("a transient inventory failure does not void cleanup proof", async (t) => {
   assert.deepEqual(result, { status: 0, ...clean });
 });
 
+test("a failed watcher inventory does not void cleanup proof once the final inventory is clean", async (t) => {
+  let calls = 0;
+  const result = await Effect.runPromise(
+    execute(
+      "setTimeout(()=>{},300)",
+      { diagnosticDirectory: await diagnostics(t), timeoutMs: 2000, pollIntervalMs: 10 },
+      (real) => ({
+        run: (command, args, options) =>
+          Effect.suspend(() => {
+            if (command !== "/bin/ps") {
+              return real.run(command, args, options);
+            }
+            calls += 1;
+            return calls >= 2 && calls <= 4 ? invalidRow() : real.run(command, args, options);
+          }),
+      }),
+    ),
+  );
+  assert.deepEqual(result, { status: 0, ...clean });
+});
+
 test("a missed root identity cannot certify cleanup even when the command exits normally", async (t) => {
   const result = await Effect.runPromise(
     execute(
