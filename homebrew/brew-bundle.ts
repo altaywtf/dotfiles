@@ -119,7 +119,17 @@ const releaseHeadlessCasks = Effect.fn("releaseHeadlessCasks")(function* () {
     if (!existsSync(path)) {
       continue;
     }
-    const result = yield* runCommand("/usr/bin/xattr", ["-dr", "com.apple.quarantine", path]);
+    const result = yield* runCommand("/usr/bin/find", [
+      path,
+      "-xattrname",
+      "com.apple.quarantine",
+      "-exec",
+      "/usr/bin/xattr",
+      "-d",
+      "com.apple.quarantine",
+      "{}",
+      "+",
+    ]);
     if (result.status !== 0) {
       return yield* fail(`clearing quarantine on ${path} exited ${result.status}`);
     }
