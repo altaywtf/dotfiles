@@ -23,6 +23,9 @@ cask "android-commandlinetools"
 brew "ffmpeg"
 brew "webp"
 
+# Agent tools
+cask "antigravity-cli"
+
 # Containers
 brew "colima"
 brew "docker"

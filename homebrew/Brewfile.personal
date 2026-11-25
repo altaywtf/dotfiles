@@ -8,6 +8,3 @@ brew "asc"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
-
-# Agent tools
-cask "antigravity-cli"
