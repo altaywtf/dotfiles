@@ -1,5 +1,8 @@
 {{ $profile := includeTemplate "profile" . | fromJson }}
 .config/dotfiles/zshenv.local
+{{ if not (and $profile.capabilities.workstation (or (stat (joinPath .chezmoi.homeDir ".config/dotfiles/agents.start.md")) (stat (joinPath .chezmoi.homeDir ".config/dotfiles/agents.end.md")))) }}
+.cursor
+{{ end }}
 {{ if not $profile.capabilities.workstation }}
 .config/zed
 Library/Application Support/com.mitchellh.ghostty

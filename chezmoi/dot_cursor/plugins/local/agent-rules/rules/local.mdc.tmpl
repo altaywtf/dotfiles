@@ -1,0 +1,10 @@
+{{- $start := trim (includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/agents.start.md")) -}}
+{{- $end := trim (includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/agents.end.md")) -}}
+---
+description: Machine-local agent rules
+alwaysApply: true
+---
+
+{{ if ne $start "" }}{{ $start }}
+
+{{ end }}{{ $end }}

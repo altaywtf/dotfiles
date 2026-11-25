@@ -1,0 +1,5 @@
+{
+  "name": "agent-rules",
+  "displayName": "Agent rules",
+  "description": "Machine-local agent rules from ~/.config/dotfiles fragments."
+}

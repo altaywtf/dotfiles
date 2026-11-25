@@ -78,6 +78,10 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   `~/.t3/worktrees` for Antigravity; it only adds entries.
 - `grok` reads Claude Code's rules, skills, plugins and MCPs itself; sync
   installs nothing for it.
+- Cursor has no global rules file. On workstations with `agents.start.md` or
+  `agents.end.md`, apply renders them as the always-applied `local` rule of
+  the `~/.cursor/plugins/local/agent-rules` plugin; the shared rules reach
+  Cursor through the ffss plugin. Reload the Cursor window to pick up changes.
 
 ## MCP Authentication
 
