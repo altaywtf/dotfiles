@@ -18,8 +18,8 @@
 {{- $model := dict "model" $id "model_provider" (printf "gateway-%s" (index $spec 0)) "context_window" (index $spec 1) -}}
 {{- $config = $config | setValueAtPath (list "model" $id) $model -}}
 {{- end -}}
-{{- if not (dig "models" "default" "" $config) -}}
-{{- $config = $config | setValueAtPath (list "models" "default") "claude-opus-5-5" -}}
+{{- if has (dig "models" "default" "" $config) (list "" "claude-opus-5-5") -}}
+{{- $config = $config | setValueAtPath (list "models" "default") "grok-4.7" -}}
 {{- end -}}
 {{- end -}}
 {{ if eq (toToml $config) $before }}{{ .chezmoi.stdin }}{{ else }}{{ toToml $config }}{{ end -}}
