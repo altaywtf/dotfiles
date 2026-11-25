@@ -221,7 +221,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             attribution: undefined,
             syncClaudeAiPlugins: undefined,
             autoMemoryDirectory: memoryDirectory,
-            autoMemoryEnabled: true,
+            autoMemoryEnabled: false,
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
         );
@@ -231,7 +231,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.autoCompactWindow, 400_000);
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.syncClaudeAiPlugins, false);
-        assert.equal(actual.autoMemoryEnabled, true);
+        assert.equal(actual.autoMemoryEnabled, false);
         assert.equal(actual.autoMemoryDirectory, memoryDirectory);
         assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
         assert.equal(actual.permissions?.[managedMode], "auto");
@@ -250,7 +250,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
   const written = decodeSettings(readFileSync(path, "utf8"));
-  assert.equal(written.autoMemoryEnabled, true);
+  assert.equal(written.autoMemoryEnabled, false);
   assert.equal(written.autoMemoryDirectory, memoryDirectory);
   assert.equal(written.permissions?.[managedMode], "auto");
   assert.deepEqual(written.env, managedEnv);
@@ -275,7 +275,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
-  assert.equal(decodeSettings(firstContents).autoMemoryEnabled, true);
+  assert.equal(decodeSettings(firstContents).autoMemoryEnabled, false);
   assert.equal(decodeSettings(firstContents).autoMemoryDirectory, memoryDirectory);
   assert.equal(decodeSettings(firstContents).model, "claude-opus-5-5[1m]");
   assert.equal(
