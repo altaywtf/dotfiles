@@ -14,6 +14,7 @@
 {{- end -}}
 {{- if $profile.capabilities.personal -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.antigravity.driver" "antigravity" | setValueAtPath "providerInstances.antigravity.enabled" true -}}
+{{- $settings = $settings | setValueAtPath "linkedEnvironmentsEnabled" true -}}
 {{- end -}}
 {{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
 {{- if and $profile.capabilities.personal (stat $gatewayPath) -}}

@@ -6,7 +6,8 @@
 {{- /* T3 Code rewrites this file in its own key order; keep its bytes when nothing managed changed. */ -}}
 {{- $before := toJson $settings -}}
 {{- $profile := includeTemplate "profile" . | fromJson -}}
-{{- if and $profile.capabilities.workstation $profile.capabilities.personal -}}
+{{- $service := joinPath .chezmoi.homeDir "Library/LaunchAgents/com.t3tools.t3code.service.plist" -}}
+{{- if and $profile.capabilities.workstation $profile.capabilities.personal (stat $service) -}}
 {{- range $key, $value := .t3.personalDesktopSettings -}}
 {{- $settings = $settings | setValueAtPath $key $value -}}
 {{- end -}}

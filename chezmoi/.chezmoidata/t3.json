@@ -60,8 +60,7 @@
           "provider": "codex",
           "model": "gpt-6.2-astra"
         }
-      ],
-      "linkedEnvironmentsEnabled": true
+      ]
     },
     "clientSettings": {
       "notificationMode": "off",
