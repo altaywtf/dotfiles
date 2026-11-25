@@ -108,6 +108,9 @@ Profile checks fail while Spotlight indexes. To keep indexing, skip
   removes unused bundled App Store apps; it may prompt for a password.
 - Quit Chrome, then run `./bootstrap/darwin/configure-chrome.ts`. Rerun it
   after adding a Chrome profile.
+- On `personal-workstation`, the T3 Code app runs no local server. Quit it,
+  run `~/.t3/bin/t3 up` once to install the background service, then pair the
+  app with `t3 pair`.
 
 ### Devbox Options
 

@@ -118,6 +118,9 @@
       "snapShotEnabled": false,
       "wordWrap": true,
       "mathRenderingEnabled": false
+    },
+    "personalDesktopSettings": {
+      "localEnvironmentEnabled": false
     }
   }
 }
