@@ -13,10 +13,9 @@
 {{- $provider := dict "base_url" $gateway.baseUrl "api_backend" $backend "auth_provider" "gateway" -}}
 {{- $config = $config | setValueAtPath (list "model_providers" (printf "gateway-%s" $backend)) $provider -}}
 {{- end -}}
-{{- $models := dict "claude-opus-5-5" "messages" "claude-sonnet-5-5" "messages" "claude-fable-5-2" "messages" "gpt-6.2-sol" "responses" "gpt-6.2-astra" "responses" -}}
-{{- range $id, $backend := $models -}}
-{{- $window := ternary 200000 272000 (eq $backend "messages") -}}
-{{- $model := dict "model" $id "model_provider" (printf "gateway-%s" $backend) "context_window" $window -}}
+{{- $models := dict "claude-opus-5-5" (list "messages" 200000) "claude-sonnet-5-5" (list "messages" 200000) "claude-fable-5-2" (list "messages" 200000) "gpt-6.2-sol" (list "responses" 272000) "gpt-6.2-astra" (list "responses" 272000) "grok-4.7" (list "responses" 500000) "grok-4.7-build-fast" (list "responses" 500000) -}}
+{{- range $id, $spec := $models -}}
+{{- $model := dict "model" $id "model_provider" (printf "gateway-%s" (index $spec 0)) "context_window" (index $spec 1) -}}
 {{- $config = $config | setValueAtPath (list "model" $id) $model -}}
 {{- end -}}
 {{- if not (dig "models" "default" "" $config) -}}
