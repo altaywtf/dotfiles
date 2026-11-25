@@ -1,25 +1,27 @@
 {{- /* chezmoi:modify-template */ -}}
+{{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
+{{- if not (and $profile.capabilities.personal (stat $gatewayPath)) -}}
+{{ .chezmoi.stdin }}
+{{- else -}}
 {{- $config := dict -}}
 {{- if ne (trim .chezmoi.stdin) "" -}}
 {{- $config = fromToml .chezmoi.stdin -}}
 {{- end -}}
 {{- $before := toToml $config -}}
-{{- $profile := includeTemplate "profile" . | fromJson -}}
-{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
-{{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
 {{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
 {{- $config = $config | setValueAtPath (list "auth_provider" "gateway" "command") $gateway.keyCommand -}}
 {{- range $backend := list "messages" "responses" -}}
-{{- $provider := dict "base_url" $gateway.baseUrl "api_backend" $backend "auth_provider" "gateway" -}}
-{{- $config = $config | setValueAtPath (list "model_providers" (printf "gateway-%s" $backend)) $provider -}}
+{{- $provider := list "model_providers" (printf "gateway-%s" $backend) -}}
+{{- $config = $config | setValueAtPath (append $provider "base_url") $gateway.baseUrl | setValueAtPath (append $provider "api_backend") $backend | setValueAtPath (append $provider "auth_provider") "gateway" -}}
 {{- end -}}
 {{- $models := dict "claude-opus-5-5" (list "messages" 200000) "claude-sonnet-5-5" (list "messages" 200000) "claude-fable-5-2" (list "messages" 200000) "gpt-6.2-sol" (list "responses" 272000) "gpt-6.2-astra" (list "responses" 272000) "grok-4.7" (list "responses" 500000) "grok-4.7-build-fast" (list "responses" 500000) -}}
 {{- range $id, $spec := $models -}}
-{{- $model := dict "model" $id "model_provider" (printf "gateway-%s" (index $spec 0)) "context_window" (index $spec 1) -}}
-{{- $config = $config | setValueAtPath (list "model" $id) $model -}}
+{{- $model := list "model" $id -}}
+{{- $config = $config | setValueAtPath (append $model "model") $id | setValueAtPath (append $model "model_provider") (printf "gateway-%s" (index $spec 0)) | setValueAtPath (append $model "context_window") (index $spec 1) -}}
 {{- end -}}
-{{- if has (dig "models" "default" "" $config) (list "" "claude-opus-5-5") -}}
+{{- if not (dig "models" "default" "" $config) -}}
 {{- $config = $config | setValueAtPath (list "models" "default") "grok-4.7" -}}
 {{- end -}}
-{{- end -}}
 {{ if eq (toToml $config) $before }}{{ .chezmoi.stdin }}{{ else }}{{ toToml $config }}{{ end -}}
+{{- end -}}

@@ -40,6 +40,18 @@
       "groupName": "mise CLI patch and minor"
     },
     {
+      "description": "Grok updates come from the custom datasource, which carries no release dates",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["grok"],
+      "enabled": false
+    },
+    {
+      "description": "Grok releases have no timestamp for the release age gate",
+      "matchDatasources": ["custom.grok"],
+      "minimumReleaseAge": null,
+      "schedule": ["at any time"]
+    },
+    {
       "description": "Keep repository and installed pnpm together in one push",
       "matchPackageNames": ["pnpm"],
       "groupName": "pnpm"

@@ -1,0 +1,15 @@
+{{- $parts := list -}}
+{{- range $name := list "agents.start.md" "agents.end.md" -}}
+{{- $text := trim (includeTemplate "fragment" (joinPath $.chezmoi.homeDir ".config/dotfiles" $name)) -}}
+{{- if ne $text "" -}}
+{{- $parts = append $parts $text -}}
+{{- end -}}
+{{- end -}}
+{{- if $parts -}}
+---
+description: Machine-local agent rules
+alwaysApply: true
+---
+
+{{ join "\n\n" $parts }}
+{{ end -}}
