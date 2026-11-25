@@ -65,7 +65,21 @@
       "automerge": true
     }
   ],
+  "customDatasources": {
+    "grok": {
+      "defaultRegistryUrlTemplate": "https://x.ai/cli/stable",
+      "format": "plain"
+    }
+  },
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Grok CLI, which Renovate's mise manager does not resolve",
+      "managerFilePatterns": ["/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"],
+      "matchStrings": ["\\ngrok = \"(?<currentValue>[0-9.]+)\""],
+      "depNameTemplate": "grok",
+      "datasourceTemplate": "custom.grok"
+    },
     {
       "customType": "regex",
       "description": "npm installed by the mise runtime package task",

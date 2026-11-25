@@ -1,0 +1,26 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $config := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $config = fromToml .chezmoi.stdin -}}
+{{- end -}}
+{{- $before := toToml $config -}}
+{{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
+{{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
+{{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
+{{- $config = $config | setValueAtPath (list "auth_provider" "gateway" "command") $gateway.keyCommand -}}
+{{- range $backend := list "messages" "responses" -}}
+{{- $provider := dict "base_url" $gateway.baseUrl "api_backend" $backend "auth_provider" "gateway" -}}
+{{- $config = $config | setValueAtPath (list "model_providers" (printf "gateway-%s" $backend)) $provider -}}
+{{- end -}}
+{{- $models := dict "claude-opus-5-5" "messages" "claude-sonnet-5-5" "messages" "claude-fable-5-2" "messages" "gpt-6.2-sol" "responses" "gpt-6.2-astra" "responses" -}}
+{{- range $id, $backend := $models -}}
+{{- $window := ternary 200000 272000 (eq $backend "messages") -}}
+{{- $model := dict "model" $id "model_provider" (printf "gateway-%s" $backend) "context_window" $window -}}
+{{- $config = $config | setValueAtPath (list "model" $id) $model -}}
+{{- end -}}
+{{- if not (dig "models" "default" "" $config) -}}
+{{- $config = $config | setValueAtPath (list "models" "default") "claude-opus-5-5" -}}
+{{- end -}}
+{{- end -}}
+{{ if eq (toToml $config) $before }}{{ .chezmoi.stdin }}{{ else }}{{ toToml $config }}{{ end -}}
