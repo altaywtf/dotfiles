@@ -114,6 +114,17 @@ const fixtures: Array<Fixture> = [
     profile: "personal-workstation",
     expected: { env: { ENABLE_CLAUDEAI_MCP_SERVERS: "false", KEEP: "yes" } },
   },
+  {
+    contents: '{"enabledPlugins":{"altaywtf@altaywtf":true,"ffss@ffss":false,"kept@inline":true}}',
+    expected: {
+      enabledPlugins: {
+        "altaywtf@altaywtf": true,
+        "altaywtf@inline": false,
+        "ffss@ffss": false,
+        "kept@inline": true,
+      },
+    },
+  },
   { contents: '{"env":', malformed: true },
 ];
 
