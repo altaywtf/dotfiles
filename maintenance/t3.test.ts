@@ -36,3 +36,18 @@ test("the scheduled update stages a release without restarting the service", (t)
   assert.equal(stageT3Update(root), 0);
   assert.equal(readFileSync(join(root, "args-0.1.12"), "utf8").trim(), "update");
 });
+
+test("the update lists releases with the GitHub CLI token", (t) => {
+  const root = home(["0.1.12"]);
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "gh"), "#!/bin/sh\necho gh-token\n");
+  chmodSync(join(bin, "gh"), 0o755);
+  writeFileSync(
+    join(root, ".t3/runtime/versions/0.1.12/t3"),
+    `#!/bin/sh\nprintf '%s' "$GH_TOKEN" > "${root}/token"\n`,
+  );
+  assert.equal(stageT3Update(root, { PATH: `${bin}:/usr/bin:/bin` }), 0);
+  assert.equal(readFileSync(join(root, "token"), "utf8"), "gh-token");
+});

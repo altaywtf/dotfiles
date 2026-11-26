@@ -30,13 +30,29 @@ export function newestT3(home: string): string | undefined {
   return newest && join(root, newest, "t3");
 }
 
-export function stageT3Update(home: string): number {
+function withGitHubToken(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (env.GH_TOKEN?.trim() || env.GITHUB_TOKEN?.trim()) {
+    return env;
+  }
+  const gh = spawnSync("gh", ["auth", "token"], {
+    encoding: "utf8",
+    env,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const token = gh.status === 0 ? gh.stdout.trim() : "";
+  return token ? { ...env, GH_TOKEN: token } : env;
+}
+
+export function stageT3Update(home: string, env: NodeJS.ProcessEnv = process.env): number {
   const t3 = newestT3(home);
   if (!t3) {
     process.stdout.write("T3 Code: no runtime on this host\n");
     return 0;
   }
-  const result = spawnSync(t3, ["update"], { stdio: ["ignore", "inherit", "inherit"] });
+  const result = spawnSync(t3, ["update"], {
+    stdio: ["ignore", "inherit", "inherit"],
+    env: withGitHubToken(env),
+  });
   if (result.error) {
     process.stderr.write(`T3 Code update failed to start: ${result.error.message}\n`);
     return 1;
