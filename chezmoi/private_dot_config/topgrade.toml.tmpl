@@ -25,8 +25,9 @@ autoremove = false
 
 {{ end -}}
 {{ if not .temporarySource -}}
-# Both commands run from the persistent checkout this profile was applied from.
+# These commands run from the persistent checkout this profile was applied from.
 [commands]
 "Managed dotfiles" = {{ printf "node %s/maintenance/converge.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}
+"T3 Code" = {{ printf "node %s/maintenance/t3.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}
 "Host hygiene" = {{ printf "node %s/maintenance/hygiene.ts --apply --scheduled" (.chezmoi.sourceDir | dir | quote) | toJson }}
 {{ end -}}

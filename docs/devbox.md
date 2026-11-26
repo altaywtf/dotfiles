@@ -46,6 +46,21 @@ calls:
 
 A narrow sudoers allowlist stays the authorization boundary.
 
+## Headless T3 Code
+
+A devbox runs the T3 Code server as a background service, without the app.
+Run `t3 up` from the newest runtime in `~/.t3/runtime/versions` to install it.
+A workstation reaches the devbox by pairing. Mint a code on the devbox, then
+link it from the workstation:
+
+```sh
+"$(ls -d ~/.t3/runtime/versions/*/t3 | sort -V | tail -1)" pair
+~/.t3/bin/t3 environment link https://<devbox>.<tailnet>.ts.net/ --pairing-code <code> --access auto
+```
+
+The scheduled update stages each release; [restart](software-updates.md#t3-code)
+the service yourself.
+
 ## Updates and Cleanup
 
 - macOS: enroll [headless updates](software-updates.md#headless-devbox-updates)

@@ -32,6 +32,21 @@ applies the profile, without rollback. A dirty, ahead, detached, or diverged
 checkout, or [rule-fragment](agents.md#global-rules) checkout, skips with only
 a warning, so push or discard local work.
 
+## T3 Code
+
+[t3.ts](../maintenance/t3.ts) runs `t3 update` from the newest runtime in
+`~/.t3/runtime/versions`, on any host that has one. It downloads the release
+and moves the background service to it, but never restarts the service, since
+a restart stops running agent turns. `maintenance:check` reports
+`t3_service` until the restart. Restart when the host is idle:
+
+```sh
+"$(ls -d ~/.t3/runtime/versions/*/t3 | sort -V | tail -1)" service restart
+```
+
+If the status still names a repair, run `service install` from the same
+binary.
+
 ## Host Hygiene
 
 Preview before deleting anything:
