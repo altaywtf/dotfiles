@@ -2,19 +2,19 @@
   "skills": [
     {
       "name": "codebase-design",
-      "source": "https://github.com/mattpocock/skills/tree/d65391149dbb5fe76478e76fa8d5122b2aa5a70e"
+      "source": "https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     {
       "name": "create-formal-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388"
+      "source": "https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665"
     },
     {
       "name": "create-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388"
+      "source": "https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665"
     },
     {
       "name": "diagnosing-bugs",
-      "source": "https://github.com/mattpocock/skills/tree/d65391149dbb5fe76478e76fa8d5122b2aa5a70e"
+      "source": "https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     {
       "name": "effect-ts",
@@ -22,11 +22,11 @@
     },
     {
       "name": "grilling",
-      "source": "https://github.com/mattpocock/skills/tree/d65391149dbb5fe76478e76fa8d5122b2aa5a70e"
+      "source": "https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     {
       "name": "handoff",
-      "source": "https://github.com/mattpocock/skills/tree/d65391149dbb5fe76478e76fa8d5122b2aa5a70e"
+      "source": "https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     {
       "name": "install-anti-slop",
@@ -34,11 +34,11 @@
     },
     {
       "name": "maintain-formal-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388"
+      "source": "https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665"
     },
     {
       "name": "maintain-verification-skill",
-      "source": "https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388"
+      "source": "https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665"
     },
     {
       "name": "security-audit",
@@ -46,11 +46,11 @@
     },
     {
       "name": "statechart",
-      "source": "https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388"
+      "source": "https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665"
     },
     {
       "name": "writing-for-agents",
-      "source": "https://github.com/mattpocock/skills/tree/d65391149dbb5fe76478e76fa8d5122b2aa5a70e"
+      "source": "https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a"
     }
   ]
 }
