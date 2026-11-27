@@ -10,7 +10,6 @@ import {
   rmSync,
   statSync,
   writeFileSync,
-  watch,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { logDirectory } from "./logs.ts";
@@ -18,6 +17,7 @@ import { hygiene, readState } from "./hygiene.ts";
 import { join } from "node:path";
 import { Predicate } from "effect";
 import { test } from "vite-plus/test";
+import { waitForPid } from "../verify/pid-fixture.ts";
 
 function killIfAlive(pid: number): void {
   try {
@@ -97,27 +97,12 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
         fs.writeFileSync(${JSON.stringify(stopped)}, 'stopped');
         process.exit(0);
       }, 50));
-      fs.writeFileSync(${JSON.stringify(ready + ".tmp")}, String(process.pid));
-      fs.renameSync(${JSON.stringify(ready + ".tmp")}, ${JSON.stringify(ready)});
+      fs.writeFileSync(${JSON.stringify(ready)}, String(process.pid));
       setInterval(() => {}, 1000);
     `,
         { mode: 0o755 },
       );
       let childPid: number | undefined;
-      let watcher: ReturnType<typeof watch> | undefined;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const childReady = new Promise<void>((resolveReady, reject) => {
-        watcher = watch(home, (_event, filename) => {
-          if (filename !== "ready") {
-            return;
-          }
-          childPid = Number(readFileSync(ready, "utf8"));
-          clearTimeout(timer);
-          watcher?.close();
-          resolveReady();
-        });
-        timer = setTimeout(() => reject(new Error("synthetic cache child did not start")), 5000);
-      });
       const parent = spawn(
         process.execPath,
         [join(import.meta.dirname, "hygiene.ts"), "--dry-run"],
@@ -140,8 +125,6 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
         },
       );
       t.onTestFinished(() => {
-        clearTimeout(timer);
-        watcher?.close();
         if (parent.exitCode === null && parent.signalCode === null) {
           parent.kill("SIGKILL");
         }
@@ -150,7 +133,8 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
         }
         rmSync(home, { recursive: true, force: true });
       });
-      await childReady;
+      const startedPid = await waitForPid(ready, 5000);
+      childPid = startedPid;
       assert.equal(existsSync(lock), true);
       parent.kill(signal);
       assert.deepEqual(await closed, { code: null, signal }, output);
@@ -160,9 +144,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
         false,
         "the hygiene finally block releases the lock before exit",
       );
-      const reapedPid = childPid;
-      assert.ok(reapedPid !== undefined);
-      assert.throws(() => process.kill(reapedPid, 0), { code: "ESRCH" });
+      assert.throws(() => process.kill(startedPid, 0), { code: "ESRCH" });
       childPid = undefined;
       assert.equal(
         existsSync(join(home, ".local/state/dotfiles/hygiene.json")),

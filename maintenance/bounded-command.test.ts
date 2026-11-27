@@ -9,6 +9,8 @@ import { Effect, Exit, Schema } from "effect";
 import { test } from "vite-plus/test";
 import type { TestContext } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
+import { processAlive } from "../lib/lock.ts";
+import { waitForPid } from "../verify/pid-fixture.ts";
 import { BoundedCommand } from "./bounded-command.ts";
 import type { BoundedCommandOptions } from "./bounded-command.ts";
 
@@ -44,29 +46,11 @@ const Diagnostic = Schema.fromJsonString(
   Schema.Struct({ processes: Schema.Array(Schema.Struct({ pid: Schema.Number })) }),
 );
 
-async function waitForPid(path: string): Promise<number> {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const pid = Number(await readFile(path, "utf8").catch(() => ""));
-    if (Number.isSafeInteger(pid) && pid > 0) {
-      return pid;
-    }
-    await delay(20);
-  }
-  throw new Error("Fixture did not start");
-}
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 const untilWorkerExits = `setInterval(()=>{try{process.kill(${process.pid},0)}catch{process.exit(0)}},500)`;
+const childScript = (path: string) =>
+  `require('node:fs').writeFileSync(${JSON.stringify(path)},String(process.pid)); process.on('SIGTERM',()=>{}); ${untilWorkerExits}`;
 const treeScript = (path: string) => `
-const {spawn}=require('node:child_process');
-const script = "require('node:fs').writeFileSync(" + JSON.stringify(${JSON.stringify(path)}) + ",String(process.pid)); process.on('SIGTERM',()=>{}); " + ${JSON.stringify(untilWorkerExits)};
-spawn(process.execPath,['-e',script],{detached:true,stdio:'ignore'}).unref();
+require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(childScript(path))}],{detached:true,stdio:'ignore'}).unref();
 process.on('SIGTERM',()=>{}); ${untilWorkerExits};
 `;
 
@@ -150,9 +134,9 @@ for (const diagnosticFailure of [false, true]) {
     assert.equal(result.status, 124);
     assert.equal(result.timedOut, true);
     assert.equal(result.cleanupComplete, true);
-    assert.equal(alive(child), false);
+    assert.equal(processAlive(child), false);
     assert.equal(unrelated.exitCode, null);
-    assert.ok(unrelated.pid && alive(unrelated.pid));
+    assert.ok(unrelated.pid && processAlive(unrelated.pid));
     if (diagnosticFailure) {
       assert.equal(result.diagnosticPath, undefined);
     } else {
@@ -202,7 +186,7 @@ test("cancellation cleans a detached child before returning", async (t) => {
   await delay(100);
   controller.abort();
   assert.equal(Exit.isFailure(await completion), true);
-  assert.equal(alive(child), false);
+  assert.equal(processAlive(child), false);
 });
 
 const invalidRow = () => Effect.succeed({ status: 0, stdout: "invalid process row", stderr: "" });

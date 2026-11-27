@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "vite-plus/test";
+import { processAlive } from "../lib/lock.ts";
+import { waitForPid } from "../verify/pid-fixture.ts";
 import { runProcess } from "./probes.ts";
 
 const processOptions = { cwd: process.cwd(), env: process.env, timeoutMs: 200 };
@@ -39,21 +41,8 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
   t.onTestFinished(async () => {
     try {
       const deadline = performance.now() + 5000;
-      while (true) {
-        try {
-          const pid = Number(await readFile(done, "utf8"));
-          process.kill(pid, 0);
-        } catch (error) {
-          if (!(error instanceof Error) || !("code" in error)) {
-            throw error;
-          }
-          if (error.code === "ESRCH") {
-            break;
-          }
-          if (error.code !== "ENOENT") {
-            throw error;
-          }
-        }
+      const pid = await waitForPid(done, 5000);
+      while (processAlive(pid)) {
         assert.ok(performance.now() < deadline, "descendant did not finish");
         await delay(20);
       }
@@ -146,8 +135,7 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
       "-e",
       `
     process.on('SIGTERM', () => {});
-    require('node:fs').writeFileSync(${JSON.stringify(`${ready}.tmp`)}, String(process.pid));
-    require('node:fs').renameSync(${JSON.stringify(`${ready}.tmp`)}, ${JSON.stringify(ready)});
+    require('node:fs').writeFileSync(${JSON.stringify(ready)}, String(process.pid));
     setTimeout(() => process.exit(9), 5000);
   `,
     ],
@@ -158,19 +146,7 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
     await completion;
     await rm(directory, { recursive: true, force: true });
   });
-  const deadline = performance.now() + 4000;
-  let pid: number | undefined;
-  while (pid === undefined) {
-    try {
-      pid = Number(await readFile(ready, "utf8"));
-    } catch (error) {
-      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
-        throw error;
-      }
-      assert.ok(performance.now() < deadline, "probe did not start");
-      await delay(20);
-    }
-  }
+  const pid = await waitForPid(ready, 4000);
   controller.abort();
   const result = await completion;
   assert.equal(result.timedOut, false);

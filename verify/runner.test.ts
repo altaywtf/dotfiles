@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
+import { processAlive } from "../lib/lock.ts";
+import { readPid } from "./pid-fixture.ts";
 import { runChecks } from "./run.ts";
 
 test("verification reports completed checks before a stalled child and cleans it up", async () => {
@@ -19,14 +21,8 @@ test("verification reports completed checks before a stalled child and cleans it
       const text = String(chunk);
       output.push(text);
       if (text.includes("FAILED: quick")) {
-        if (existsSync(pidFile)) {
-          try {
-            process.kill(Number(readFileSync(pidFile, "utf8")), 0);
-            failedBeforeTermination = true;
-          } catch {
-            failedBeforeTermination = false;
-          }
-        }
+        const pid = readPid(pidFile);
+        failedBeforeTermination = pid !== undefined && processAlive(pid);
       }
       return true;
     });
@@ -43,7 +39,7 @@ test("verification reports completed checks before a stalled child and cleans it
               "-e",
               `
         const fs = require('node:fs');
-        setInterval(() => { if (fs.existsSync(${JSON.stringify(pidFile)})) process.exit(7); }, 20);
+        setInterval(() => { if (fs.statSync(${JSON.stringify(pidFile)}, { throwIfNoEntry: false })?.size) process.exit(7); }, 20);
         setTimeout(() => process.exit(8), 9000);
       `,
             ],
@@ -61,7 +57,7 @@ test("verification reports completed checks before a stalled child and cleans it
             command: [
               process.execPath,
               "-e",
-              `require('node:fs').writeFileSync(${JSON.stringify(`${pidFile}.tmp`)}, String(process.pid)); require('node:fs').renameSync(${JSON.stringify(`${pidFile}.tmp`)}, ${JSON.stringify(pidFile)}); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`,
+              `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`,
             ],
             output: "timeout",
           },
@@ -79,8 +75,8 @@ test("verification reports completed checks before a stalled child and cleans it
     assert.match(output.join(""), /warning before stall\n/);
     assert.match(output.join(""), /timed out after 1500ms/);
     assert.ok(Date.now() - started < 7000);
-    assert.ok(existsSync(pidFile));
-    const pid = Number(readFileSync(pidFile, "utf8"));
+    const pid = readPid(pidFile);
+    assert.ok(pid !== undefined);
     assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
   } finally {
     errorWrite.mockRestore();
