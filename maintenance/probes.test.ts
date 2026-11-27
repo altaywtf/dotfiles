@@ -146,7 +146,8 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
       "-e",
       `
     process.on('SIGTERM', () => {});
-    require('node:fs').writeFileSync(${JSON.stringify(ready)}, String(process.pid));
+    require('node:fs').writeFileSync(${JSON.stringify(`${ready}.tmp`)}, String(process.pid));
+    require('node:fs').renameSync(${JSON.stringify(`${ready}.tmp`)}, ${JSON.stringify(ready)});
     setTimeout(() => process.exit(9), 5000);
   `,
     ],

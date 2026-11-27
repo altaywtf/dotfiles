@@ -61,7 +61,7 @@ test("verification reports completed checks before a stalled child and cleans it
             command: [
               process.execPath,
               "-e",
-              `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`,
+              `require('node:fs').writeFileSync(${JSON.stringify(`${pidFile}.tmp`)}, String(process.pid)); require('node:fs').renameSync(${JSON.stringify(`${pidFile}.tmp`)}, ${JSON.stringify(pidFile)}); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`,
             ],
             output: "timeout",
           },
