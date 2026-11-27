@@ -73,8 +73,9 @@ mise run agents:update   # also refreshes every global skill, manual extras incl
   absolute path. Sources other than `owner/repo` need a `marketplaceId`.
 - When `agy` is installed, plugin sync installs Claude-layer plugins into
   `~/.gemini/config/plugins/`.
-- On personal and devbox profiles, sync also trusts `~/projects` for
-  Antigravity; it only adds entries.
+- On personal and devbox profiles, sync also trusts the worktree roots for
+  Antigravity: `~/projects` (in-repo worktrees), `~/.worktrees` (fleet
+  lanes) and `~/.codex/worktrees`. It only adds entries.
 - `grok` reads Claude Code's rules, skills, plugins and MCPs itself; sync
   installs nothing for it.
 - Cursor has no global rules file. On workstations with `agents.start.md` or
