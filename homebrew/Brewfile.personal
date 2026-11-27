@@ -8,3 +8,8 @@ brew "asc"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
+
+# Fleet host tools
+brew "flock"
+brew "node_exporter"
+brew "python@3.14"
