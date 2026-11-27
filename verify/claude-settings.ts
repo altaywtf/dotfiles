@@ -238,6 +238,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             viewMode: undefined,
             showTurnDuration: undefined,
             awaySummaryEnabled: undefined,
+            spinnerTipsEnabled: undefined,
             attribution: undefined,
             syncClaudeAiPlugins: undefined,
             permissions: { ...actual.permissions, [managedMode]: undefined },
@@ -260,6 +261,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             viewMode: undefined,
             showTurnDuration: undefined,
             awaySummaryEnabled: undefined,
+            spinnerTipsEnabled: undefined,
             attribution: undefined,
             syncClaudeAiPlugins: undefined,
             autoMemoryDirectory: memoryDirectory,
@@ -276,6 +278,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.viewMode, "focus");
         assert.equal(actual.showTurnDuration, false);
         assert.equal(actual.awaySummaryEnabled, false);
+        assert.equal(actual.spinnerTipsEnabled, false);
         assert.equal(actual.syncClaudeAiPlugins, false);
         assert.equal(actual.autoMemoryEnabled, false);
         assert.equal(actual.autoMemoryDirectory, memoryDirectory);
