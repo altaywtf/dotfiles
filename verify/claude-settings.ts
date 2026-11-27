@@ -29,6 +29,7 @@ type Fixture = {
   contents: string;
   profile?: string;
   expected?: Settings;
+  gateway?: string;
   malformed?: boolean;
 };
 
@@ -125,6 +126,24 @@ const fixtures: Array<Fixture> = [
       },
     },
   },
+  {
+    contents: '{"env":{"KEEP":"yes"}}',
+    profile: "personal-workstation",
+    gateway: '{"baseUrl":"https://gateway.test/v1","keyCommand":"/bin/echo key"}',
+    expected: {
+      apiKeyHelper: "/bin/echo key",
+      env: {
+        ANTHROPIC_BASE_URL: "https://gateway.test",
+        ENABLE_CLAUDEAI_MCP_SERVERS: "false",
+        KEEP: "yes",
+      },
+    },
+  },
+  {
+    contents: '{"env":{"KEEP":"yes"}}',
+    gateway: '{"baseUrl":"https://gateway.test/v1","keyCommand":"/bin/echo key"}',
+    expected: { env: { KEEP: "yes" } },
+  },
   { contents: '{"env":', malformed: true },
 ];
 
@@ -150,6 +169,10 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
     writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", {
       mode: 0o600,
     });
+    if (fixture.gateway !== undefined) {
+      mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
+      writeFileSync(join(home, ".config/dotfiles/gatewai.json"), fixture.gateway, { mode: 0o600 });
+    }
     const child = spawn(
       "chezmoi",
       [
@@ -322,7 +345,7 @@ async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-claude-settings-"));
   try {
     const results = await Promise.allSettled([
-      ...fixtures.map((fixture) => renderFixture(fixture, join(root, "render"))),
+      ...fixtures.map((fixture, index) => renderFixture(fixture, join(root, "render", `${index}`))),
       verifyMissingFile(root),
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),

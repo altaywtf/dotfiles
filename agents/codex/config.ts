@@ -258,7 +258,7 @@ export async function configureDefaults(
   const overridden = new Set(local.map((edit) => edit.keyPath));
   const managed = [
     ...managedEdits(),
-    ...(gateway ? gatewayEdits(join(home, ".config/dotfiles/t3-gateway.json")) : []),
+    ...(gateway ? gatewayEdits(join(home, ".config/dotfiles/gatewai.json")) : []),
   ];
   const configPath = await writeConfigEdits((user) => [
     ...managed.filter((edit) => !overridden.has(edit.keyPath)),

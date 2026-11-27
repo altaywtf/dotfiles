@@ -197,7 +197,7 @@ test(
       const userHome = dirname(home);
       mkdirSync(join(userHome, ".config/dotfiles"), { recursive: true });
       writeFileSync(
-        join(userHome, ".config/dotfiles/t3-gateway.json"),
+        join(userHome, ".config/dotfiles/gatewai.json"),
         JSON.stringify({ baseUrl: "https://gateway.test/v1", keyCommand: "/bin/echo key" }),
       );
       const result = run(home, profile, userHome);

@@ -1,6 +1,6 @@
 {{- /* chezmoi:modify-template */ -}}
 {{- $profile := includeTemplate "profile" . | fromJson -}}
-{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/gatewai.json" -}}
 {{- if not (and $profile.capabilities.personal (stat $gatewayPath)) -}}
 {{ .chezmoi.stdin }}
 {{- else -}}

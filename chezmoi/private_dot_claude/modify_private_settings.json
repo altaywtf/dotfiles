@@ -19,6 +19,11 @@
 {{- else -}}
 {{- $_ := unset $managed.env "ENABLE_CLAUDEAI_MCP_SERVERS" -}}
 {{- end -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/gatewai.json" -}}
+{{- if and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat $gatewayPath) -}}
+{{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
+{{- $managed = $managed | setValueAtPath "apiKeyHelper" $gateway.keyCommand | setValueAtPath "env.ANTHROPIC_BASE_URL" (trimSuffix "/v1" $gateway.baseUrl) -}}
+{{- end -}}
 {{- $autoMode := includeTemplate "fragment" (joinPath .chezmoi.homeDir ".config/dotfiles/claude-automode.json") -}}
 {{- if $autoMode -}}
 {{- $managed = $managed | setValueAtPath "autoMode" ($autoMode | fromJson) -}}

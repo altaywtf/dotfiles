@@ -16,7 +16,7 @@
 {{- $settings = $settings | setValueAtPath "providerInstances.antigravity.driver" "antigravity" | setValueAtPath "providerInstances.antigravity.enabled" true -}}
 {{- $settings = $settings | setValueAtPath "linkedEnvironmentsEnabled" true -}}
 {{- end -}}
-{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/t3-gateway.json" -}}
+{{- $gatewayPath := joinPath .chezmoi.homeDir ".config/dotfiles/gatewai.json" -}}
 {{- if and $profile.capabilities.personal (stat $gatewayPath) -}}
 {{- $gateway := includeTemplate "fragment" $gatewayPath | fromJson -}}
 {{- $codex := list "model_provider=\"gateway\"" "model_providers.gateway.name=\"Gateway\"" (printf "model_providers.gateway.base_url=%s" ($gateway.baseUrl | toJson)) "model_providers.gateway.wire_api=\"responses\"" "model_providers.gateway.requires_openai_auth=false" "model_providers.gateway.supports_websockets=true" "model_providers.gateway.http_headers={\"X-OpenAI-Actor-Authorization\"=\"local-proxy\"}" (printf "model_providers.gateway.auth.command=%s" ($gateway.keyCommand | toJson)) "model_providers.gateway.auth.timeout_ms=10000" "model_providers.gateway.auth.refresh_interval_ms=0" -}}
@@ -24,17 +24,19 @@
 {{- range $codex -}}
 {{- $codexArgs = append $codexArgs (printf "-c %s" (squote .)) -}}
 {{- end -}}
-{{- $claudeSettings := joinPath .chezmoi.homeDir ".config/t3-gateway/claude-settings.json" -}}
-{{- $claudeArgs := list (printf "--settings %s" (squote $claudeSettings)) -}}
-{{- $settings = $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.launchArgs" (join " " $claudeArgs) -}}
+{{- $settings = $settings | setValueAtPath "providerInstances.codex.driver" "codex" | setValueAtPath "providerInstances.codex.enabled" true | setValueAtPath "providerInstances.codex.config.enabled" true | setValueAtPath "providerInstances.codex.config.launchArgs" (join " " $codexArgs) | setValueAtPath "providerInstances.claudeAgent.driver" "claudeAgent" | setValueAtPath "providerInstances.claudeAgent.enabled" true | setValueAtPath "providerInstances.claudeAgent.config.enabled" true -}}
 {{- $claudeEnvironment := list -}}
 {{- range index $settings.providerInstances.claudeAgent "environment" -}}
 {{- if ne .name "ANTHROPIC_BASE_URL" -}}
 {{- $claudeEnvironment = append $claudeEnvironment . -}}
 {{- end -}}
 {{- end -}}
-{{- $claudeEnvironment = append $claudeEnvironment (dict "name" "ANTHROPIC_BASE_URL" "value" (trimSuffix "/v1" $gateway.baseUrl)) -}}
+{{- if $claudeEnvironment -}}
 {{- $settings = $settings | setValueAtPath "providerInstances.claudeAgent.environment" $claudeEnvironment -}}
+{{- else -}}
+{{- $_ := unset $settings.providerInstances.claudeAgent "environment" -}}
+{{- end -}}
+{{- $_ := unset $settings.providerInstances.claudeAgent.config "launchArgs" -}}
 {{- $_ := unset $settings.providerInstances.codex "displayName" -}}
 {{- $_ = unset $settings.providerInstances.claudeAgent "displayName" -}}
 {{- $_ = unset $settings.providerInstances.codex.config "homePath" -}}
