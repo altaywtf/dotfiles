@@ -1,17 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readlinkSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "vite-plus/test";
@@ -671,81 +660,6 @@ test.each([
     /Invalid managed plugins lock.*expected explicit marketplace, marketplaceId, name, and harnesses/,
   );
   assert.equal(harnessCalls(runtime, "claude").length, 0);
-});
-
-test("links enabled Antigravity plugins into T3 Code profiles and prunes stale links", () => {
-  const { repoDir, home } = createFixture();
-  const userPlugins = join(home, ".gemini/config/plugins");
-  const profileConfig = join(home, ".t3/userdata/providers/antigravity/instance-a/config");
-  const profilePlugins = join(profileConfig, "plugins");
-  mkdirSync(profileConfig, { recursive: true });
-
-  const writePlugin = (name: string, manifestRel: string, manifest: unknown) => {
-    const manifestPath = join(userPlugins, name, manifestRel);
-    mkdirSync(dirname(manifestPath), { recursive: true });
-    writeFileSync(manifestPath, JSON.stringify(manifest));
-  };
-
-  writePlugin("alpha", "plugin.json", { name: "alpha" });
-  writePlugin("beta", ".antigravity-plugin/plugin.json", { name: "beta", disabled: true });
-  writePlugin("gamma", ".gemini-plugin/plugin.json", { name: "gamma", disabled: true });
-  writePlugin("delta", "plugin.json", { name: "delta" });
-  mkdirSync(join(userPlugins, "not-a-plugin"), { recursive: true });
-  writeFileSync(
-    join(home, ".gemini/config/config.json"),
-    JSON.stringify({
-      plugins: {
-        gamma: { enabled: true },
-        delta: { enabled: false },
-      },
-    }),
-  );
-
-  const localOverride = join(profilePlugins, "local-only");
-  mkdirSync(localOverride, { recursive: true });
-  const externalTarget = join(home, "external-plugin");
-  mkdirSync(externalTarget, { recursive: true });
-  symlinkSync(externalTarget, join(profilePlugins, "external"));
-  symlinkSync(join(userPlugins, "removed-plugin"), join(profilePlugins, "removed-plugin"));
-
-  const first = new FixtureRuntime(repoDir, home);
-  first.installedCommands.add("agy");
-  assert.equal(main([], first), 0);
-
-  assert.equal(lstatSync(profilePlugins).isSymbolicLink(), false);
-  assert.equal(readlinkSync(join(profilePlugins, "alpha")), resolve(join(userPlugins, "alpha")));
-  assert.equal(readlinkSync(join(profilePlugins, "gamma")), resolve(join(userPlugins, "gamma")));
-  assert.equal(existsSync(join(profilePlugins, "beta")), false);
-  assert.equal(existsSync(join(profilePlugins, "delta")), false);
-  assert.equal(existsSync(join(profilePlugins, "not-a-plugin")), false);
-  assert.equal(existsSync(join(profilePlugins, "removed-plugin")), false);
-  assert.equal(statSync(localOverride).isDirectory(), true);
-  assert.equal(readlinkSync(join(profilePlugins, "external")), externalTarget);
-  assert.match(first.stdout.value, /Antigravity \(T3\): linked alpha/);
-  assert.match(first.stdout.value, /Antigravity \(T3\): unlinked removed-plugin/);
-
-  const second = new FixtureRuntime(repoDir, home);
-  second.installedCommands.add("agy");
-  assert.equal(main([], second), 0);
-  assert.doesNotMatch(second.stdout.value, /Antigravity \(T3\):/);
-});
-
-test("skips T3 Antigravity plugin linking when config/plugins is already a symlink", () => {
-  const { repoDir, home } = createFixture();
-  const userPlugins = join(home, ".gemini/config/plugins");
-  const manualTarget = join(home, "manual-plugins");
-  const profileConfig = join(home, ".t3/userdata/providers/antigravity/instance-b/config");
-  mkdirSync(join(userPlugins, "alpha"), { recursive: true });
-  writeFileSync(join(userPlugins, "alpha/plugin.json"), JSON.stringify({ name: "alpha" }));
-  mkdirSync(manualTarget, { recursive: true });
-  mkdirSync(profileConfig, { recursive: true });
-  symlinkSync(manualTarget, join(profileConfig, "plugins"));
-
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.add("agy");
-  assert.equal(main([], runtime), 0);
-  assert.equal(readlinkSync(join(profileConfig, "plugins")), manualTarget);
-  assert.equal(existsSync(join(manualTarget, "alpha")), false);
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

@@ -24,7 +24,6 @@ import type { Harness, SyncFailure } from "./harness.ts";
 import { readLocalOverlay } from "./local.ts";
 import { planOwnership } from "./ownership.ts";
 import { writeAgentTrust } from "./agent-trust.ts";
-import { linkT3AgyPlugins } from "./t3-agy-plugins.ts";
 import {
   guardOverlay,
   managedLockLocation,
@@ -587,7 +586,6 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   }
 
   syncAgyPlugins(runtime, plugins, failures, options.update);
-  linkT3AgyPlugins(runtime);
   writeAgentTrust(runtime, profile.capabilities);
 
   if (failures.length > 0) {

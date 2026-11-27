@@ -20,7 +20,6 @@ import { probe, runProbe, runProcess } from "./probes.ts";
 import type { Probe, ProbeResult } from "./probes.ts";
 import { dropInvalid } from "./schema.ts";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
-import { newestT3 } from "./t3.ts";
 export type { CommandRunner, RawCommandResult } from "./command.ts";
 
 type MaintenanceProbes = Record<string, ProbeResult> & {
@@ -316,16 +315,6 @@ function agentProbes(context: MaintenanceContext): Array<Probe> {
   );
 }
 
-function t3Status(result: RawCommandResult): string {
-  const line = result.stdout.split(/\r?\n/).find((entry) => entry.trim().startsWith("Status:"));
-  return line ? line.trim().slice("Status:".length).trim() : "unknown";
-}
-
-function t3Probes(context: MaintenanceContext): Array<Probe> {
-  const t3 = newestT3(context.home);
-  return t3 ? [probe("t3_service", t3, ["service", "status"], t3Status, { required: false })] : [];
-}
-
 function checkoutPath(context: MaintenanceContext): string | undefined {
   return context.repoRoot.startsWith(`${context.home}/`) &&
     existsSync(join(context.repoRoot, ".git"))
@@ -380,7 +369,6 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
       { allowedStatuses: [0, 1] },
     ),
     ...agentProbes(context),
-    ...t3Probes(context),
   ];
 
   if (hostOwner) {
@@ -539,10 +527,6 @@ function backlogCount(probes: Record<string, ProbeResult>): number {
   const npm = Schema.decodeUnknownOption(PendingKeys)(probes.npm_outdated?.value);
   if (Option.isSome(npm)) {
     count += Object.keys(npm.value).length;
-  }
-  const t3 = probes.t3_service?.value;
-  if (typeof t3 === "string" && !t3.startsWith("installed")) {
-    count += 1;
   }
   const mas = Schema.decodeUnknownOption(PendingList)(probes.mas_outdated?.value);
   if (Option.isSome(mas)) {

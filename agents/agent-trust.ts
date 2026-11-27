@@ -14,7 +14,7 @@ const AgySettings = Schema.StructWithRest(
 );
 
 function trustedRoots(home: string): Array<string> {
-  return [join(home, "projects"), join(home, ".t3/worktrees")];
+  return [join(home, "projects")];
 }
 
 function readJson<S extends Schema.ConstraintDecoder<unknown>>(

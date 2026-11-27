@@ -7,10 +7,6 @@
 .config/zed
 Library/Application Support/com.mitchellh.ghostty
 {{ end }}
-{{ $gateway := and (or $profile.capabilities.workstation $profile.capabilities.devbox) $profile.capabilities.personal (stat (joinPath .chezmoi.homeDir ".config/dotfiles/gatewai.json")) }}
-{{ if not (or $profile.capabilities.workstation $gateway) }}
-.t3
-{{ end }}
 {{ if not $profile.capabilities.personal }}
 .gemini
 {{ end }}
