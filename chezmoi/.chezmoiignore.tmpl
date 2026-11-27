@@ -17,6 +17,12 @@ Library/Application Support/com.mitchellh.ghostty
 {{ if ne .chezmoi.os "darwin" }}
 Library
 {{ end }}
+{{ if not (and (eq .chezmoi.os "darwin") (stat "/Applications/Rex.app")) }}
+.local/bin/rex
+{{ end }}
+{{ if not (and $profile.capabilities.devbox (stat "/Applications/Rex.app")) }}
+Library/LaunchAgents/local.dotfiles.rex.plist
+{{ end }}
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
 .config/environment.d

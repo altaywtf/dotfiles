@@ -61,6 +61,13 @@ link it from the workstation:
 The scheduled update stages each release; [restart](software-updates.md#t3-code)
 the service yourself.
 
+## Rex
+
+Rex has no Homebrew cask. Copy `/Applications/Rex.app` from a workstation with
+`ditto`, open it once, then apply the profile. A devbox then opens Rex at login,
+and `~/.local/bin/rex` links the CLI so `ssh://` clients find it. Add the host
+in each Rex app under Settings > Remote Hosts.
+
 ## Updates and Cleanup
 
 - macOS: enroll [headless updates](software-updates.md#headless-devbox-updates)
