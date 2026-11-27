@@ -46,11 +46,11 @@ const Diagnostic = Schema.fromJsonString(
 
 async function waitForPid(path: string): Promise<number> {
   for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      return Number(await readFile(path, "utf8"));
-    } catch {
-      await delay(20);
+    const pid = Number(await readFile(path, "utf8").catch(() => ""));
+    if (Number.isSafeInteger(pid) && pid > 0) {
+      return pid;
     }
+    await delay(20);
   }
   throw new Error("Fixture did not start");
 }
