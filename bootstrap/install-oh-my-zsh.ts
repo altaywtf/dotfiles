@@ -7,7 +7,7 @@ import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
 // renovate: datasource=git-refs depName=https://github.com/ohmyzsh/ohmyzsh branch=master
-const OH_MY_ZSH_REVISION = "03ba23c9f6dc378ec485111613b04b3bb2335360";
+const OH_MY_ZSH_REVISION = "44a5decbc48c4f1885c754eb2044d09a466e4187";
 
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
