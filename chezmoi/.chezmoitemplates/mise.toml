@@ -17,7 +17,7 @@ grok = "1.0.92"
 
 gh = "2.106.0"
 jq = "1.8.2"
-ripgrep = "15.2.0"
+ripgrep = "16.0.0"
 shellcheck = "0.11.0"
 actionlint = "1.7.12"
 chezmoi = "2.74.2"
