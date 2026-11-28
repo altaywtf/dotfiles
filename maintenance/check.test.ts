@@ -31,6 +31,7 @@ const profileConfig = {
 } as const satisfies ProfileConfig;
 
 const emptyMiseRoot = mkdtempSync(join(tmpdir(), "maintenance-empty-mise-"));
+
 for (const directory of [
   "chezmoi/.chezmoitemplates/linux",
   "chezmoi/.chezmoitemplates/darwin",
@@ -38,6 +39,7 @@ for (const directory of [
 ]) {
   mkdirSync(join(emptyMiseRoot, directory), { recursive: true });
 }
+
 for (const file of [
   "chezmoi/.chezmoitemplates/mise.toml",
   "chezmoi/.chezmoitemplates/linux/mise.toml",
@@ -46,6 +48,7 @@ for (const file of [
 ]) {
   writeFileSync(join(emptyMiseRoot, file), "[tools]\n");
 }
+
 afterAll(() => rm(emptyMiseRoot, { recursive: true, force: true }));
 
 function context(): MaintenanceContext {
@@ -77,6 +80,7 @@ const cacheServer = {
   hostport: "192.0.2.10:59308",
   rank: 1,
 };
+
 const contentCacheLocator = JSON.stringify({
   results: {
     "public IP address": "203.0.113.1",
@@ -109,6 +113,7 @@ function hostRunner(
 }
 
 const Named = Schema.Struct({ name: Schema.String });
+
 const ReconciledBacklog = Schema.Struct({
   casks: Schema.Array(Named),
   record_lag: Schema.Array(Named),
@@ -130,6 +135,7 @@ test("single-owner Darwin devboxes retain the service probe without shared Homeb
     },
     async (command, args) => {
       calls.push([command, ...args]);
+
       return result("");
     },
   );
@@ -159,9 +165,11 @@ for (const [name, capabilities, expected] of [
         command === "brew" ? result('{"formulae":[],"casks":[]}') : undefined,
       ),
     );
+
     for (const key of ["tailscale_status", "tailscale_version"]) {
       assert.equal(snapshot.probes[key]?.required, expected ? true : undefined);
     }
+
     assert.equal(snapshot.summary.required_failures, 0);
   });
 }
@@ -184,6 +192,7 @@ for (const [update, calls, summary] of [
 ] as const) {
   test(`Homebrew metadata refresh precedes the greedy inventory (update exit ${update})`, async () => {
     const brewCalls: Array<Array<string>> = [];
+
     const snapshot = await collectMaintenanceSnapshot(
       {
         ...context(),
@@ -195,12 +204,16 @@ for (const [update, calls, summary] of [
         if (command !== "brew") {
           return undefined;
         }
+
         brewCalls.push([...args]);
+
         return args[0] === "update" ? result("", update) : result('{"formulae":[],"casks":[]}');
       }),
     );
+
     assert.deepEqual(brewCalls, calls);
     assert.equal(snapshot.summary.status, summary);
+
     if (update !== 0) {
       assert.equal(snapshot.probes.brew_outdated_greedy?.status, "failed");
       assert.equal(snapshot.probes.brew_outdated_greedy?.error, "brew update failed: exit 1");
@@ -212,9 +225,11 @@ test("maintenance probes run concurrently and summarize package drift", async ()
   let active = 0;
   let maxActive = 0;
   const host = hostRunner();
+
   const runner: CommandRunner = async (command, args, options) => {
     active += 1;
     maxActive = Math.max(maxActive, active);
+
     if (maxActive === 1) {
       await new Promise<void>((resolve, reject) => {
         queueMicrotask(() => {
@@ -226,13 +241,17 @@ test("maintenance probes run concurrently and summarize package drift", async ()
         });
       });
     }
+
     active -= 1;
+
     return host(command, args, options);
   };
+
   const snapshot = await collectMaintenanceSnapshot(
     { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
     runner,
   );
+
   assert.ok(maxActive > 1);
   assert.equal(snapshot.summary.required_failures, 0);
   assert.equal(snapshot.summary.backlog_count, 0);
@@ -251,6 +270,7 @@ test("missing required commands make the snapshot incomplete without throwing", 
     { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
     missingCommandRunner,
   );
+
   assert.equal(snapshot.summary.status, "incomplete");
   assert.ok(snapshot.summary.required_failures > 0);
   assert.equal(snapshot.probes.system?.status, "unavailable");
@@ -261,23 +281,30 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
     if (command === "sw_vers" && args[0] === "-productVersion") {
       return result("26.6.2\n");
     }
+
     if (command === "sw_vers" && args[0] === "-buildVersion") {
       return result("25G83\n");
     }
+
     if (command === "defaults") {
       return result("26.6.2\n");
     }
+
     if (command === "ioreg") {
       return result('+-o Fixture1AP <class IOPlatformExpertDevice>\n{\n"model" = <"Mac99,1">\n}\n');
     }
+
     if (command === "softwareupdate") {
       return result("Software Update Tool\nNo new software available.\n");
     }
+
     if (command === "AssetCacheLocatorUtil") {
       return result(contentCacheLocator);
     }
+
     return undefined;
   });
+
   const updateIO: MacOSUpdateIO = {
     async fetch(url) {
       if (url.includes("gdmf.apple.com")) {
@@ -292,6 +319,7 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
           }),
         };
       }
+
       if (url.includes("macos_data_feed")) {
         return {
           status: 200,
@@ -306,6 +334,7 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
           }),
         };
       }
+
       return { status: 503, body: "unavailable" };
     },
     async readCache() {
@@ -313,6 +342,7 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
     },
     async writeCache() {},
   };
+
   const snapshot = await collectMaintenanceSnapshot(
     {
       ...context(),
@@ -344,6 +374,7 @@ test("interrupting the collector reaps every owned probe before completing", asy
   await mkdir(pids);
   const controller = new AbortController();
   const commands = ["mise", "npm", "node", "codex", "claude"];
+
   for (const command of commands) {
     await writeFile(
       join(bin, command),
@@ -355,6 +386,7 @@ setTimeout(() => process.exit(9), 5000);
       { mode: 0o700 },
     );
   }
+
   const completion = Effect.runPromiseExit(
     collectMaintenanceSnapshotEffect({
       ...context(),
@@ -370,6 +402,7 @@ setTimeout(() => process.exit(9), 5000);
     }),
     { signal: controller.signal },
   );
+
   t.onTestFinished(async () => {
     controller.abort();
     await completion;
@@ -377,16 +410,20 @@ setTimeout(() => process.exit(9), 5000);
   });
   const deadline = performance.now() + 4000;
   let started: Array<string>;
+
   do {
     started = await readdir(pids);
     assert.ok(performance.now() < deadline, "probes did not start");
+
     if (started.length < commands.length + 1) {
       await delay(20);
     }
   } while (started.length < commands.length + 1);
+
   controller.abort();
   const exit = await completion;
   assert.equal(Exit.isFailure(exit), true);
+
   for (const pid of started) {
     assert.throws(() => process.kill(Number(pid), 0), { code: "ESRCH" });
   }
@@ -403,6 +440,7 @@ test("interrupting the collector aborts inventory feeds and drains them before r
   let aborts = 0;
   let writes = 0;
   let completed = false;
+
   const updateIO: MacOSUpdateIO = {
     async readCache() {
       return undefined;
@@ -411,9 +449,11 @@ test("interrupting the collector aborts inventory feeds and drains them before r
       if (++fetches === 3) {
         started.resolve();
       }
+
       if (signal) {
         suppliedSignals++;
       }
+
       assert.ok(signal);
       const canceled = Promise.withResolvers<void>();
       signal.addEventListener(
@@ -422,18 +462,21 @@ test("interrupting the collector aborts inventory feeds and drains them before r
           if (++aborts === 3) {
             aborted.resolve();
           }
+
           canceled.resolve();
         },
         { once: true },
       );
       await canceled.promise;
       await drain.promise;
+
       return { status: 503, body: "" };
     },
     async writeCache() {
       writes++;
     },
   };
+
   const completion = Effect.runPromiseExit(
     collectMaintenanceSnapshotEffect(
       {
@@ -449,8 +492,10 @@ test("interrupting the collector aborts inventory feeds and drains them before r
     { signal: controller.signal },
   ).then((exit) => {
     completed = true;
+
     return exit;
   });
+
   t.onTestFinished(async () => {
     controller.abort();
     drain.resolve();
@@ -470,8 +515,10 @@ test("interrupting the collector aborts inventory feeds and drains them before r
 
 test("maintenance rejects the same conflicting skill declarations as synchronization", async () => {
   const root = await mkdtemp(join(tmpdir(), "maintenance-skills-"));
+
   try {
     await mkdir(join(root, "agents/skills"), { recursive: true });
+
     for (const layer of ["developer", "workstation", "devbox", "personal"]) {
       await writeFile(
         join(root, `agents/skills/${layer}.json`),
@@ -483,6 +530,7 @@ test("maintenance rejects the same conflicting skill declarations as synchroniza
         }),
       );
     }
+
     await assert.rejects(
       collectMaintenanceSnapshot(
         {
@@ -530,8 +578,10 @@ test("npm inventory distinguishes outdated packages from error envelopes and mal
       },
       async (command) => (command === "npm" ? result(stdout, status) : result("{}")),
     );
+
     assert.equal(snapshot.probes.npm_outdated.status, expected);
     assert.equal(snapshot.summary.backlog_count, count);
+
     if (expected === "failed") {
       assert.equal(snapshot.summary.status, "incomplete");
       assert.ok(snapshot.summary.required_failures > 0);
@@ -548,6 +598,7 @@ test("SSH agent probes preserve the installed wrapper outside the inherited PATH
     mode: 0o700,
   });
   const { runProcess } = await import("./probes.ts");
+
   const collect = () =>
     collectMaintenanceSnapshot(
       {
@@ -560,6 +611,7 @@ test("SSH agent probes preserve the installed wrapper outside the inherited PATH
       (command, args, options) =>
         command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
     );
+
   const snapshot = await collect();
   assert.equal(snapshot.probes.version_claude.status, "ok");
   assert.equal(snapshot.probes.version_claude.value, "wrapper-version");
@@ -575,6 +627,7 @@ for (const inventoryAvailable of [true, false]) {
       installed_versions: ["1.0"],
       current_version: name === "compound" ? "2.0,20" : "2.0",
     }));
+
     const snapshot = await collectMaintenanceSnapshot(
       {
         ...context(),
@@ -586,6 +639,7 @@ for (const inventoryAvailable of [true, false]) {
         if (command === "brew" && args[0] === "outdated") {
           return result(JSON.stringify({ formulae: [], casks }));
         }
+
         if (command === "brew" && args[0] === "info") {
           return inventoryAvailable
             ? result(
@@ -605,12 +659,15 @@ for (const inventoryAvailable of [true, false]) {
               )
             : result("", 1);
         }
+
         return result("{}");
       },
     );
+
     const backlog = Schema.decodeUnknownSync(ReconciledBacklog)(
       snapshot.probes.brew_outdated_greedy.value,
     );
+
     assert.deepEqual(
       backlog.record_lag.map((item) => item.name),
       inventoryAvailable ? ["current", "compound"] : [],
@@ -642,6 +699,7 @@ async function pinContext() {
     join(root, ".config/mise/config.toml"),
     '[tools]\nnode = "24.21.0"\n"github:anthropics/claude-code" = { version = "2.1.291" }\n',
   );
+
   return {
     ...context(),
     cwd: join(root, "chezmoi"),
@@ -664,6 +722,7 @@ const pinnedInstall = {
 };
 
 const claude = "github:anthropics/claude-code";
+
 for (const scenario of [
   {
     name: "a changed source pin",
@@ -717,22 +776,28 @@ for (const scenario of [
   test(`mise convergence reports ${scenario.name} against source pins`, async (t) => {
     const fixture = await pinContext();
     t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+
     if (scenario.config) {
       await writeFile(join(fixture.home, ".config/mise/config.toml"), scenario.config);
     }
+
     if (scenario.template) {
       await writeFile(
         join(fixture.repoRoot, "chezmoi/.chezmoitemplates/mise.toml"),
         scenario.template,
       );
     }
+
     const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args, options) => {
       if (command === "mise" && args[0] === "ls") {
         assert.equal(options.cwd, fixture.home);
+
         return result(JSON.stringify(scenario.installed));
       }
+
       return result(JSON.stringify(command === "mise" ? scenario.outdated : {}));
     });
+
     assert.equal(snapshot.summary.status, scenario.status);
     assert.equal(snapshot.summary.backlog_count, scenario.backlog);
     assert.deepEqual(snapshot.probes.mise_convergence.value, scenario.pending);
@@ -742,6 +807,7 @@ for (const scenario of [
 test("unavailable, failed, absent and malformed installed pin inspections remain incomplete", async (t) => {
   const fixture = await pinContext();
   t.onTestFinished(() => rm(fixture.home, { recursive: true, force: true }));
+
   for (const inspection of [
     { ...result("", 127), error: Object.assign(new Error("missing"), { code: "ENOENT" }) },
     result("", 1),
@@ -752,6 +818,7 @@ test("unavailable, failed, absent and malformed installed pin inspections remain
     const snapshot = await collectMaintenanceSnapshot(fixture, async (command, args) =>
       command === "mise" && args[0] === "ls" ? inspection : result("{}"),
     );
+
     assert.equal(snapshot.summary.status, "incomplete");
     assert.notEqual(snapshot.probes.mise_convergence.status, "ok");
     assert.doesNotMatch(
@@ -759,10 +826,13 @@ test("unavailable, failed, absent and malformed installed pin inspections remain
       /private malformed inspection/,
     );
   }
+
   await rm(join(fixture.repoRoot, "chezmoi/.chezmoitemplates/linux/mise.toml"));
+
   const snapshot = await collectMaintenanceSnapshot(fixture, async () =>
     result(JSON.stringify(pinnedInstall)),
   );
+
   assert.equal(snapshot.summary.status, "incomplete");
   assert.equal(snapshot.probes.mise_convergence.status, "failed");
 });

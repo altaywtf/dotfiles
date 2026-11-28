@@ -19,15 +19,19 @@ function resolutionFailure(message: string, exitCode: number): ProfileResolution
 
 export const normalizeProfile = Effect.fn("normalizeProfile")(function* (requested: string) {
   const name = requested.trim();
+
   if (!/^[a-z][a-z-]*$/.test(name)) {
     return yield* resolutionFailure(`unsupported profile: ${requested}`, 2);
   }
+
   const model = yield* readProfileModelEffect(profileModelPath).pipe(
     Effect.mapError((error) => resolutionFailure(error.message, 2)),
   );
+
   return yield* Effect.try({
     try: () => {
       requireProfile(model, name);
+
       return name;
     },
     catch: () => resolutionFailure(`unsupported profile: ${requested}`, 2),
@@ -39,26 +43,35 @@ export const readPersistedProfile = Effect.fn("readPersistedProfile")(function* 
   expectedUid?: number,
 ) {
   const fs = yield* FileSystem.FileSystem;
+
   const unsafe = () =>
     resolutionFailure(
       `profile marker is missing or unsafe: ${path}; it must be a regular file you own that group and others cannot write (chmod 600 ${path})`,
       3,
     );
+
   const link = yield* fs.readLink(path).pipe(Effect.option);
+
   if (Option.isSome(link)) {
     return yield* unsafe();
   }
+
   const info = yield* fs.stat(path).pipe(Effect.mapError(unsafe));
+
   if (info.type !== "File" || (info.mode & 0o022) !== 0) {
     return yield* unsafe();
   }
+
   if (expectedUid !== undefined && Option.getOrUndefined(info.uid) !== expectedUid) {
     return yield* unsafe();
   }
+
   const contents = yield* fs.readFileString(path).pipe(Effect.mapError(unsafe));
+
   if (!/^[^\r\n]*(?:\r?\n)?$/.test(contents)) {
     return yield* unsafe();
   }
+
   return yield* normalizeProfile(contents).pipe(Effect.mapError(unsafe));
 });
 
@@ -72,6 +85,7 @@ const readRecordedProfile = Effect.fn("readRecordedProfile")(function* (
 ) {
   const profileFile = profileMarkerPath(env);
   const fs = yield* FileSystem.FileSystem;
+
   const exists = yield* fs
     .exists(profileFile)
     .pipe(
@@ -79,10 +93,13 @@ const readRecordedProfile = Effect.fn("readRecordedProfile")(function* (
         resolutionFailure(`profile marker is missing or unsafe: ${profileFile}`, 3),
       ),
     );
+
   const link = yield* fs.readLink(profileFile).pipe(Effect.option);
+
   if (!exists && Option.isNone(link) && env.DOTFILES_PROFILE_FILE === undefined) {
     return Option.none<string>();
   }
+
   return Option.some(yield* readPersistedProfile(profileFile, expectedUid));
 });
 
@@ -92,6 +109,7 @@ export const guardProfileSwitch = Effect.fn("guardProfileSwitch")(function* (
   expectedUid: number | undefined = process.getuid?.(),
 ) {
   const recorded = yield* readRecordedProfile(env, expectedUid);
+
   if (Option.isSome(recorded) && recorded.value !== requested) {
     return yield* resolutionFailure(
       `this user is recorded as ${recorded.value} in ${profileMarkerPath(env)}; rerun with --switch-profile to replace it with ${requested}`,
@@ -106,19 +124,24 @@ export const resolveProfile = Effect.fn("resolveProfile")(function* (
   expectedUid: number | undefined = process.getuid?.(),
 ) {
   let candidate = requested;
+
   if (!candidate) {
     const recorded = yield* readRecordedProfile(env, expectedUid);
+
     if (Option.isSome(recorded)) {
       return recorded.value;
     }
+
     candidate = env.DOTFILES_PROFILE;
   }
+
   if (!candidate?.trim()) {
     return yield* resolutionFailure(
       "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
       1,
     );
   }
+
   return yield* normalizeProfile(candidate);
 });
 

@@ -26,6 +26,7 @@ const McpOAuth = ClosedStruct(
     unsupported: (keys) => `oauth has unsupported keys ${keys}`,
   },
 );
+
 export type McpOAuth = typeof McpOAuth.Type;
 
 const HEADERS_HELPER_MESSAGE = "headersHelper must be an absolute or ~/ path without whitespace";
@@ -61,6 +62,7 @@ const Mcp = Schema.Struct({
     message: "cannot set both oauth and headersHelper",
   }),
 );
+
 export type Mcp = typeof Mcp.Type;
 
 const McpManifest = Schema.Struct({ mcps: Schema.Unknown });
@@ -69,15 +71,18 @@ export function expandHeadersHelper(path: string, home: string | undefined): str
   if (!path.startsWith("~/")) {
     return path;
   }
+
   if (home === undefined || home.length === 0) {
     throw new Error(`Cannot expand headers helper ${path}: HOME is not set`);
   }
+
   return join(home, path.slice(2));
 }
 
 function readMcp(value: unknown, manifestPath: string): Mcp {
   const label = `Invalid MCP manifest at ${manifestPath}`;
   const { name } = decodeOr(McpIdentity, value, `${label}: expected safe MCP name and url strings`);
+
   return decodeOrThrow(Mcp, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
@@ -87,26 +92,32 @@ function parseMcps(value: unknown, manifestPath: string): Array<Mcp> {
     value,
     `Invalid MCP manifest at ${manifestPath}: expected an mcps array`,
   );
+
   const mcps = entries.map((mcp) => readMcp(mcp, manifestPath));
   const names = new Set<string>();
+
   for (const mcp of mcps) {
     if (names.has(mcp.name)) {
       throw new Error(
         `Invalid MCP manifest at ${manifestPath}: ${mcp.name} is defined more than once`,
       );
     }
+
     names.add(mcp.name);
   }
+
   return mcps;
 }
 
 export function readMcps(manifestPath: string): Array<Mcp> {
   const label = `Invalid MCP manifest at ${manifestPath}`;
+
   const { mcps } = decodeOr(
     McpManifest,
     readJsonFile(manifestPath, label),
     `${label}: expected an mcps array`,
   );
+
   return parseMcps(mcps, manifestPath);
 }
 
@@ -127,12 +138,14 @@ export function readLayeredMcps(
   }
 
   const manifests = new Map<McpLayer, Array<Mcp>>();
+
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readMcps(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
 
   const selected: Array<McpLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
+
   if (local?.document.mcps !== undefined) {
     manifests.set("local", parseMcps(local.document.mcps, local.path));
     selected.push("local");
@@ -144,6 +157,7 @@ export function readLayeredMcps(
     (mcp) => mcp.name,
     (name) => `Invalid layered MCPs: ${name} is defined more than once`,
   );
+
   return selected.includes("local") && local
     ? {
         layers: selected,

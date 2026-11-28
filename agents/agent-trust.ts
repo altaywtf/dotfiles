@@ -31,9 +31,11 @@ function writeAgyTrust(runtime: Runtime, home: string, roots: ReadonlyArray<stri
   const current = readJson(AgySettings, settingsPath) ?? {};
   const trusted = current.trustedWorkspaces ?? [];
   const missing = roots.filter((root) => !trusted.includes(root));
+
   if (missing.length === 0) {
     return;
   }
+
   writeLockFile(settingsPath, { ...current, trustedWorkspaces: [...trusted, ...missing] });
   writeLine(runtime.stdout, `Antigravity: trusted ${missing.join(", ")} in ${settingsPath}`);
 }
@@ -45,11 +47,15 @@ export function writeAgentTrust(
   if (!(capabilities.personal || capabilities.devbox)) {
     return;
   }
+
   const home = runtime.env.HOME;
+
   if (!home) {
     throw new Error("HOME is required to locate agent trust files");
   }
+
   const roots = trustedRoots(home);
+
   if (runtime.commandExists("agy")) {
     writeAgyTrust(runtime, home, roots);
   }

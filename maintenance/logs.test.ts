@@ -20,16 +20,19 @@ import { test } from "vite-plus/test";
 
 test("log capping rewrites the same inode at a line boundary and keeps append descriptors valid", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "log-cap-")));
+
   try {
     const logs = join(root, "logs");
     mkdirSync(logs);
     const cap = 4096;
     const big = join(logs, "software-update.log");
+
     const content =
       Array.from(
         { length: 600 },
         (_, index) => `line ${String(index).padStart(4, "0")} of the update log`,
       ).join("\n") + "\n";
+
     writeFileSync(big, content);
     writeFileSync(join(logs, "worker.log"), "short\n");
     writeFileSync(join(logs, "notes.txt"), "x".repeat(cap * 2));
@@ -61,6 +64,7 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
 
 test("a concurrent append between truncate and the tail write is interleaved, not overwritten", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-logs-")));
+
   try {
     const cap = 512;
     const log = join(root, "worker.log");
@@ -71,9 +75,11 @@ test("a concurrent append between truncate and the tail write is interleaved, no
       ) + "\n",
     );
     const appender = openSync(log, "a");
+
     const entries = capLogs(root, cap, () => {
       writeSync(appender, Buffer.from("concurrent append\n"));
     });
+
     closeSync(appender);
     assert.equal(entries.length, 1);
     const text = readFileSync(log, "utf8");

@@ -10,6 +10,7 @@ import { parseCatalog, pickInstallTarget, satisfiesPin } from "./xcode.ts";
 
 const installed = `26.6 (17F113) [Apple Silicon] (Selected)\t/Applications/Xcode-26.6.0.app
 `;
+
 const catalog = `
 26.6 (17F113) [Apple Silicon] (Installed, Selected)
 27.0 Beta 6 (27A5252f) [Apple Silicon]
@@ -55,9 +56,11 @@ function xcodeFixture(
   mkdirSync(bin);
   writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release, build })}\n`);
   writeFileSync(join(home, "installed.txt"), installed);
+
   for (const [name, script] of Object.entries({ xcodes, ...extraBin })) {
     writeFileSync(join(bin, name), script, { mode: 0o755 });
   }
+
   const run = (args: Array<string>, options: { input?: string; env?: NodeJS.ProcessEnv } = {}) =>
     spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts"), ...args], {
       encoding: "utf8",
@@ -71,6 +74,7 @@ function xcodeFixture(
         ...options.env,
       },
     });
+
   return { bin, home, run };
 }
 
@@ -103,6 +107,7 @@ case "$1" in
   *) exit 26 ;;
 esac
 `;
+
   const result = xcodeFixture(t, "27.0", xcodes, { brew }).run([], { input: "fixture-input\n" });
   assert.equal(result.status, 23, result.stderr);
   assert.match(result.stdout, /input received/);
@@ -112,6 +117,7 @@ esac
 test("a refused non-interactive select names the exact sudo command", (t) => {
   const xcodes =
     "#!/bin/sh\n[ \"$1\" = installed ] && printf '27.0 (27A266a) [Apple Silicon]\\t/Applications/Xcode-27.0.0.app\\n'\nexit 0\n";
+
   const sudo = '#!/bin/sh\n[ "$1" = -n ] && exit 1\nexit 27\n';
   const { bin, home, run } = xcodeFixture(t, "27.0", xcodes, { brew, sudo });
   const result = run([], { env: { DEVBOX_CONFIG: join(home, "missing-devbox.env") } });

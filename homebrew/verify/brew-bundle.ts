@@ -9,6 +9,7 @@ import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+
 const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -38,6 +39,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     );
     const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
     const missingLocal = join(temporary, "missing/Brewfile.local");
+
     const execute = (
       script: string,
       args: ReadonlyArray<string>,
@@ -56,9 +58,11 @@ exit "\${FAKE_BREW_EXIT:-0}"
           ...extra,
         },
       });
+
     const directLog = join(temporary, "direct.log");
     const privateFile = join(prefix, "private-file");
     yield* fs.writeFileString(privateFile, "fixture", { mode: 0o600 });
+
     const bundle = Effect.fn("runBrewBundleFixture")(function* (
       profile: string,
       args: ReadonlyArray<string> = [],
@@ -67,21 +71,26 @@ exit "\${FAKE_BREW_EXIT:-0}"
       yield* fs.writeFileString(bundleLog, "");
       const result = yield* execute("homebrew/brew-bundle.ts", [...args, profile], bundleLog);
       assert.equal(result.status, 0, result.stderr);
+
       return yield* fs.readFileString(bundleLog);
     });
+
     const devbox = yield* bundle("devbox");
     assert.equal(devbox.includes("arg=uinaf/tap\n"), false);
     assert.equal((yield* bundle("workstation")).includes("arg=uinaf/tap\n"), false);
     assert.equal((devbox.match(/^arg=bundle$/gm) || []).length, 2);
     assert.equal((devbox.match(/^profile=devbox$/gm) || []).length, 2);
+
     for (const file of ["homebrew/Brewfile", "homebrew/Brewfile.devbox"]) {
       assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
     }
+
     const personal = yield* bundle("personal-devbox");
     assert.equal((yield* fs.stat(privateFile)).mode & 0o777, 0o600);
     assert.ok(personal.includes("arg=uinaf/tap\n"));
     assert.ok((yield* bundle("personal-workstation")).includes("arg=uinaf/tap\n"));
     assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 3);
+
     for (const file of [
       "homebrew/Brewfile",
       "homebrew/Brewfile.devbox",
@@ -89,6 +98,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     ]) {
       assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
     }
+
     const shared = yield* bundle("devbox", ["--shared-only"]);
     assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
     const maintenance = yield* bundle("personal-devbox", ["--maintenance"]);
@@ -96,22 +106,26 @@ exit "\${FAKE_BREW_EXIT:-0}"
     assert.doesNotMatch(maintenance, /^arg=(cleanup|trust)$/m);
     assert.equal((maintenance.match(/^arg=check$/gm) || []).length, 3);
     const missingLog = join(temporary, "missing-packages.log");
+
     const missing = yield* execute(
       "homebrew/brew-bundle.ts",
       ["--maintenance", "devbox"],
       missingLog,
       { FAKE_BREW_CHECK_EXIT: "1" },
     );
+
     assert.equal(missing.status, 0, missing.stderr);
     const missingCommands = yield* fs.readFileString(missingLog);
     assert.equal((missingCommands.match(/^arg=--no-upgrade$/gm) || []).length, 4);
     assert.equal((missingCommands.match(/^arg=check$/gm) || []).length, 2);
+
     const failedInstall = yield* execute(
       "homebrew/brew-bundle.ts",
       ["--maintenance", "personal-devbox"],
       join(temporary, "failed-install.log"),
       { FAKE_BREW_CHECK_EXIT: "1", FAKE_BREW_EXIT: "19" },
     );
+
     assert.notEqual(failedInstall.status, 0);
     assert.match(failedInstall.stderr, /exited 19/);
     const cleanup = yield* bundle("devbox", ["--cleanup"]);
@@ -134,6 +148,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
 
     const local = join(temporary, "Brewfile.local");
     yield* fs.writeFileString(local, 'brew "local-tool"\ncask "local-app"', { mode: 0o600 });
+
     const withLocal = Effect.fn("runLocalBrewfileFixture")(function* (
       profile: string,
       args: ReadonlyArray<string> = [],
@@ -141,12 +156,15 @@ exit "\${FAKE_BREW_EXIT:-0}"
     ) {
       const localLog = join(temporary, `local-${profile}-${args.join("-") || "bundle"}.log`);
       yield* fs.writeFileString(localLog, "");
+
       const result = yield* execute("homebrew/brew-bundle.ts", [...args, profile], localLog, {
         DOTFILES_BREWFILE_LOCAL: local,
         ...extra,
       });
+
       return { result, log: yield* fs.readFileString(localLog) };
     });
+
     const printed = yield* withLocal("devbox", ["--print-files"]);
     assert.equal(printed.result.status, 0, printed.result.stderr);
     assert.deepEqual(printed.result.stdout.trim().split("\n"), [
@@ -204,4 +222,5 @@ exit "\${FAKE_BREW_EXIT:-0}"
     Effect.provide(NodeServices.layer),
   ),
 );
+
 runMain(program);

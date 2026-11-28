@@ -7,6 +7,7 @@ import { test } from "vite-plus/test";
 
 test("data CLI preserves symlink invocation and rejects invalid count maps", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-cli-"));
+
   try {
     const report = join(root, "report.json");
     const policy = join(root, "policy.json");
@@ -17,11 +18,14 @@ test("data CLI preserves symlink invocation and rejects invalid count maps", () 
     );
     const cliPath = join(root, "data.ts");
     symlinkSync(join(import.meta.dirname, "data.ts"), cliPath);
+
     const cli = spawnSync(process.execPath, [cliPath, "gitleaks-locators", root, report], {
       encoding: "utf8",
     });
+
     assert.equal(cli.status, 0, cli.stderr);
     assert.equal(cli.stdout, "");
+
     const invalidCounts = spawnSync(
       process.execPath,
       [cliPath, "gitleaks-summary", policy, "{", "{}", report],
@@ -29,12 +33,15 @@ test("data CLI preserves symlink invocation and rejects invalid count maps", () 
         encoding: "utf8",
       },
     );
+
     assert.equal(invalidCounts.status, 1);
     assert.match(invalidCounts.stderr, /invalid persisted count map/);
     writeFileSync(report, "not json");
+
     const malformed = spawnSync(process.execPath, [cliPath, "gitleaks-locators", root, report], {
       encoding: "utf8",
     });
+
     assert.equal(malformed.status, 1);
     assert.match(malformed.stderr, /report is missing or invalid/);
   } finally {

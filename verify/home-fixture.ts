@@ -22,6 +22,7 @@ import { readProfileModel } from "../profiles/model.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = resolve(repoRoot, "chezmoi");
+
 const profiles = Object.keys(
   readProfileModel(join(sourceDir, ".chezmoidata/profiles.json")).profiles,
 );
@@ -40,6 +41,7 @@ export function runApply(
     temp: join(fixtureRoot, "tmp"),
     git: join(fixtureRoot, "gitconfig"),
   };
+
   mkdirSync(paths.home, { recursive: true });
   mkdirSync(paths.temp, { recursive: true });
   const agentRulesPath = join(paths.state, "dotfiles/agent-rules.md");
@@ -56,6 +58,7 @@ export function runApply(
       dotfilesProfile: profile,
       temporarySource: options.temporarySource ?? false,
     });
+
     const child = spawn(
       "chezmoi",
       [
@@ -85,6 +88,7 @@ export function runApply(
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
+
     const output: Array<Buffer> = [];
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => output.push(chunk));
@@ -92,12 +96,15 @@ export function runApply(
     child.on("close", (status) => {
       if (status !== 0) {
         reject(new Error(Buffer.concat(output).toString()));
+
         return;
       }
+
       const storedProfile = readFileSync(
         join(paths.home, ".config/dotfiles/profile"),
         "utf8",
       ).trim();
+
       assert.equal(storedProfile, profile);
       assert.ok(realpathSync(paths.home).startsWith(`${realpathSync(fixtureRoot)}/`));
       finish();
@@ -107,11 +114,14 @@ export function runApply(
 
 async function verifyProfiles(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-homes-"));
+
   try {
     const results = await Promise.allSettled(
       profiles.map((profile) => runApply(profile, join(root, profile))),
     );
+
     const failure = results.find((result) => result.status === "rejected");
+
     if (failure?.status === "rejected") {
       throw failure.reason;
     }
@@ -128,6 +138,7 @@ function filesReferencing(directory: string, needle: string): Array<string> {
 
 async function verifyTemporarySource(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-temporary-source-"));
+
   try {
     const checkout = join(root, "checkout");
     cpSync(sourceDir, join(checkout, "chezmoi"), { recursive: true });

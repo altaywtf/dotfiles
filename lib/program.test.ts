@@ -38,6 +38,7 @@ test("SIGTERM interrupts the CLI and completes finalizers without reporting a de
     setTimeout(() => process.kill(process.pid, "SIGTERM"), 20);
     runMain(Effect.never.pipe(Effect.ensuring(Effect.sync(() => process.stdout.write("finalized")))));
   `);
+
   assert.equal(result.status, 130);
   assert.equal(result.stdout, "finalized");
   assert.equal(result.stderr, "");

@@ -33,6 +33,7 @@ test("applied hygiene retains successive reports when stdout is not redirected",
   const directory = join(home, ".local/state/dotfiles");
   mkdirSync(directory, { recursive: true });
   const now = Date.now();
+
   for (let pass = 0; pass < 2; pass++) {
     writeFileSync(
       join(directory, "hygiene.json"),
@@ -40,6 +41,7 @@ test("applied hygiene retains successive reports when stdout is not redirected",
     );
     await hygiene(home, true, true, now + pass);
   }
+
   const path = join(logDirectory(home), `hygiene-${new Date(now).toISOString().slice(0, 10)}.log`);
   const log = readFileSync(path, "utf8");
   assert.equal(log.match(/"startedAt"/g)?.length, 2);
@@ -48,8 +50,10 @@ test("applied hygiene retains successive reports when stdout is not redirected",
   await hygiene(home, true, true, now + 2);
   assert.equal(readFileSync(path, "utf8"), log, "skipped runs do not append");
 });
+
 test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-state-")));
+
   try {
     const statePath = join(root, "hygiene.json");
     const empty = { lastRun: 0, lastCache: 0, candidates: {} };
@@ -58,16 +62,19 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
     assert.deepEqual(readState(statePath), { state: empty, recovered: true });
     writeFileSync(statePath, JSON.stringify({ wrong: "shape" }));
     assert.deepEqual(readState(statePath), { state: empty, recovered: true });
+
     const valid = {
       lastRun: 5,
       lastCache: 6,
       candidates: { key: { head: "a".repeat(40), since: 7 } },
     };
+
     writeFileSync(statePath, JSON.stringify(valid));
     assert.deepEqual(readState(statePath), { state: valid, recovered: false });
     const directoryPath = join(root, "state-directory.json");
     mkdirSync(directoryPath);
     assert.throws(() => readState(directoryPath), { code: "EISDIR" });
+
     if (process.getuid?.() !== 0) {
       chmodSync(statePath, 0o000);
       assert.throws(() => readState(statePath), { code: "EACCES" });
@@ -103,6 +110,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
         { mode: 0o755 },
       );
       let childPid: number | undefined;
+
       const parent = spawn(
         process.execPath,
         [join(import.meta.dirname, "hygiene.ts"), "--dry-run"],
@@ -111,6 +119,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
+
       let output = "";
       parent.stdout.on("data", (chunk) => {
         output += String(chunk);
@@ -118,19 +127,23 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
       parent.stderr.on("data", (chunk) => {
         output += String(chunk);
       });
+
       const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
         (resolveClosed, reject) => {
           parent.once("error", reject);
           parent.once("close", (code, exitSignal) => resolveClosed({ code, signal: exitSignal }));
         },
       );
+
       t.onTestFinished(() => {
         if (parent.exitCode === null && parent.signalCode === null) {
           parent.kill("SIGKILL");
         }
+
         if (childPid !== undefined) {
           killIfAlive(childPid);
         }
+
         rmSync(home, { recursive: true, force: true });
       });
       const startedPid = await waitForPid(ready, 5000);

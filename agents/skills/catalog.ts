@@ -10,6 +10,7 @@ const Skill = Schema.Struct({
   name: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)),
   source: Schema.NonEmptyString,
 });
+
 export type Skill = typeof Skill.Type;
 
 const SkillManifest = Schema.Struct({ skills: Schema.Unknown });
@@ -24,9 +25,11 @@ function parseSkills(value: unknown, label: string): ReadonlyArray<Skill> {
   );
 
   const names = skills.map((skill) => skill.name);
+
   if (new Set(names).size !== names.length) {
     throw new Error(`${label}: skill names must be unique`);
   }
+
   return skills;
 }
 
@@ -34,16 +37,20 @@ const MANIFEST_SOURCE = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\
 
 function readSkills(manifestPath: string): ReadonlyArray<Skill> {
   const label = `Invalid skills manifest at ${manifestPath}`;
+
   const manifest = decodeOr(
     SkillManifest,
     readJsonFile(manifestPath, label),
     `${label}: expected non-empty name/source strings`,
   );
+
   const skills = parseSkills(manifest.skills, label);
   const invalid = skills.find((skill) => !MANIFEST_SOURCE.test(skill.source));
+
   if (invalid !== undefined) {
     throw new Error(`${label}: ${invalid.name} source must be owner/repository or an HTTPS URL`);
   }
+
   return skills;
 }
 
@@ -64,6 +71,7 @@ export function readLayeredSkills(
   }
 
   const manifests = new Map<SkillLayer, ReadonlyArray<Skill>>();
+
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     const manifestPath = join(repoDir, "agents", "skills", `${layer}.json`);
     manifests.set(layer, readSkills(manifestPath));
@@ -71,6 +79,7 @@ export function readLayeredSkills(
 
   const selected: Array<SkillLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
+
   if (local?.document.skills !== undefined) {
     manifests.set(
       "local",
@@ -87,6 +96,7 @@ export function readLayeredSkills(
       const sources = selected
         .flatMap((layer) => manifests.get(layer) ?? [])
         .flatMap((skill) => (skill.name === name ? [skill.source] : []));
+
       return `Invalid layered skills: ${name} is defined more than once (${sources.join(" and ")})`;
     },
   );
@@ -103,6 +113,7 @@ export function readLayeredSkills(
 
 export function readSkillLock(lockPath: string): ReadonlyArray<Skill> | undefined {
   const parsed = readLockFile(lockPath, "skills");
+
   if (parsed === undefined) {
     return undefined;
   }
@@ -114,6 +125,7 @@ export function readSkillLock(lockPath: string): ReadonlyArray<Skill> | undefine
   );
 
   const names = skills.map((skill) => skill.name);
+
   if (new Set(names).size !== names.length) {
     throw new Error(`Invalid managed skills lock at ${lockPath}: skill names must be unique`);
   }

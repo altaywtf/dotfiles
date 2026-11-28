@@ -13,11 +13,14 @@ function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
 
   for (const owned of previous) {
     const next = currentByKey.get(keyOf(owned));
+
     if (next === undefined) {
       stale.push(owned);
       continue;
     }
+
     const dropped = owned.harnesses.filter((harness) => !next.harnesses.includes(harness));
+
     if (dropped.length > 0) {
       stale.push({ ...owned, harnesses: dropped });
     }
@@ -32,6 +35,7 @@ function presentHarnessEntries<T extends HarnessOwned>(
 ): Array<T> {
   return entries.flatMap((entry) => {
     const harnesses = entry.harnesses.filter((harness) => available.includes(harness));
+
     return harnesses.length > 0 ? [{ ...entry, harnesses }] : [];
   });
 }
@@ -47,12 +51,15 @@ function retainAbsentEntries<P extends HarnessOwned, C extends HarnessOwned>(
 
   for (const owned of previous) {
     const next = currentByKey.get(keyOf(owned));
+
     if (next === undefined) {
       continue;
     }
+
     const absent = owned.harnesses.filter(
       (harness) => next.harnesses.includes(harness) && !available.includes(harness),
     );
+
     if (absent.length > 0) {
       leftover.push({ ...owned, harnesses: absent });
     }
@@ -72,10 +79,12 @@ function mergeLockEntries<T extends HarnessOwned>(
 
   for (const extra of leftover) {
     const existing = byKey.get(keyOf(extra));
+
     if (existing === undefined) {
       byKey.set(keyOf(extra), { ...extra, harnesses: [...extra.harnesses] });
       continue;
     }
+
     existing.harnesses = HARNESSES.filter(
       (harness) => existing.harnesses.includes(harness) || extra.harnesses.includes(harness),
     );
@@ -95,6 +104,7 @@ export function planOwnership<T extends HarnessOwned>(options: {
   const { previous, selected, available, keyOf } = options;
   const applied = presentHarnessEntries(available, selected);
   const retained = retainAbsentEntries(available, previous, selected, keyOf);
+
   return {
     removals: staleEntries(previous, selected, keyOf),
     nextLock: (deferred) => mergeLockEntries(applied, [...deferred, ...retained], keyOf),

@@ -15,12 +15,15 @@ const installer = join(repoRoot, "bootstrap/darwin/install-devbox-service-daemon
 const program = Effect.scoped(
   Effect.gen(function* () {
     const runner = yield* CommandRunner;
+
     const runInstaller = (args: ReadonlyArray<string>) =>
       runner.run(process.execPath, [installer, ...args]);
+
     const expected = "local.dotfiles.software-update.example";
     const generic = yield* runInstaller(["--user", "example", "--print-labels"]);
     assert.equal(generic.status, 0);
     assert.equal(generic.stdout.trim(), expected);
+
     for (const namespace of ["org.example.dotfiles", "org.example_team.dotfiles"]) {
       const custom = yield* runInstaller([
         "--user",
@@ -29,9 +32,11 @@ const program = Effect.scoped(
         namespace,
         "--print-labels",
       ]);
+
       assert.equal(custom.status, 0);
       assert.equal(custom.stdout.trim(), `${namespace}.software-update.example`);
     }
+
     assert.throws(() => launchdLabel("software-update", ""));
     assert.throws(() => launchdLabel("", "example"));
 
@@ -42,7 +47,9 @@ const program = Effect.scoped(
       "invalid namespace",
       "--print-labels",
     ]);
+
     assert.notEqual(invalid.status, 0);
+
     for (const args of [
       ["--user", "example", "--colima"],
       ["--user", "example", "--openclaw"],
@@ -62,10 +69,12 @@ const program = Effect.scoped(
       yield* resolveLaunchdNamespaceContract("org.example.dotfiles", namespaceFile),
       "org.example.dotfiles",
     );
+
     const conflicting = yield* resolveLaunchdNamespaceContract(
       "local.dotfiles",
       namespaceFile,
     ).pipe(Effect.flip);
+
     assert.ok(isCliFailure(conflicting));
     assert.equal(conflicting.exitCode, 3);
     yield* fs.chmod(namespaceFile, 0o644);

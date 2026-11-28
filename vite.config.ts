@@ -30,7 +30,6 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
-      "anti-slop/require-readable-spacing": "off",
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-shape-in-symbol-names": "off",
       "anti-slop/no-runtime-typeof": "off",

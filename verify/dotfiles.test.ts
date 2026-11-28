@@ -44,6 +44,7 @@ test("operator command validates and delegates every profile", async () => {
   const fixture = mkdtempSync(join(tmpdir(), "dotfiles-command-"));
   const home = join(fixture, "home");
   const command = join(repoRoot, "bootstrap/cli.ts");
+
   const run = (args: Array<string>, log: string, exit = 0): Promise<RunResult> =>
     new Promise((resolvePromise, rejectPromise) => {
       const child = spawn(process.execPath, [command, ...args], {
@@ -55,6 +56,7 @@ test("operator command validates and delegates every profile", async () => {
           HOME: home,
         },
       });
+
       let stdout = "";
       let stderr = "";
       child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
@@ -167,14 +169,17 @@ test("operator command validates and delegates every profile", async () => {
 
 test("fresh checkout launcher prepares dependencies without applying a profile", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-prepare-"));
+
   try {
     cpSync(join(repoRoot, "dotfiles"), join(root, "dotfiles"));
     const nodeVersion = "24.99.1";
     writeFileSync(join(root, ".node-version"), `${nodeVersion}\n`);
     cpSync(join(repoRoot, "package.json"), join(root, "package.json"));
+
     const pnpmVersion = Schema.decodeUnknownSync(PackageManifest)(
       readFileSync(join(root, "package.json"), "utf8"),
     ).packageManager.replace(/^pnpm@/, "");
+
     const bin = join(root, "bin");
     mkdirSync(bin);
     const log = join(root, "commands");
@@ -184,11 +189,13 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
       { mode: 0o755 },
     );
     const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TEST_LOG: log };
+
     const launch = (command: string, exit?: string) =>
       spawnSync("/bin/sh", [join(root, "dotfiles"), command], {
         env: exit === undefined ? env : { ...env, TEST_EXIT: exit },
         encoding: "utf8",
       });
+
     const help = launch("--help");
     assert.equal(help.status, 0, help.stderr);
     assert.deepEqual(readdirSync(root).sort(), [

@@ -13,9 +13,11 @@ function fixture(t: TestContext, checkoutExists: boolean) {
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const checkout = join(root, "my checkout & co's");
+
   if (checkoutExists) {
     mkdirSync(checkout);
   }
+
   const units = join(home, ".config/systemd/user");
   mkdirSync(units, { recursive: true });
   const service = join(units, "dotfiles-software-update.service");
@@ -30,6 +32,7 @@ function fixture(t: TestContext, checkoutExists: boolean) {
     plist,
     `<string>${checkout.replaceAll("&", "&amp;").replaceAll("'", "&#39;")}/maintenance/run.ts</string>\n`,
   );
+
   return { home, service, plist };
 }
 

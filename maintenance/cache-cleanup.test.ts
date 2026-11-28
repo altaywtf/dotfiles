@@ -21,24 +21,30 @@ async function fixture(t: TestContext) {
   process.env.CODEX_HOME = join(home, ".codex");
   t.onTestFinished(() => {
     process.env.PATH = previousPath;
+
     if (previousCodexHome === undefined) {
       delete process.env.CODEX_HOME;
     } else {
       process.env.CODEX_HOME = previousCodexHome;
     }
   });
+
   for (const name of ["xcrun", "pnpm", "docker", "mise", "pgrep"]) {
     await writeFile(join(bin, name), "fixture", { mode: 0o755 });
   }
+
   const file = async (relative: string, days: number) => {
     const path = join(home, relative);
     await mkdir(join(path, ".."), { recursive: true });
     await writeFile(path, "preserve unless eligible");
     const when = new Date(Date.now() - days * 86_400_000);
     await utimes(path, when, when);
+
     return path;
   };
+
   const calls: Array<Array<string>> = [];
+
   const run = (
     apply: boolean,
     options: {
@@ -52,16 +58,19 @@ async function fixture(t: TestContext) {
     Effect.runPromise(
       Effect.gen(function* () {
         const live = yield* CommandRunner;
+
         const runner = CommandRunner.of({
           run: (command, args = [], commandOptions) => {
             assert.equal(commandOptions?.cwd, home);
             assert.equal(commandOptions?.env?.HOME, home);
             calls.push([command, ...args]);
+
             if (command === options.failure) {
               return options.spawnFailure
                 ? Effect.fail(new CommandError({ command, message: "fixture spawn failure" }))
                 : Effect.succeed({ status: 1, stdout: "", stderr: "fixture exit failure" });
             }
+
             if (command === "pgrep") {
               return Effect.succeed({
                 status: options.running?.some((path) => new RegExp(args[1] ?? "").test(path))
@@ -71,9 +80,11 @@ async function fixture(t: TestContext) {
                 stderr: "",
               });
             }
+
             if (command === "find" || command === "git") {
               return live.run(`/usr/bin/${command}`, args, commandOptions);
             }
+
             return Effect.succeed({
               status: options.probeFailure && (args[0] === "info" || args[0] === "--find") ? 1 : 0,
               stdout:
@@ -86,9 +97,11 @@ async function fixture(t: TestContext) {
             });
           },
         });
+
         return yield* cacheCleanup(home, apply).pipe(Effect.provideService(CommandRunner, runner));
       }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
     );
+
   return { home, bin, file, calls, run };
 }
 
@@ -99,11 +112,13 @@ test("cache ages match find day boundaries, dry-run preserves everything, and ap
   const recent = await f.file("Library/Developer/Xcode/DerivedData/recent", 1);
   const oldLog = await f.file("Library/Logs/CoreSimulator/old-log", 16);
   const boundaryLog = await f.file("Library/Logs/CoreSimulator/boundary", 14.5);
+
   const exclusions = await Promise.all([
     f.file("Library/Developer/Xcode/Archives/release.xcarchive", 100),
     f.file("Library/Developer/CoreSimulator/Devices/runtime", 100),
     f.file("projects/repo/source.ts", 100),
   ]);
+
   const dry = await f.run(false);
   assert.equal(dry.status, 0);
   assert.match(dry.stdout, /would remove 1 files/);
@@ -183,9 +198,11 @@ test("one total budget cancels the active command and prevents subsequent cleanu
   await f.file(".gradle/daemon/old", 20);
   let cancelled = false;
   const calls: Array<string> = [];
+
   const runner = CommandRunner.of({
     run: (command) => {
       calls.push(command);
+
       return command === "df"
         ? Effect.sleep(10).pipe(
             Effect.as({ status: 0, stdout: "header\nfixture 2000000 1000000\n", stderr: "" }),
@@ -199,12 +216,14 @@ test("one total budget cancels the active command and prevents subsequent cleanu
           );
     },
   });
+
   const result = await Effect.runPromise(
     cacheCleanup(f.home, true, 40).pipe(
       Effect.provideService(CommandRunner, runner),
       Effect.provide(NodeServices.layer),
     ),
   );
+
   assert.equal(cacheCleanupTimeoutMs, 30 * 60_000);
   assert.equal(result.status, 1);
   assert.match(result.stdout, /timed out after 40ms/);
@@ -214,12 +233,14 @@ test("one total budget cancels the active command and prevents subsequent cleanu
 
 test("codex retention honours day boundaries, keeps roots, locks, and root state", async (t) => {
   const f = await fixture(t);
+
   const expired = await Promise.all([
     f.file(".codex/archived_sessions/2026/01/02/rollout.jsonl", 31.5),
     f.file(".codex/sessions/2026/01/02/rollout.jsonl", 91.5),
     f.file(".codex/visualizations/2026/01/chart.html", 31.5),
     f.file(".codex/.tmp/scratch", 8.5),
   ]);
+
   const retained = await Promise.all([
     f.file(".codex/archived_sessions/2026/09/rollout.jsonl", 30.5),
     f.file(".codex/sessions/2026/08/rollout.jsonl", 90.5),
@@ -227,6 +248,7 @@ test("codex retention honours day boundaries, keeps roots, locks, and root state
     f.file(".codex/.tmp/warm", 7.5),
     f.file(".codex/.tmp/curated-plugins.lock", 400),
   ]);
+
   const protectedState = await Promise.all([
     f.file(".codex/config.toml", 400),
     f.file(".codex/history.jsonl", 400),
@@ -235,14 +257,18 @@ test("codex retention honours day boundaries, keeps roots, locks, and root state
     f.file(".codex/memories/note.md", 400),
     f.file(".codex/skills/custom/SKILL.md", 400),
   ]);
+
   const dry = await f.run(false);
   assert.equal(dry.status, 0);
   await Promise.all([...expired, ...retained, ...protectedState].map((path) => access(path)));
   assert.equal((await f.run(true)).status, 0);
+
   for (const path of expired) {
     await assert.rejects(access(path), { code: "ENOENT" });
   }
+
   await Promise.all([...retained, ...protectedState].map((path) => access(path)));
+
   for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"]) {
     await access(join(f.home, ".codex", root));
   }
@@ -271,12 +297,14 @@ for (const value of ["", "relative-codex"]) {
   test(`${value === "" ? "an empty" : "a relative"} CODEX_HOME falls back instead of pruning siblings`, async (t) => {
     const f = await fixture(t);
     process.env.CODEX_HOME = value;
+
     const siblings = await Promise.all([
       f.file("sessions/victim.jsonl", 400),
       f.file("visualizations/victim.html", 400),
       f.file(".tmp/victim", 400),
       f.file("archived_sessions/victim.jsonl", 400),
     ]);
+
     const fallback = await f.file(".codex/archived_sessions/2026/01/rollout.jsonl", 100);
     assert.equal((await f.run(true)).status, 0);
     await Promise.all(siblings.map((path) => access(path)));
@@ -287,19 +315,25 @@ for (const value of ["", "relative-codex"]) {
 test("idle tagged build output at checkout roots is swept; active, untagged, tracked, nested, and environment trees stay", async (t) => {
   const f = await fixture(t);
   const tag = "Signature: 8a477f597d28d172789f06886806bc55\n";
+
   const repo = async (relative: string) => {
     const path = join(f.home, relative);
     await mkdir(path, { recursive: true });
     execFileSync("/usr/bin/git", ["init", "-q", path]);
     await writeFile(join(path, ".gitignore"), "target/\n.venv/\n");
+
     return path;
   };
+
   const build = async (relative: string, days: number, tagged = true) => {
     const artifact = await f.file(`${relative}/debug/deps/libcrate.rlib`, days);
+
     if (tagged) {
       await writeFile(join(f.home, relative, "CACHEDIR.TAG"), tag);
     }
+
     const when = new Date(Date.now() - days * 86_400_000);
+
     for (const path of [
       `${relative}/CACHEDIR.TAG`,
       `${relative}/debug/deps`,
@@ -308,8 +342,10 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
     ]) {
       await utimes(join(f.home, path), when, when).catch(() => undefined);
     }
+
     return artifact;
   };
+
   await repo(".claude/worktrees/pnpm/review");
   await repo("projects/org/active");
   await repo("projects/org/untagged");
@@ -318,6 +354,7 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
   const idle = await build(".claude/worktrees/pnpm/review/target", 10);
   await repo("projects/org/python");
   await repo("projects/org/nested");
+
   const kept = await Promise.all([
     build("projects/org/active/target", 1),
     build("projects/org/python/.venv", 10),
@@ -325,6 +362,7 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
     build("projects/org/untagged/target", 10, false),
     build("projects/org/tracked/target", 10),
   ]);
+
   const dry = await f.run(false);
   assert.equal(dry.status, 0);
   assert.match(dry.stdout, /idle for 3 days: .*review\/target\n/);
@@ -339,11 +377,13 @@ test("idle tagged build output at checkout roots is swept; active, untagged, tra
 
 const install = async (path: string, days: number, directory = false) => {
   await mkdir(directory ? path : join(path, ".."), { recursive: true });
+
   if (directory) {
     await writeFile(join(path, "server"), "fixture");
   } else {
     await writeFile(path, "fixture");
   }
+
   const when = new Date(Date.now() - days * 86_400_000);
   await utimes(path, when, when);
 };
@@ -386,6 +426,7 @@ test("a Claude remote install whose running state is unknown stays", async (t) =
   const { home, run } = await fixture(t);
   const cli = join(home, ".claude/remote/ccd-cli");
   await mkdir(cli, { recursive: true });
+
   for (const [name, days] of [
     ["old", 20],
     ["new", 0],
@@ -394,6 +435,7 @@ test("a Claude remote install whose running state is unknown stays", async (t) =
     const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(cli, name), when, when);
   }
+
   const result = await run(true, { failure: "pgrep", spawnFailure: true });
   await access(join(cli, "old"));
   assert.equal(result.status, 1);
@@ -403,6 +445,7 @@ test("a symlinked Claude remote directory is never followed", async (t) => {
   const { home, run } = await fixture(t);
   const outside = join(home, "outside");
   await mkdir(outside, { recursive: true });
+
   for (const [name, days] of [
     ["old", 20],
     ["new", 0],
@@ -411,6 +454,7 @@ test("a symlinked Claude remote directory is never followed", async (t) => {
     const when = new Date(Date.now() - days * 86_400_000);
     await utimes(join(outside, name), when, when);
   }
+
   await mkdir(join(home, ".claude/remote"), { recursive: true });
   await symlink(outside, join(home, ".claude/remote/ccd-cli"));
   await run(true);

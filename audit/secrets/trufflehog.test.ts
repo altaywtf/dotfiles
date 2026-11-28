@@ -17,6 +17,7 @@ const finding = (commit: string, verified: boolean) =>
 
 test("only unverified findings pinned by commit, file, line, and detector are allowed", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-trufflehog-"));
+
   try {
     const allowlist = join(root, "allowlist.json");
     writeFileSync(
@@ -34,11 +35,13 @@ test("only unverified findings pinned by commit, file, line, and detector are al
         ],
       }),
     );
+
     const stdout = [
       finding("a".repeat(40), false),
       finding("a".repeat(40), true),
       finding("b".repeat(40), false),
     ].join("\n");
+
     assert.deepEqual(classifyTrufflehogFindings(`${stdout}\n`, allowlist), {
       allowed: 1,
       unexpected: [

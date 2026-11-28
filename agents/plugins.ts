@@ -45,13 +45,17 @@ function isMarketplaceSource(source: string): boolean {
   if (GITHUB_MARKETPLACE.test(source) || SCP_MARKETPLACE.test(source)) {
     return true;
   }
+
   if (isAbsolute(source)) {
     return true;
   }
+
   if (!URL.canParse(source)) {
     return false;
   }
+
   const url = new URL(source);
+
   return (
     (url.protocol === "https:" && url.username === "" && url.password === "") ||
     (url.protocol === "ssh:" && url.password === "")
@@ -84,6 +88,7 @@ const Plugin = Schema.Struct({
   name: SafeName,
   harnesses: LockedHarnesses,
 });
+
 export type Plugin = typeof Plugin.Type;
 
 const PluginManifest = Schema.Struct({ plugins: Schema.Unknown });
@@ -140,16 +145,19 @@ function readPlugin(value: unknown, context: string): Plugin {
     value,
     `${context}: expected a marketplace (owner/repo, HTTPS or SSH Git URL without credentials, or absolute path) and a safe plugin name`,
   );
+
   const entry = decodeOrThrow(PluginEntry, value, (detail) => `${context}: ${name} ${detail}`);
 
   const marketplaceId =
     entry.marketplaceId ??
     (GITHUB_MARKETPLACE.test(entry.marketplace) ? entry.marketplace.split("/")[1] : undefined);
+
   if (marketplaceId === undefined) {
     throw new Error(
       `${context}: ${name} needs a marketplaceId because its marketplace is not owner/repo`,
     );
   }
+
   return {
     marketplace: entry.marketplace,
     marketplaceId: decodeOrThrow(
@@ -168,25 +176,32 @@ function parsePlugins(value: unknown, context: string): Array<Plugin> {
     value,
     `${context}: expected a plugins array`,
   );
+
   const plugins = entries.map((plugin) => readPlugin(plugin, context));
   const refs = new Set<string>();
+
   for (const plugin of plugins) {
     const ref = pluginRef(plugin);
+
     if (refs.has(ref)) {
       throw new Error(`${context}: ${ref} is defined more than once`);
     }
+
     refs.add(ref);
   }
+
   return plugins;
 }
 
 export function readPlugins(manifestPath: string): Array<Plugin> {
   const context = `Invalid plugins manifest at ${manifestPath}`;
+
   const { plugins } = decodeOr(
     PluginManifest,
     readJsonFile(manifestPath, context),
     `${context}: expected a plugins array`,
   );
+
   return parsePlugins(plugins, context);
 }
 
@@ -207,12 +222,14 @@ export function readLayeredPlugins(
   }
 
   const manifests = new Map<PluginLayer, Array<Plugin>>();
+
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)));
   }
 
   const selected: Array<PluginLayer> = [...layers];
   const local = readLocalOverlay(repoDir);
+
   if (local?.document.plugins !== undefined) {
     manifests.set(
       "local",
@@ -227,16 +244,21 @@ export function readLayeredPlugins(
     pluginRef,
     (ref) => `Invalid layered plugins: ${ref} is defined more than once`,
   );
+
   const marketplaceIds = new Map<string, string>();
+
   for (const plugin of plugins) {
     const known = marketplaceIds.get(plugin.marketplace);
+
     if (known !== undefined && known !== plugin.marketplaceId) {
       throw new Error(
         `Invalid layered plugins: ${plugin.marketplace} is registered as both ${known} and ${plugin.marketplaceId}`,
       );
     }
+
     marketplaceIds.set(plugin.marketplace, plugin.marketplaceId);
   }
+
   return selected.includes("local") && local
     ? {
         layers: selected,
@@ -255,16 +277,19 @@ type PluginLock = {
 
 function readLockedPlugin(value: unknown, lockPath: string): Plugin {
   const label = `Invalid managed plugins lock at ${lockPath}`;
+
   const { name } = decodeOr(
     LockedPluginIdentity,
     value,
     `${label}: expected explicit marketplace, marketplaceId, name, and harnesses`,
   );
+
   return decodeOrThrow(Plugin, value, (detail) => `${label}: ${name} ${detail}`);
 }
 
 function readPluginLock(lockPath: string): Array<Plugin> | undefined {
   const parsed = readLockFile(lockPath, "plugins");
+
   if (parsed === undefined) {
     return undefined;
   }
@@ -274,11 +299,14 @@ function readPluginLock(lockPath: string): Array<Plugin> | undefined {
     parsed,
     `Invalid managed plugins lock at ${lockPath}: expected version 1 and a plugins array`,
   );
+
   const plugins = lock.plugins.map((plugin) => readLockedPlugin(plugin, lockPath));
   const refs = plugins.map(pluginRef);
+
   if (new Set(refs).size !== refs.length) {
     throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);
   }
+
   return plugins;
 }
 
@@ -293,6 +321,7 @@ function writePluginLock(
 
 function withKept(next: ReadonlyArray<Plugin>, kept: ReadonlyArray<Plugin>): Array<Plugin> {
   const merged = new Map(next.map((plugin) => [pluginRef(plugin), plugin]));
+
   for (const plugin of kept) {
     const current = merged.get(pluginRef(plugin));
     merged.set(pluginRef(plugin), {
@@ -302,6 +331,7 @@ function withKept(next: ReadonlyArray<Plugin>, kept: ReadonlyArray<Plugin>): Arr
       ),
     });
   }
+
   return [...merged.values()];
 }
 
@@ -331,8 +361,10 @@ function removeStalePlugins(
 
   for (const plugin of stale) {
     const leftoverHarnesses: Array<Harness> = [];
+
     for (const harness of plugin.harnesses) {
       const spec = HARNESS_SPECS[harness];
+
       if (!runtime.commandExists(spec.binary)) {
         leftoverHarnesses.push(harness);
         writeLine(
@@ -341,6 +373,7 @@ function removeStalePlugins(
         );
         continue;
       }
+
       if (!available.includes(harness)) {
         leftoverHarnesses.push(harness);
         continue;
@@ -353,6 +386,7 @@ function removeStalePlugins(
         `Removing stale managed plugin: ${pluginRef(plugin)} from ${spec.label}`,
       );
       const result = runtime.run(spec.binary, args, { stdout: "capture", stderr: "capture" });
+
       if (
         result.status !== 0 &&
         alreadyUninstalled(harness, `${result.stdout}\n${result.stderr}`)
@@ -386,11 +420,13 @@ function planHarness(
   const marketplaces = new Set<string>();
 
   const marketplaceArgs = spec.marketplaceArgs;
+
   if (marketplaceArgs !== undefined) {
     for (const plugin of selected) {
       if (marketplaces.has(plugin.marketplace)) {
         continue;
       }
+
       marketplaces.add(plugin.marketplace);
       planned.push({
         command: spec.binary,
@@ -398,6 +434,7 @@ function planHarness(
         marketplace: plugin.marketplace,
       });
       const upgradeArgs = spec.upgradeMarketplaceArgs?.(plugin) ?? [];
+
       if (options.update === true && upgradeArgs.length > 0) {
         planned.push({
           command: spec.binary,
@@ -410,6 +447,7 @@ function planHarness(
   }
 
   const installArgs = spec.installArgs;
+
   if (installArgs === undefined) {
     return planned;
   }
@@ -451,19 +489,23 @@ function applyHarness(
 
   if (!runtime.commandExists(spec.binary)) {
     writeLine(runtime.stdout, `Skipping ${spec.label} plugins: '${spec.binary}' is not installed`);
+
     return;
   }
+
   if (!available.includes(harness)) {
     return;
   }
 
   if (selected.length === 0) {
     writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
+
     return;
   }
 
   const blockedMarketplaces = new Set<string>();
   const blockedPlugins = new Set<string>();
+
   for (const planned of planHarness(harness, plugins, { update })) {
     if (
       planned.refresh === true &&
@@ -472,16 +514,20 @@ function applyHarness(
     ) {
       continue;
     }
+
     writeLine(runtime.stdout, `${spec.label}: ${planned.command} ${planned.args.join(" ")}`);
+
     const result = runtime.run(planned.command, planned.args, {
       stdout: "capture",
       stderr: "capture",
     });
+
     if (result.status !== 0) {
       failures.push({
         diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
         summary: `${spec.label}: ${planned.args.join(" ")} (exit ${result.status})`,
       });
+
       if (planned.plugin !== undefined) {
         blockedPlugins.add(planned.plugin);
       } else if (planned.marketplace !== undefined) {
@@ -507,17 +553,22 @@ function syncAgyPlugins(
 ): void {
   if (!runtime.commandExists("agy")) {
     writeLine(runtime.stdout, "Skipping Antigravity plugins: 'agy' is not installed");
+
     return;
   }
+
   const listArgs = ["plugin", "list", "--json"];
   const listed = runtime.run("agy", listArgs, { stdout: "capture", stderr: "capture" });
+
   if (listed.status !== 0) {
     failures.push({
       diagnostic: sanitizeDiagnostic(`${listed.stdout}\n${listed.stderr}`),
       summary: `Antigravity: ${listArgs.join(" ")} (exit ${listed.status})`,
     });
+
     return;
   }
+
   const installed = new Set(
     decodeOrThrow(
       Schema.fromJsonString(AgyPluginList),
@@ -525,13 +576,16 @@ function syncAgyPlugins(
       (detail) => `Antigravity: unexpected plugin list: ${detail}`,
     ).map((plugin) => plugin.name),
   );
+
   const selected = plugins.filter(
     (plugin) => plugin.harnesses.includes("claude") && (update || !installed.has(plugin.name)),
   );
+
   for (const plugin of selected) {
     const args = ["plugin", "install", agyPluginSource(plugin)];
     writeLine(runtime.stdout, `Antigravity: agy ${args.join(" ")}`);
     const result = runtime.run("agy", args, { stdout: "capture", stderr: "capture" });
+
     if (result.status !== 0) {
       failures.push({
         diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
@@ -559,20 +613,25 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layered.layers.join(", ")}`);
+
   if (layered.localPath) {
     writeLine(runtime.stdout, `Local overlay: ${layered.localPath}`);
   }
+
   const available = HARNESSES.filter((harness) =>
     runtime.commandExists(HARNESS_INFO[harness].binary),
   );
+
   const plugins = layered.plugins;
 
   const pluginLockPath = managedLockLocation(runtime.env, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
   const overlay = guardOverlay(readOverlayOwnership(pluginLockPath), repoDir, layered.localNames);
+
   const keptOverlay = (previouslyManaged ?? []).filter((plugin) =>
     overlay.kept.has(pluginRef(plugin)),
   );
+
   const ownership = planOwnership({
     previous: (previouslyManaged ?? []).filter((plugin) => !keptOverlay.includes(plugin)),
     selected: plugins,
@@ -581,6 +640,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   });
 
   const failures: Array<PluginFailure> = [];
+
   for (const harness of HARNESSES) {
     applyHarness(runtime, harness, plugins, available, failures, options.update);
   }
@@ -596,18 +656,22 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     if (available.length === 0) {
       writeLine(runtime.stdout, "No managed plugins lock found; skipping ownership initialization");
       writeLine(runtime.stdout, "Done.");
+
       return 0;
     }
+
     writeLine(
       runtime.stdout,
       "Initializing managed plugins lock without removing existing plugins",
     );
     writePluginLock(pluginLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
+
     return 0;
   }
 
   const deferred = removeStalePlugins(runtime, ownership.removals, available, failures);
+
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }
@@ -618,6 +682,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
     overlay.next,
   );
   writeLine(runtime.stdout, "Done.");
+
   return 0;
 }
 
@@ -627,12 +692,16 @@ function reportPluginFailures(runtime: Runtime, failures: ReadonlyArray<PluginFa
 
 export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, true);
+
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
+
     return 0;
   }
+
   if (parsed.kind === "error") {
     writeLine(runtime.stderr, parsed.message);
+
     return 2;
   }
 
@@ -642,11 +711,13 @@ export function main(args: ReadonlyArray<string>, runtime: Runtime = createRunti
     );
   } catch (error) {
     writeLine(runtime.stderr, `Plugin sync failed: ${errorMessage(error)}`);
+
     return 1;
   }
 }
 
 const entrypoint = process.argv[1];
+
 if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {

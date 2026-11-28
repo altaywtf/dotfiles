@@ -17,20 +17,25 @@ const ClaudeOAuth = Schema.Struct({ clientId: Schema.String, callbackPort: Schem
 
 function claudeConfigPath(env: NodeJS.ProcessEnv): string | undefined {
   const dir = env.CLAUDE_CONFIG_DIR || env.HOME;
+
   return dir ? join(dir, ".claude.json") : undefined;
 }
 
 function userEntry(env: NodeJS.ProcessEnv, name: string): typeof ClaudeServer.Type | undefined {
   const path = claudeConfigPath(env);
+
   if (path === undefined) {
     return undefined;
   }
+
   let contents: string;
+
   try {
     contents = readFileSync(path, "utf8");
   } catch {
     return undefined;
   }
+
   return Schema.decodeUnknownOption(ClaudeConfig)(contents).pipe(
     Option.filter(({ mcpServers }) => Object.hasOwn(mcpServers, name)),
     Option.flatMap(({ mcpServers }) => Schema.decodeUnknownOption(ClaudeServer)(mcpServers[name])),
@@ -45,9 +50,11 @@ export function claudeAuthMatches(
   oauth: McpOAuth | undefined,
 ): boolean {
   const entry = userEntry(env, name);
+
   const configuredHelper = Option.getOrUndefined(
     Schema.decodeUnknownOption(Schema.String)(entry?.headersHelper),
   );
+
   if (configuredHelper !== headersHelper) {
     return false;
   }
@@ -55,6 +62,7 @@ export function claudeAuthMatches(
   if (oauth === undefined) {
     return entry?.oauth === undefined;
   }
+
   return Schema.decodeUnknownOption(ClaudeOAuth, { onExcessProperty: "error" })(entry?.oauth).pipe(
     Option.exists(
       (configured) =>

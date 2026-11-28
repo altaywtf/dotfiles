@@ -11,6 +11,7 @@ import { composeBrewfile, profileBrewfiles, removeComposedBrewfile } from "../ho
 
 const repoRoot = resolve(import.meta.dirname, "../..");
 const model = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
+
 const evaluator = `require "json"
 entries = []
 %w[brew cask tap].each do |kind|
@@ -25,21 +26,27 @@ function evaluate(files: ReadonlyArray<string>): Array<string> {
     encoding: "utf8",
     env: { ...process.env, HOMEBREW_BUNDLE_DOTFILES_PROFILE: undefined },
   });
+
   assert.equal(result.status, 0, result.stderr || result.error?.message || "ruby failed");
+
   return result.stdout.trim().split("\n").filter(Boolean);
 }
 
 for (const profile of Object.keys(model.profiles)) {
   test(`${profile} evaluates standalone and preserves its package set when composed`, async () => {
     const root = await mkdtemp(join(tmpdir(), "dotfiles-homebrew-layers-"));
+
     try {
       const layers = profileBrewfiles(model, profile);
+
       for (const layer of layers) {
         await mkdir(dirname(join(root, layer)), { recursive: true });
         await copyFile(join(repoRoot, layer), join(root, layer));
       }
+
       const entries = evaluate(layers.map((layer) => join(root, layer)));
       const desktop = evaluate([join(repoRoot, "homebrew/Brewfile.personal-workstation")]);
+
       for (const entry of desktop) {
         assert.equal(
           entries.includes(entry),
@@ -47,9 +54,11 @@ for (const profile of Object.keys(model.profiles)) {
           `${profile}: ${entry}`,
         );
       }
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const composed = yield* composeBrewfile(root, layers);
+
           try {
             assert.deepEqual(evaluate([composed]), entries);
           } finally {

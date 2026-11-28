@@ -15,6 +15,7 @@ export type CommandOptions = {
   maxBuffer?: number;
   strictUtf8?: boolean;
 };
+
 export type CommandRunner = (
   command: string,
   args: ReadonlyArray<string>,
@@ -27,13 +28,16 @@ export function runCommand(
   options: CommandOptions = {},
 ): CommandResult {
   const output = options.output === "discard" ? "ignore" : "pipe";
+
   const result = spawnSync(command, [...args], {
     stdio: [options.input ?? "inherit", output, output],
     timeout: options.timeoutMs ?? 30_000,
     killSignal: "SIGKILL",
     maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
   });
+
   const stderr = result.stderr?.toString("utf8") ?? "";
+
   if (!options.strictUtf8) {
     return {
       status: result.status,
@@ -42,8 +46,10 @@ export function runCommand(
       error: result.error,
     };
   }
+
   try {
     const stdout = new TextDecoder("utf-8", { fatal: true }).decode(result.stdout ?? undefined);
+
     return { status: result.status, stdout, stderr, error: result.error };
   } catch (error) {
     return {
@@ -58,6 +64,7 @@ export function runCommand(
 export function canAccess(path: string, mode: number): boolean {
   try {
     accessSync(path, mode);
+
     return true;
   } catch {
     return false;

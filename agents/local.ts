@@ -24,20 +24,25 @@ export type LocalOverlay = {
 export function readLocalOverlay(repoDir: string): LocalOverlay | undefined {
   const path = join(repoDir, "agents", "local.json");
   const info = lstatSync(path, { throwIfNoEntry: false });
+
   if (!info) {
     return undefined;
   }
+
   if (!info.isFile()) {
     throw new Error(`Invalid local agent overlay: ${path} must be a regular file`);
   }
+
   if (info.uid !== process.getuid?.()) {
     throw new Error(`Unsafe local agent overlay: ${path} must be owned by the current user`);
   }
+
   if ((info.mode & 0o022) !== 0) {
     throw new Error(`Unsafe local agent overlay: ${path} must not be group or world writable`);
   }
 
   const label = `Invalid local agent overlay at ${path}`;
+
   return {
     path,
     document: decodeOrThrow(

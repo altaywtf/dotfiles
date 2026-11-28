@@ -9,13 +9,16 @@ function fixture(
 ) {
   const calls: Array<Array<string>> = [];
   const inspected: Array<string> = [];
+
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
       const failing = args.includes(options.failure ?? "never");
+
       if (failing && options.spawnFailure) {
         return Effect.fail(new CommandError({ command, message: "spawn failed" }));
       }
+
       return Effect.succeed({
         status: failing ? 9 : 0,
         stdout: command === "loginctl" ? (options.linger === false ? "no\n" : "yes\n") : "",
@@ -23,12 +26,15 @@ function fixture(
       });
     },
   });
+
   const fs = FileSystem.makeNoop({
     exists: (path) => {
       inspected.push(path);
+
       return Effect.succeed(!path.endsWith(options.missing ?? "never"));
     },
   });
+
   const run = (action: string) =>
     Effect.runPromise(
       manageSchedule(action, "/home/test", 1000).pipe(
@@ -36,6 +42,7 @@ function fixture(
         Effect.provideService(FileSystem.FileSystem, fs),
       ),
     );
+
   return { calls, inspected, run };
 }
 

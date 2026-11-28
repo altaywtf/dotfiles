@@ -13,15 +13,20 @@ import { awaitFullWake } from "./darwin/wake.ts";
 import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
 const Job = Schema.Literal("software-update");
+
 type Job = typeof Job.Type;
+
 const Address = Schema.String.check(Schema.isPattern(/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/));
+
 const AlertConfig = Schema.Struct({
   endpoint: Schema.String,
   token: Schema.String.check(Schema.isMinLength(1)),
   from: Address,
   to: Address,
 });
+
 const AlertState = Schema.Struct({ failing: Schema.Boolean });
+
 const SendResult = Schema.Struct({
   success: Schema.Literal(true),
   result: Schema.Struct({
@@ -30,6 +35,7 @@ const SendResult = Schema.Struct({
     permanent_bounces: Schema.Array(Schema.String),
   }),
 });
+
 const PreviousReceipt = Schema.Struct({
   bootId: Schema.optionalKey(Schema.String),
   cleanupComplete: Schema.optionalKey(Schema.Boolean),
@@ -41,12 +47,15 @@ function currentBootId(): string | undefined {
       process.platform === "darwin"
         ? execFileSync("/usr/sbin/sysctl", ["-n", "kern.bootsessionuuid"], { encoding: "utf8" })
         : readFileSync("/proc/sys/kernel/random/boot_id", "utf8");
+
     return id.trim() || undefined;
   } catch {
     return undefined;
   }
 }
+
 type Alert = "not-configured" | "not-needed" | "sent" | "failed";
+
 type ReceiptFields = {
   state: "running" | "finished";
   exitCode?: number;
@@ -76,6 +85,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   yield* Effect.try(() => rotateUpdateLog(home, job)).pipe(
     Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
   );
+
   const receipt = Effect.fn("writeUpdateReceipt")(
     function* (fields: ReceiptFields) {
       const record = `${JSON.stringify({ version: 1, job, startedAt, bootId: bootId || undefined, ...fields })}\n`;
@@ -92,6 +102,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       const temporary = `${path}.${process.pid}.tmp`;
       yield* fs.writeFileString(temporary, record, { mode: 0o600 });
       yield* fs.rename(temporary, path);
+
       return true;
     },
     Effect.catch(() =>
@@ -105,8 +116,10 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     if (!(yield* fs.exists(configPath))) {
       return undefined;
     }
+
     const link = yield* fs.readLink(configPath).pipe(Effect.option);
     const info = yield* fs.stat(configPath);
+
     if (
       Option.isSome(link) ||
       info.type !== "File" ||
@@ -115,15 +128,19 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     ) {
       return yield* fail("alert config must be an owner-only regular file");
     }
+
     const config = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(AlertConfig))(
       yield* fs.readFileString(configPath),
     );
+
     const url = yield* Effect.try(() => new URL(config.endpoint));
+
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
       return yield* fail(
         "alert endpoints must be HTTPS URLs without credentials, queries, or fragments",
       );
     }
+
     return config;
   }).pipe(
     Effect.catch(() =>
@@ -132,6 +149,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         yield* Console.error(
           "Invalid update alert configuration; updates will continue without alerts.",
         );
+
         return undefined;
       }),
     ),
@@ -141,27 +159,36 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     if (!(yield* fs.exists(path))) {
       return false;
     }
+
     const previous = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PreviousReceipt))(
       yield* fs.readFileString(path),
     );
+
     if (previous.cleanupComplete !== false) {
       return false;
     }
+
     if (!previous.bootId || !bootId || previous.bootId === bootId) {
       return true;
     }
+
     yield* Console.log("The previous update ended with a reboot; none of its processes remain.");
+
     return false;
   }).pipe(Effect.catch(() => Effect.succeed(true)));
+
   if (blocked) {
     yield* Console.error(
       "Previous update cleanup is unverified; refusing to start another update.",
     );
   }
+
   const gateSaved = yield* receipt({ state: "running", cleanupComplete: false });
+
   if (!gateSaved) {
     yield* Console.error("Cannot persist the cleanup gate; refusing to start another update.");
   }
+
   const execution =
     blocked || !gateSaved
       ? { status: 125, timedOut: false, cleanupComplete: !blocked }
@@ -173,11 +200,14 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
             Effect.catch((error) =>
               Effect.gen(function* () {
                 yield* Console.error("Update command failed to execute.");
+
                 return { status: 127, timedOut: false, cleanupComplete: error.cleanupComplete };
               }),
             ),
           );
+
   const status = execution.cleanupComplete ? execution.status : execution.status || 1;
+
   if (execution.timedOut) {
     yield* Console.error("Update exceeded its execution deadline; reporting failure.");
     yield* Console.error(
@@ -186,29 +216,36 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         : "Timeout diagnostics could not be saved.",
     );
   }
+
   if (!execution.cleanupComplete) {
     yield* Console.error("Update process cleanup is incomplete; inspect before retrying.");
   }
+
   yield* receipt({
     state: "running",
     exitCode: status,
     cleanupComplete: execution.cleanupComplete,
     timedOut: execution.timedOut || undefined,
   });
+
   if (destination) {
     const failing = status !== 0;
+
     const notified = yield* fs.readFileString(alertStatePath).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(AlertState))),
       Effect.map((state) => state.failing),
       Effect.orElseSucceed(() => false),
     );
+
     if (failing === notified) {
       alert = "not-needed";
     } else {
       const host = hostname();
+
       const subject = failing
         ? `${host}: ${job} failed with exit code ${status}`
         : `${host}: ${job} recovered`;
+
       const text = [
         failing ? `The scheduled ${job} failed.` : `The scheduled ${job} succeeded again.`,
         "",
@@ -223,6 +260,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
         "Inspect with `mise run maintenance:status` and the update log.",
         "",
       ].join("\n");
+
       alert = yield* Effect.tryPromise(async (signal) => {
         const response = await send(destination.endpoint, {
           method: "POST",
@@ -234,10 +272,13 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
           body: JSON.stringify({ from: destination.from, to: destination.to, subject, text }),
           signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
         });
+
         const body = await response.text();
+
         if (!response.ok) {
           throw new Error(`alert rejected with HTTP ${response.status}`);
         }
+
         return body.slice(0, 65_536);
       }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(SendResult))),
@@ -258,6 +299,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       );
     }
   }
+
   yield* receipt({
     state: "finished",
     finishedAt: new Date().toISOString(),
@@ -267,23 +309,28 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     cleanupComplete:
       execution.timedOut || !execution.cleanupComplete ? execution.cleanupComplete : undefined,
   });
+
   return status;
 });
 
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const program = Effect.gen(function* () {
     const [job, separator, command, ...args] = process.argv.slice(2);
+
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
       return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
+
     if (process.platform === "darwin" && !(yield* awaitFullWake())) {
       return;
     }
+
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
   }).pipe(
     Effect.provide(BoundedCommand.layer),
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   );
+
   runMain(program);
 }

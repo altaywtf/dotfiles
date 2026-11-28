@@ -75,27 +75,34 @@ class FixtureRuntime implements Runtime {
     if (command.endsWith("/resolve-profile.ts")) {
       const expectedFlag = args.indexOf("--expected");
       const expected = expectedFlag >= 0 ? args[expectedFlag + 1] : undefined;
+
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
+
       if (!Object.hasOwn(profileModel.profiles, this.profile)) {
         return { status: 3, stdout: "", stderr: "unknown profile" };
       }
+
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
     }
 
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
       const skills = requestedSkills(args);
+
       for (const skill of skills) {
         const diagnostic = this.failures.get(skill);
+
         if (diagnostic !== undefined) {
           return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
         }
       }
+
       for (const skill of skills) {
         if (this.falseSuccesses.has(skill)) {
           continue;
         }
+
         const skillDir = join(this.home, ".agents", "skills", skill);
         mkdirSync(skillDir, { recursive: true });
         writeFileSync(
@@ -103,20 +110,28 @@ class FixtureRuntime implements Runtime {
           `---\nname: ${skill}\ndescription: Fixture\n---\n`,
         );
       }
+
       return { status: 0, stdout: "", stderr: "" };
     }
+
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "remove") {
       const skill = args[3];
+
       if (skill === undefined) {
         throw new Error("skills remover call must include a skill name");
       }
+
       const diagnostic = this.removalFailures.get(skill);
+
       if (diagnostic !== undefined) {
         return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
       }
+
       rmSync(join(this.home, ".agents", "skills", skill), { force: true, recursive: true });
+
       return { status: 0, stdout: "", stderr: "" };
     }
+
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "update") {
       if (this.updateFailure !== undefined) {
         return {
@@ -125,6 +140,7 @@ class FixtureRuntime implements Runtime {
           stderr: this.updateFailure.stderr,
         };
       }
+
       return { status: 0, stdout: "", stderr: "" };
     }
 
@@ -173,12 +189,14 @@ function createFixture(): Fixture {
     join(repoDir, "agents", "skills", "personal.json"),
     JSON.stringify({ skills: fixturePersonalSkills }, null, 2),
   );
+
   for (const axis of ["workstation", "devbox"]) {
     writeFileSync(
       join(repoDir, "agents", "skills", `${axis}.json`),
       JSON.stringify({ skills: [] }, null, 2),
     );
   }
+
   mkdirSync(dirname(skillLockPath(home)), { recursive: true });
   writeFileSync(
     skillLockPath(home),
@@ -191,9 +209,11 @@ function createFixture(): Fixture {
 function requestedSkills(args: ReadonlyArray<string>): Array<string> {
   const skillFlag = args.indexOf("-s");
   const skills = skillFlag >= 0 ? args.slice(skillFlag + 1) : [];
+
   if (skills.length === 0 || skills.some((skill) => skill.startsWith("-"))) {
     throw new Error("skills installer call must end with -s <name...>");
   }
+
   return skills;
 }
 
@@ -214,9 +234,11 @@ function removedSkillNames(runtime: FixtureRuntime): Array<string> {
     )
     .map((call) => {
       const skill = call.args[3];
+
       if (skill === undefined) {
         throw new Error("recorded skills remover call must include a skill name");
       }
+
       return skill;
     });
 }
@@ -233,6 +255,7 @@ function skillLockPath(home: string): string {
 
 test("reports every installer failure after attempting the full manifest", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [
@@ -280,6 +303,7 @@ test("clones each source once for all of its skills", () => {
       2,
     ),
   );
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([["shared-b", { stdout: "", stderr: "HTTP 429" }]]),
   });
@@ -299,6 +323,7 @@ test("clones each source once for all of its skills", () => {
 
 test("rejects a false-success installer result when the installed artifact is missing", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     falseSuccesses: new Set(["ok-middle"]),
   });
@@ -412,9 +437,11 @@ test("removes only skills dropped from the previous managed lock", () => {
 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
+
   const removalCall = runtime.calls.find(
     (call) => call.command === "pnpm" && call.args[2] === "remove",
   );
+
   assert.deepEqual(removalCall?.args, [
     "dlx",
     "skills@test-version",
@@ -464,6 +491,7 @@ test("does not prune or advance ownership when installation fails", () => {
   writeFileSync(skillLockPath(home), JSON.stringify(previousLock, null, 2));
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
   mkdirSync(retiredDirectory, { recursive: true });
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([["fails-first", { stdout: "", stderr: "install failed" }]]),
   });
@@ -481,6 +509,7 @@ test("does not advance ownership when a managed removal fails", () => {
   writeFileSync(skillLockPath(home), JSON.stringify(previousLock, null, 2));
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
   mkdirSync(retiredDirectory, { recursive: true });
+
   const runtime = new FixtureRuntime(repoDir, home, {
     removalFailures: new Map([[retiredSkill.name, { stdout: "", stderr: "remove failed" }]]),
   });
@@ -550,6 +579,7 @@ test("runs skills update -g after a successful sync when --update is passed", ()
 
 test("reports updater failure after the managed sync already completed", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     updateFailure: { stdout: "", stderr: "rate limited" },
   });
@@ -567,6 +597,7 @@ test("reports updater failure after the managed sync already completed", () => {
 
 test("skips the updater when managed skill installation fails", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([["fails-first", { stdout: "", stderr: "boom" }]]),
   });

@@ -21,6 +21,7 @@ function linkReadableCheckout(name: string) {
   const privateRules = join(home, ".config/dotfiles", name);
   mkdirSync(dirname(privateRules), { recursive: true });
   symlinkSync(target, privateRules);
+
   return { home, target };
 }
 
@@ -88,8 +89,10 @@ test("rejects a broken local Markdown link", () => {
 test("rejects local Markdown owned by another user", (context) => {
   if (process.getuid?.() === 0) {
     context.skip("requires a non-root test runner");
+
     return;
   }
+
   const { home } = createFixture();
   const privateRules = join(home, ".config/dotfiles/agents.end.md");
   mkdirSync(dirname(privateRules), { recursive: true });

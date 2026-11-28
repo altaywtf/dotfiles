@@ -11,6 +11,7 @@ import { Schema } from "effect";
 const repoRoot = resolve(import.meta.dirname, "..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const sourceDir = join(repoRoot, "chezmoi");
+
 const profileNames = [
   "devbox",
   "developer",
@@ -20,9 +21,11 @@ const profileNames = [
 ];
 
 type RawProfile = Record<string, Schema.Json> & { capabilities: Record<string, Schema.Json> };
+
 type RawModel = Record<string, Schema.Json> & { profiles: Record<string, RawProfile> };
 
 const JsonRecord = Schema.Record(Schema.String, Schema.Json);
+
 const isRawDocument = Schema.is(
   Schema.Struct({
     profileModel: Schema.StructWithRest(
@@ -40,12 +43,14 @@ const isRawDocument = Schema.is(
 function rawModel(): RawModel {
   const document: unknown = JSON.parse(readFileSync(modelPath, "utf8"));
   assert.ok(isRawDocument(document));
+
   return document.profileModel;
 }
 
 function renderProfile(profile: string, profileData?: string) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-render-"));
   let source = sourceDir;
+
   if (profileData !== undefined) {
     source = join(root, "source");
     mkdirSync(join(source, ".chezmoidata"), { recursive: true });
@@ -56,8 +61,10 @@ function renderProfile(profile: string, profileData?: string) {
       readFileSync(join(sourceDir, ".chezmoitemplates/profile")),
     );
   }
+
   mkdirSync(join(root, "home"));
   mkdirSync(join(root, "tmp"));
+
   const result = spawnSync(
     "chezmoi",
     [
@@ -81,24 +88,29 @@ function renderProfile(profile: string, profileData?: string) {
       },
     },
   );
+
   rmSync(root, { recursive: true, force: true });
+
   return result;
 }
 
 test("canonical model covers every profile and renders through chezmoi", () => {
   const model = readProfileModel(modelPath);
   assert.deepEqual(Object.keys(model.profiles).sort(), profileNames);
+
   for (const profile of profileNames) {
     const result = renderProfile(profile);
     assert.equal(result.status, 0, String(result.stderr));
     assert.deepEqual(JSON.parse(String(result.stdout)), model.profiles[profile]);
   }
+
   const copied = renderProfile("workstation", JSON.stringify({ profileModel: rawModel() }));
   assert.equal(copied.status, 0, copied.stderr);
 });
 
 const workstation = (model: RawModel) => model.profiles.workstation;
 const capabilities = (model: RawModel) => workstation(model).capabilities;
+
 const invalidModels: Array<[string, (model: RawModel) => void, RegExp?]> = [
   ["unsupported version", (model) => (model.version = 2), /Expected 1/],
   ["missing key", (model) => delete capabilities(model).devbox, /Missing key/],

@@ -23,20 +23,24 @@ const program = Effect.scoped(
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-profiles." });
     const model = yield* readProfileModelEffect(modelPath);
     const profiles = Object.keys(model.profiles);
+
     const run = (
       command: string,
       args: ReadonlyArray<string> = [],
       options: { env?: Readonly<Record<string, string>>; cwd?: string } = {},
     ): Effect.Effect<CommandResult, unknown> =>
       runner.run(command, args, { env: options.env, cwd: options.cwd });
+
     for (const script of ["bootstrap/darwin/configure-power.ts", "verify/bootstrap.ts"]) {
       const result = yield* run(process.execPath, [
         join(repoRoot, script),
         "workstation",
         "devbox",
       ]);
+
       assert.notEqual(result.status, 0, `${script} accepted duplicate profiles`);
     }
+
     const profileHome = join(temporary, "profile-resolution");
     const marker = join(profileHome, ".config/dotfiles/profile");
     yield* fs.makeDirectory(join(profileHome, ".config/dotfiles"), { recursive: true });
@@ -76,11 +80,13 @@ const program = Effect.scoped(
     yield* fs.writeFileString(marker, "devbox\n", { mode: 0o666 });
     yield* fs.chmod(marker, 0o666);
     assert.equal((yield* readPersistedProfile(marker).pipe(Effect.option))._tag, "None");
+
     const unsafeMarker = yield* run(
       process.execPath,
       [join(repoRoot, "bootstrap/install.ts"), "--print-steps"],
       { env: { HOME: profileHome } },
     );
+
     assert.equal(unsafeMarker.status, 2, unsafeMarker.stderr);
     assert.match(unsafeMarker.stderr, /profile marker is missing or unsafe: .*chmod 600/);
 
@@ -89,11 +95,13 @@ const program = Effect.scoped(
     yield* fs.writeFileString(join(agentHome, ".config/dotfiles/profile"), "personal-devbox\n", {
       mode: 0o600,
     });
+
     const resolved = yield* run(
       process.execPath,
       [join(repoRoot, "agents/resolve-profile.ts"), "--expected", "personal-devbox"],
       { env: { HOME: agentHome } },
     );
+
     assert.equal(resolved.status, 0, resolved.stderr);
     assert.equal(resolved.stdout.trim(), "personal-devbox");
     assert.equal(
@@ -131,6 +139,7 @@ const program = Effect.scoped(
         "cat",
         join(temporary, ".config/mise/config.toml"),
       ]);
+
     const darwinMise = yield* renderedMise("darwin");
     const linuxMise = yield* renderedMise("linux");
     assert.equal(darwinMise.status, 0, darwinMise.stderr);
@@ -143,6 +152,7 @@ const program = Effect.scoped(
       linuxMise.stdout,
       /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-linux-/m,
     );
+
     for (const rendered of [darwinMise.stdout, linuxMise.stdout]) {
       assert.equal(
         rendered.match(/^\[tools\]$/gm)?.length,
@@ -150,18 +160,22 @@ const program = Effect.scoped(
         "one [tools] table per rendered config",
       );
     }
+
     for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
       const parsed = yield* run("python3", [
         "-c",
         "import sys, tomllib; tomllib.loads(open(sys.argv[1]).read())",
         join(repoRoot, "chezmoi/.chezmoitemplates", part),
       ]);
+
       assert.equal(parsed.status, 0, `${part} is not plain TOML: ${parsed.stderr}`);
     }
+
     for (const profile of profiles) {
       const destination = join(temporary, `render-${profile}`);
       yield* fs.makeDirectory(destination);
       const data = JSON.stringify({ dotfilesProfile: profile });
+
       const rendered = yield* run("chezmoi", [
         "--source",
         join(repoRoot, "chezmoi"),
@@ -172,9 +186,11 @@ const program = Effect.scoped(
         "cat",
         join(destination, ".config/dotfiles/profile"),
       ]);
+
       assert.equal(rendered.status, 0, rendered.stderr);
       assert.equal(rendered.stdout.trim(), profile);
     }
+
     const appliedHome = join(temporary, "devbox-applied");
     yield* fs.makeDirectory(appliedHome);
     yield* fs.makeDirectory(dirname(agentRulesCache(appliedHome)), {
@@ -188,9 +204,11 @@ const program = Effect.scoped(
       (yield* fs.readFileString(join(appliedHome, ".config/dotfiles/profile"))).trim(),
       "devbox",
     );
+
     for (const rejected of ["Library/Application Support/com.mitchellh.ghostty"]) {
       assert.equal(yield* fs.exists(join(appliedHome, rejected)), false);
     }
+
     const gitconfig = yield* fs.readFileString(join(appliedHome, ".gitconfig"));
     assert.match(gitconfig, /^\[core\]$/m);
     assert.match(gitconfig, /^\[gpg\]$/m);

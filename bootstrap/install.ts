@@ -11,6 +11,7 @@ import type { InstallStep } from "../profiles/model.ts";
 
 const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
+
 const usage = `Usage:
   bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation [--switch-profile]
   bootstrap/install.ts --print-steps --profile PROFILE
@@ -28,6 +29,7 @@ const execute = Effect.fn("executeInstallCommand")(function* (
   args: ReadonlyArray<string>,
 ) {
   const runner = yield* CommandRunner;
+
   const result = yield* runner
     .run(command, args, { cwd: repoRoot, stdin: "inherit", output: "inherit" })
     .pipe(
@@ -35,6 +37,7 @@ const execute = Effect.fn("executeInstallCommand")(function* (
         (error) => new CliFailure({ exitCode: 1, message: `${label}: ${error.message}` }),
       ),
     );
+
   if (result.status !== 0) {
     return yield* fail(`${label} exited ${result.status}`, result.status);
   }
@@ -58,6 +61,7 @@ const runStep = Effect.fn("runInstallStep")(function* (
       return yield* execute(step, bootstrap("install-gh-extensions.ts"), []);
     case "install-runtimes":
       yield* execute(step, "mise", ["install"]);
+
       return yield* execute(step, "mise", ["run", "dotfiles:runtime-packages"]);
     case "install-repository-dependencies":
       return yield* execute(step, "mise", [
@@ -79,9 +83,11 @@ const runStep = Effect.fn("runInstallStep")(function* (
           ...(maintenance && name !== "mcps.ts" ? ["--update"] : []),
         ]);
       }
+
       return;
     default: {
       const unsupported: never = step;
+
       return yield* fail(`unsupported install step: ${String(unsupported)}`, 2);
     }
   }
@@ -91,6 +97,7 @@ const miseShims = join(
   process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"),
   "shims",
 );
+
 if (!(process.env.PATH || "").split(":").includes(miseShims)) {
   process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
 }
@@ -101,14 +108,19 @@ const program = Effect.gen(function* () {
   let maintenance = false;
   let switchProfile = false;
   const args = process.argv.slice(2);
+
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+
     if (argument === "--profile") {
       const value = args[index + 1];
+
       if (!value || profileInput !== undefined) {
         yield* Console.error(usage);
+
         return yield* fail("invalid --profile", 2);
       }
+
       profileInput = value;
       index += 1;
     } else if (argument === "--print-steps") {
@@ -119,9 +131,11 @@ const program = Effect.gen(function* () {
       switchProfile = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
+
       return;
     } else {
       yield* Console.error(usage);
+
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
@@ -129,36 +143,45 @@ const program = Effect.gen(function* () {
   const profile = yield* resolveProfile(profileInput).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
+
   const modelPath =
     repoRoot === sourceRoot
       ? profileModelFile()
       : resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
+
   const model = yield* readProfileModelEffect(modelPath).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
+
   const selected = requireProfile(model, profile);
   const steps = selected.installSteps;
+
   if (printSteps) {
     yield* Console.log(steps.join("\n"));
+
     return;
   }
+
   if (!switchProfile) {
     yield* guardProfileSwitch(profile).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
     );
   }
+
   if (selected.capabilities.workstation && process.platform !== "darwin") {
     return yield* fail(
       `${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`,
       2,
     );
   }
+
   if (maintenance && process.platform === "darwin") {
     yield* execute("converge packages", resolve(repoRoot, "homebrew/brew-bundle.ts"), [
       "--maintenance",
       profile,
     ]);
   }
+
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

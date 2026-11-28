@@ -13,6 +13,7 @@ test("System Capabilities distinguish a full wake from DarkWake", () => {
 const wait = (states: ReadonlyArray<boolean | undefined>, maxWaitMs: number) => {
   let probes = 0;
   const probe = Effect.sync(() => states[Math.min(probes++, states.length - 1)]);
+
   return Effect.runPromise(
     awaitFullWake(probe, 1, maxWaitMs).pipe(
       Effect.provideService(CommandRunner, CommandRunner.of({ run: () => Effect.die("unused") })),

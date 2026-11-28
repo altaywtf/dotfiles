@@ -52,6 +52,7 @@ export class CommandRunner extends Context.Service<
         const output = options.output ?? "capture";
         const stdout: Array<Uint8Array> = [];
         const stderr: Array<Uint8Array> = [];
+
         const execution = Effect.gen(function* () {
           const handle = yield* spawner.spawn(
             ChildProcess.make(command, args, {
@@ -67,21 +68,26 @@ export class CommandRunner extends Context.Service<
               stderr: output === "capture" ? "pipe" : output,
             }),
           );
+
           if (output !== "capture") {
             return { status: Number(yield* handle.exitCode), stderr: "", stdout: "" };
           }
+
           const stdoutFiber = yield* Stream.runForEach(handle.stdout, (chunk) =>
             Effect.sync(() => {
               stdout.push(chunk);
             }),
           ).pipe(Effect.forkScoped);
+
           const stderrFiber = yield* Stream.runForEach(handle.stderr, (chunk) =>
             Effect.sync(() => {
               stderr.push(chunk);
             }),
           ).pipe(Effect.forkScoped);
+
           const status = Number(yield* handle.exitCode);
           yield* Effect.all([Fiber.join(stdoutFiber), Fiber.join(stderrFiber)]);
+
           return {
             status,
             stderr: decode(stderr),
@@ -103,6 +109,7 @@ export class CommandRunner extends Context.Service<
                   }),
                 ),
               );
+
         return yield* bounded.pipe(
           Effect.mapError(
             (error) => new CommandError({ command, message: String(error), cause: error }),
@@ -121,6 +128,7 @@ export const runCommand = Effect.fn("runCommand")(function* (
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const runner = yield* CommandRunner;
+
   return yield* runner.run(command, args, options).pipe(
     Effect.mapError(
       (error) =>
@@ -138,8 +146,10 @@ export const runChecked = Effect.fn("runChecked")(function* (
   options: CommandOptions = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
   const result = yield* runCommand(command, args, options);
+
   if (result.status !== 0) {
     return yield* fail(`${command} exited ${result.status}`, result.status);
   }
+
   return result;
 });

@@ -34,6 +34,7 @@ function codexConfig(t: TestContext, contents: string) {
   const config = join(home, "config.toml");
   mkdirSync(home);
   writeFileSync(config, contents);
+
   return { home, config };
 }
 
@@ -48,6 +49,7 @@ function assertDefaults(contents: string): void {
   assert.match(root, /^approvals_reviewer = "auto_review"$/m);
   assert.match(root, /^default_permissions = ":workspace"$/m);
   assert.doesNotMatch(root, /^sandbox_mode\s*=/m);
+
   for (const [table, line] of [
     ["analytics", "enabled = false"],
     ["feedback", "enabled = false"],
@@ -56,6 +58,7 @@ function assertDefaults(contents: string): void {
     const section = contents.split(new RegExp(`^\\[${table}\\][ \\t]*$`, "m"))[1]?.split(/^\[/m)[0];
     assert.ok(section?.split("\n").includes(line), `${table} must contain ${line}`);
   }
+
   assert.match(features, /^goals = true$/m);
   assert.match(features, /^memories = false$/m);
   assert.doesNotMatch(root, /^service_tier\s*=/m);
@@ -79,6 +82,7 @@ test(
       t,
       'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\napprovals_reviewer = "user"\ndefault_permissions = ":danger-full-access"\nsandbox_mode = "danger-full-access"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
     );
+
     chmodSync(config, 0o644);
 
     const first = run(home);
@@ -103,6 +107,7 @@ test(
       t,
       'service_tier = "fast"\n\n[features]\nfast_mode = true\n',
     );
+
     const result = run(home, "personal-workstation");
     assert.equal(result.status, 0, result.stderr);
     assertDefaults(readFileSync(config, "utf8"));
@@ -124,6 +129,7 @@ test(
     const home = join(root, ".codex");
     const config = join(home, "config.toml");
     const repo = join(root, "projects/owner/repo");
+
     try {
       mkdirSync(join(repo, ".git"), { recursive: true });
       mkdirSync(join(home, "sessions"), { recursive: true });
@@ -204,17 +210,21 @@ test(
       assert.equal(result.status, 0, result.stderr);
       const contents = readFileSync(config, "utf8");
       const root = contents.split(/^\[/m)[0];
+
       if (!routed) {
         assert.doesNotMatch(root, /^model_provider\s*=/m, profile);
         continue;
       }
+
       assert.match(root, /^model_provider = "gateway"$/m);
       const provider = contents.split(/^\[model_providers\.gateway\][ \t]*$/m)[1]?.split(/^\[/m)[0];
       assert.match(provider ?? "", /^base_url = "https:\/\/gateway\.test\/v1"$/m);
       assert.match(provider ?? "", /^requires_openai_auth = false$/m);
+
       const auth = contents
         .split(/^\[model_providers\.gateway\.auth\][ \t]*$/m)[1]
         ?.split(/^\[/m)[0];
+
       assert.match(auth ?? "", /^command = "\/bin\/echo key"$/m);
     }
   },

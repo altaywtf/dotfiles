@@ -15,10 +15,12 @@ function usage(): never {
 
 function main(args: Array<string>): void {
   const [command, ...values] = args;
+
   if (command === "sqlite-stats" && values.length === 1) {
     process.stdout.write(`${sqlitePageStats(values[0]).join(" ")}\n`);
   } else if (command === "gitleaks-locators" && values.length === 2) {
     const locators = findingLocators(values[0], values[1]);
+
     if (locators.length > 0) {
       process.stdout.write(`${locators.join("\n")}\n`);
     }

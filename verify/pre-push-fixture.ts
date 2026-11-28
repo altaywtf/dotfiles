@@ -26,9 +26,11 @@ export function run(path: string, args: Array<string>, allowFailure = false): st
       GIT_COMMITTER_EMAIL: "fixture@example.test",
     },
   });
+
   if (!allowFailure && result.status !== 0) {
     throw new Error(`${args.join(" ")} failed:\n${result.stderr || result.stdout}`);
   }
+
   return result.stdout.trim();
 }
 
@@ -36,6 +38,7 @@ export function init(root: string, format: "sha1" | "sha256" = "sha1"): Reposito
   const path = join(root, `repo-${format}`);
   run(root, ["git", "init", "--quiet", `--object-format=${format}`, path]);
   const oidLength = format === "sha256" ? 64 : 40;
+
   return { path, oidLength, zeroOid: "0".repeat(oidLength) };
 }
 
@@ -43,6 +46,7 @@ export function commit(repo: Repository, content: string, name = "file.txt"): st
   writeFileSync(join(repo.path, name), content);
   run(repo.path, ["git", "add", name]);
   run(repo.path, ["git", "commit", "--quiet", "-m", `update ${name}`]);
+
   return run(repo.path, ["git", "rev-parse", "HEAD"]);
 }
 

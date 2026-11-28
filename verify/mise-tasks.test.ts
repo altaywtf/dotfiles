@@ -11,6 +11,7 @@ import { auditCommand, runAudit } from "../audit/run.ts";
 import { Schema } from "effect";
 
 const repoRoot = resolve(import.meta.dirname, "..");
+
 const TaskListing = Schema.fromJsonString(
   Schema.Array(
     Schema.Struct({
@@ -20,13 +21,16 @@ const TaskListing = Schema.fromJsonString(
     }),
   ),
 );
+
 const CurrentTools = Schema.fromJsonString(
   Schema.Record(
     Schema.String,
     Schema.Array(Schema.Struct({ requested_version: Schema.optionalKey(Schema.String) })),
   ),
 );
+
 const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
+
 function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
   return (
     env.MISE_GLOBAL_CONFIG_FILE ||
@@ -40,6 +44,7 @@ function globalMiseConfigDirectory(env: NodeJS.ProcessEnv): string {
 
 const globalMiseConfig = globalMiseConfigPath(process.env);
 const globalMiseConfigDir = globalMiseConfigDirectory(process.env);
+
 const miseEnv = {
   ...process.env,
   MISE_IGNORED_CONFIG_PATHS: [
@@ -54,8 +59,10 @@ const miseEnv = {
     .join(delimiter),
   MISE_TASK_RUN_AUTO_INSTALL: "false",
 };
+
 function run(command: string, args: Array<string>, env: NodeJS.ProcessEnv = {}) {
   const configDir = mkdtempSync(join(tmpdir(), "dotfiles-mise-config-"));
+
   try {
     return spawnSync(command, args, {
       cwd: repoRoot,
@@ -82,9 +89,11 @@ test("tasks resolve the repository Node and pnpm pins without a global config", 
   const listing = run("mise", ["ls", "--current", "--json"]);
   assert.equal(listing.status, 0, listing.stderr);
   const current = Schema.decodeUnknownSync(CurrentTools)(listing.stdout);
+
   const packageManager = Schema.decodeUnknownSync(PackageManifest)(
     readFileSync(resolve(repoRoot, "package.json"), "utf8"),
   ).packageManager;
+
   assert.equal(
     current.node?.[0]?.requested_version,
     readFileSync(resolve(repoRoot, ".node-version"), "utf8").trim(),
@@ -99,14 +108,17 @@ test("task arguments fail before live commands run", () => {
 
 test("focused verification preserves the delegated failure code", () => {
   const bin = mkdtempSync(join(tmpdir(), "dotfiles-mise-bin-"));
+
   try {
     const node = join(bin, "node");
     writeFileSync(node, '#!/bin/sh\n[ "${1:-}" = --version ] && exit 0\nexit 23\n');
     chmodSync(node, 0o755);
+
     const result = run("mise", ["run", "verify:domain", "static"], {
       MISE_DISABLE_TOOLS: "node,pnpm",
       PATH: `${bin}:${process.env.PATH ?? ""}`,
     });
+
     assert.equal(result.status, 23, result.stderr);
   } finally {
     rmSync(bin, { force: true, recursive: true });

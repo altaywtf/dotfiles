@@ -40,27 +40,33 @@ type Finding = {
 
 function capture(runtime: Runtime, command: string, args: ReadonlyArray<string>) {
   const result = runtime.run(command, args, { stdout: "capture", stderr: "capture" });
+
   return { ...result, text: stripVTControlCharacters(`${result.stdout}\n${result.stderr}`) };
 }
 
 function helperProblem(path: string): string | undefined {
   const info = statSync(path, { throwIfNoEntry: false });
+
   if (!info) {
     return "is missing";
   }
+
   if (!info.isFile()) {
     return "is not a regular file";
   }
+
   try {
     accessSync(path, constants.X_OK);
   } catch {
     return "is not executable";
   }
+
   return undefined;
 }
 
 function helperFinding(runtime: Runtime, mcp: Mcp, helper: string): Finding | undefined {
   const problem = helperProblem(helper);
+
   if (problem !== undefined) {
     return {
       harness: "claude",
@@ -70,6 +76,7 @@ function helperFinding(runtime: Runtime, mcp: Mcp, helper: string): Finding | un
       repair: `create an executable ${helper} that prints the headers as JSON`,
     };
   }
+
   if (!claudeAuthMatches(runtime.env, mcp.name, helper, mcp.oauth)) {
     return {
       harness: "claude",
@@ -79,6 +86,7 @@ function helperFinding(runtime: Runtime, mcp: Mcp, helper: string): Finding | un
       repair: "mise run agents:sync",
     };
   }
+
   return undefined;
 }
 
@@ -87,19 +95,24 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
     mcp.headersHelper === undefined
       ? undefined
       : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
+
   const helperFailure = helper === undefined ? undefined : helperFinding(runtime, mcp, helper);
+
   if (helperFailure !== undefined) {
     return helperFailure;
   }
 
   const result = capture(runtime, "claude", ["mcp", "get", mcp.name]);
+
   const statusLine =
     result.text
       .split("\n")
       .find((line) => line.trim().startsWith("Status:"))
       ?.trim() ?? "";
+
   const repair =
     helper === undefined ? `claude mcp login ${mcp.name}` : `check the headers ${helper} prints`;
+
   if (result.status !== 0) {
     return {
       harness: "claude",
@@ -109,6 +122,7 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair: "mise run agents:sync",
     };
   }
+
   if (statusLine.includes("Connected")) {
     return {
       harness: "claude",
@@ -117,6 +131,7 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
       detail: helper === undefined ? "connected" : "connected via headers helper",
     };
   }
+
   if (/auth/i.test(statusLine)) {
     return {
       harness: "claude",
@@ -126,6 +141,7 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair,
     };
   }
+
   return {
     harness: "claude",
     mcp: mcp.name,
@@ -138,6 +154,7 @@ function claudeFinding(runtime: Runtime, mcp: Mcp): Finding {
 function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
   const result = capture(runtime, "codex", ["mcp", "list", "--json"]);
   const repair = `codex mcp login ${mcp.name}`;
+
   if (result.status !== 0) {
     return {
       harness: "codex",
@@ -147,7 +164,9 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair: "mise run agents:sync",
     };
   }
+
   const entries = Schema.decodeUnknownResult(CodexMcpList)(result.stdout);
+
   if (Result.isFailure(entries)) {
     return {
       harness: "codex",
@@ -157,6 +176,7 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair,
     };
   }
+
   const entry = Schema.decodeUnknownOption(Schema.Array(Schema.Unknown))(entries.success).pipe(
     Option.flatMap((items) =>
       Array.findFirst(items, (item) =>
@@ -167,6 +187,7 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
     ),
     Option.getOrUndefined,
   );
+
   if (entry === undefined) {
     return {
       harness: "codex",
@@ -176,10 +197,12 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
       repair: "mise run agents:sync",
     };
   }
+
   const auth = Option.getOrElse(
     Schema.decodeUnknownOption(Schema.String)(entry.auth_status),
     () => "unknown",
   );
+
   return {
     harness: "codex",
     mcp: mcp.name,
@@ -192,16 +215,21 @@ function codexFinding(runtime: Runtime, mcp: Mcp): Finding {
 function collect(runtime: Runtime, mcps: ReadonlyArray<Mcp>): Array<Finding> {
   const findings: Array<Finding> = [];
   const selected = (harness: Harness) => mcps.filter((mcp) => mcp.harnesses.includes(harness));
+
   for (const harness of HARNESSES) {
     const { binary, label } = HARNESS_INFO[harness];
+
     if (!runtime.commandExists(binary)) {
       writeLine(runtime.stdout, `Skipping ${label}: '${binary}' is not installed`);
       continue;
     }
+
     const chosen = selected(harness);
+
     if (chosen.length === 0) {
       continue;
     }
+
     switch (harness) {
       case "claude":
         findings.push(...chosen.map((mcp) => claudeFinding(runtime, mcp)));
@@ -211,6 +239,7 @@ function collect(runtime: Runtime, mcps: ReadonlyArray<Mcp>): Array<Finding> {
         break;
     }
   }
+
   return findings;
 }
 
@@ -228,6 +257,7 @@ function report(runtime: Runtime, findings: ReadonlyArray<Finding>): number {
       runtime.stdout,
       `${MARK[finding.status].padEnd(5)} ${label}: ${finding.mcp} - ${finding.detail}`,
     );
+
     if (
       (finding.status === "needs_login" || finding.status === "failed") &&
       finding.repair !== undefined
@@ -235,15 +265,18 @@ function report(runtime: Runtime, findings: ReadonlyArray<Finding>): number {
       writeLine(runtime.stdout, `      repair: ${finding.repair}`);
     }
   }
+
   const broken = findings.filter(
     (finding) => finding.status === "needs_login" || finding.status === "failed",
   );
+
   writeLine(
     runtime.stdout,
     broken.length === 0
       ? "All managed MCPs are usable."
       : `${broken.length} MCP state(s) need attention.`,
   );
+
   return broken.length === 0 ? 0 : 1;
 }
 
@@ -255,28 +288,36 @@ function run(runtime: Runtime, profileOverride: string | undefined): number {
   const profile = requireProfile(model, profileName);
   const { mcps } = readLayeredMcps(repoDir, profileName, profile.agentLayers);
   writeLine(runtime.stdout, `Profile: ${profileName}`);
+
   return report(runtime, collect(runtime, mcps));
 }
 
 export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, false);
+
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
+
     return 0;
   }
+
   if (parsed.kind === "error") {
     writeLine(runtime.stderr, parsed.message);
+
     return 2;
   }
+
   try {
     return run(runtime, parsed.profile);
   } catch (error) {
     writeLine(runtime.stderr, `MCP doctor failed: ${errorMessage(error)}`);
+
     return 1;
   }
 }
 
 const entrypoint = process.argv[1];
+
 if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {

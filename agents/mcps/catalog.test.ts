@@ -24,9 +24,11 @@ function createFixture(): Fixture {
   temporaryDirectories.push(repoDir);
   mkdirSync(join(repoDir, "agents", "mcps"), { recursive: true });
   writeManifest(repoDir, "developer", fixtureSharedMcps);
+
   for (const layer of ["workstation", "devbox", "personal"]) {
     writeManifest(repoDir, layer, []);
   }
+
   return { repoDir };
 }
 
@@ -133,11 +135,13 @@ test("rejects a conflicting layered definition and collapses an identical one", 
   );
 
   writeManifest(repoDir, "personal", fixtureSharedMcps);
+
   const { mcps } = readLayeredMcps(repoDir, "personal-workstation", [
     "developer",
     "workstation",
     "personal",
   ]);
+
   assert.deepEqual(
     mcps.map((mcp) => mcp.name),
     ["shared-mcp"],

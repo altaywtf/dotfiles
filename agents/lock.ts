@@ -17,6 +17,7 @@ export function readLockFile(lockPath: string, label: string): Schema.Json | und
   if (!existsSync(lockPath)) {
     return undefined;
   }
+
   return readJsonFile(lockPath, `Invalid managed ${label} lock at ${lockPath}`);
 }
 
@@ -37,6 +38,7 @@ export function managedLockLocation(env: NodeJS.ProcessEnv, kind: LockKind): str
   if (!env.HOME) {
     throw new Error(`HOME is required to locate the managed ${kind} lock`);
   }
+
   return join(env.HOME, ".local/state/dotfiles/agents", `${kind}.lock.json`);
 }
 
@@ -45,9 +47,11 @@ type LockKind = "skills" | "plugins" | "mcps";
 export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync: () => T): T {
   const directory = dirname(managedLockLocation(env, kind));
   mkdirSync(directory, { recursive: true, mode: 0o700 });
+
   const release = acquireDirectoryLock(join(directory, `${kind}.sync.lock`), {
     waitMs: 15 * 60_000,
   });
+
   try {
     return sync();
   } finally {
@@ -56,6 +60,7 @@ export function withManagedLock<T>(env: NodeJS.ProcessEnv, kind: LockKind, sync:
 }
 
 const OverlayOwnership = Schema.Record(Schema.String, Schema.Array(Schema.String));
+
 export type OverlayOwnership = typeof OverlayOwnership.Type;
 
 const OverlayLock = Schema.Struct({ overlays: Schema.Unknown });
@@ -84,11 +89,14 @@ export function guardOverlay(
   overlayNames: ReadonlyArray<string> | undefined,
 ): OverlayGuard {
   const checkout = realpathSync(repoDir);
+
   const others = Object.entries(previous ?? {}).filter(
     ([path]) => path !== checkout && existsSync(path),
   );
+
   const entries =
     overlayNames === undefined ? others : others.concat([[checkout, [...overlayNames]]]);
+
   return {
     kept: new Set(others.flatMap(([, names]) => names)),
     next: entries.length > 0 ? Object.fromEntries(entries) : undefined,

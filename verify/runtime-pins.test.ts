@@ -15,6 +15,7 @@ const MiseSettings = Schema.fromJsonString(
     minimum_release_age_excludes: Schema.Array(Schema.String),
   }),
 );
+
 const Renovate = Schema.fromJsonString(
   Schema.Struct({
     packageRules: Schema.Array(
@@ -38,6 +39,7 @@ const XcodePin = Schema.fromJsonString(
 function miseSettings() {
   const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
   const settings = source.slice(source.indexOf("[settings]"), source.indexOf("[settings.github]"));
+
   const parsed = spawnSync(
     "python3",
     [
@@ -46,7 +48,9 @@ function miseSettings() {
     ],
     { input: settings, encoding: "utf8" },
   );
+
   assert.equal(parsed.status, 0, parsed.stderr);
+
   return Schema.decodeUnknownSync(MiseSettings)(parsed.stdout);
 }
 
@@ -67,6 +71,7 @@ test("mise package convergence repeats without runtime installs and stops on fai
   writeFileSync(join(root, "mise.toml"), task);
   writeFileSync(join(root, "global.toml"), "");
   const log = join(root, "commands");
+
   for (const name of ["npm", "python"]) {
     writeFileSync(
       join(bin, name),
@@ -74,6 +79,7 @@ test("mise package convergence repeats without runtime installs and stops on fai
       { mode: 0o755 },
     );
   }
+
   const run = (failure = "") =>
     spawnSync("mise", ["run", "dotfiles:runtime-packages"], {
       cwd: root,
@@ -88,10 +94,12 @@ test("mise package convergence repeats without runtime installs and stops on fai
         TEST_FAIL: failure,
       },
     });
+
   for (let i = 0; i < 2; i++) {
     const result = run();
     assert.equal(result.status, 0, result.stderr);
   }
+
   assert.equal(readFileSync(log, "utf8"), "npm\npython\n".repeat(2));
   writeFileSync(log, "");
   assert.notEqual(run("npm").status, 0);
@@ -101,14 +109,17 @@ test("mise package convergence repeats without runtime installs and stops on fai
 test("mise and Renovate agree on CLI age exemptions without exempting runtimes or holds", () => {
   const mise = miseSettings();
   const renovate = Schema.decodeUnknownSync(Renovate)(read("renovate.json"));
+
   const cliRule = renovate.packageRules.find(
     (rule) => rule.groupName === "mise CLI patch and minor",
   );
+
   assert.ok(cliRule);
   assert.deepEqual(mise.minimum_release_age_excludes, cliRule.matchDepNames);
   assert.equal(mise.minimum_release_age, "3d");
   assert.equal(cliRule.minimumReleaseAge, null);
   assert.deepEqual(cliRule.matchUpdateTypes, ["patch", "minor", "pin"]);
+
   for (const tool of [
     "node",
     "bun",
@@ -142,12 +153,15 @@ const settle = (manager: string) =>
       if (rule.minimumReleaseAge !== undefined) {
         merged.minimumReleaseAge = rule.minimumReleaseAge;
       }
+
       if (rule.schedule !== undefined) {
         merged.schedule = rule.schedule;
       }
+
       if (rule.groupName !== undefined) {
         merged.groupName = rule.groupName;
       }
+
       return merged;
     }, {});
 

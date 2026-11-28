@@ -8,6 +8,7 @@ import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+
 const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -16,6 +17,7 @@ const program = Effect.scoped(
     yield* fs.makeDirectory(join(home, ".config/dotfiles"), { recursive: true });
     yield* fs.writeFileString(join(home, ".config/dotfiles/devbox.env"), "");
     yield* fs.symlink(join(repoRoot, "chezmoi/dot_zprofile"), join(home, ".zprofile"));
+
     const rendered = yield* runner.run("chezmoi", [
       "--source",
       join(repoRoot, "chezmoi"),
@@ -26,11 +28,14 @@ const program = Effect.scoped(
       "cat",
       join(home, ".zshrc"),
     ]);
+
     if (rendered.status !== 0) {
       return yield* fail(rendered.stderr);
     }
+
     const zshrc = join(home, ".zshrc.rendered");
     yield* fs.writeFileString(zshrc, rendered.stdout);
+
     for (const path of [
       ".local/bin",
       "Library/Android/sdk/platform-tools",
@@ -42,6 +47,7 @@ const program = Effect.scoped(
     ]) {
       yield* fs.makeDirectory(join(home, path), { recursive: true });
     }
+
     for (const dir of ["fake-tools", ".local/share/mise/shims"]) {
       yield* fs.writeFileString(
         join(home, dir, "mise"),
@@ -49,8 +55,10 @@ const program = Effect.scoped(
         { mode: 0o755 },
       );
     }
+
     yield* runner.run("git", ["-C", join(home, "repo"), "init", "-q"]);
     yield* runner.run("git", ["-C", join(home, "repo"), "symbolic-ref", "HEAD", "refs/heads/demo"]);
+
     const check = Effect.fn("zshPromptCheck")(function* (
       code: string,
       env: Readonly<Record<string, string>>,
@@ -65,10 +73,12 @@ const program = Effect.scoped(
         "zsh",
         zshrc,
       ]);
+
       if (result.status !== 0) {
         return yield* fail(result.stderr || code);
       }
     });
+
     yield* check("(( ${path[(Ie)$HOME/.local/bin]} > 0 ))", { HOME: home, PATH: "/usr/bin:/bin" }, [
       "-dlc",
     ]);
@@ -101,18 +111,23 @@ const program = Effect.scoped(
       ["-dfic"],
     );
     yield* fs.remove(activateLog, { force: true });
+
     const promptShell = yield* runner.run(
       "/usr/bin/env",
       ["-i", `HOME=${home}`, `PATH=${inheritedPath}`, "/bin/zsh", "-dfi"],
       { stdin: new TextEncoder().encode(`source ${zshrc} 2>/dev/null\nexit\n`) },
     );
+
     if (promptShell.status !== 0) {
       return yield* fail(promptShell.stderr);
     }
+
     const promptActivation = yield* fs.readFileString(activateLog);
+
     if (promptActivation.trim() !== "activate zsh") {
       return yield* fail(`prompt shell ran: ${promptActivation}`);
     }
+
     const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
     yield* fs.makeDirectory(join(home, ".local/state/dotfiles/updates"), { recursive: true });
     yield* fs.writeFileString(receipt, "{}");
@@ -144,4 +159,5 @@ const program = Effect.scoped(
     Effect.provide(NodeServices.layer),
   ),
 );
+
 runMain(program);

@@ -19,13 +19,16 @@ function run<A, E>(
 
 function launchctlRunner(loaded: boolean, bootoutStatus = 0) {
   const calls: Array<Array<string>> = [];
+
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
       const status = args[0] === "print" ? (loaded ? 0 : 113) : bootoutStatus;
+
       return Effect.succeed({ status, stdout: "", stderr: "" });
     },
   });
+
   return { calls, runner };
 }
 
@@ -48,10 +51,12 @@ test("Photos analysis policy applies only to macOS devbox profiles", async () =>
 
 test("Photos analysis policy reports a rejected launchctl change", async () => {
   const { runner } = launchctlRunner(false, 5);
+
   const failure = await run(
     disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(Effect.flip),
     runner,
   );
+
   assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
@@ -60,9 +65,11 @@ for (const profile of profiles) {
   for (const platform of ["darwin", "linux"] as const) {
     test(`Photos verification boundary: ${profile} on ${platform}`, async () => {
       const calls: Array<Array<string>> = [];
+
       const runner = CommandRunner.of({
         run: (command, args = []) => {
           calls.push([command, ...args]);
+
           return Effect.succeed({
             status: 0,
             stdout: '"com.apple.photoanalysisd" => disabled',
@@ -70,6 +77,7 @@ for (const profile of profiles) {
           });
         },
       });
+
       await run(checkDevboxPhotoAnalysis(profile, 501, platform), runner);
       assert.deepEqual(
         calls,
@@ -80,6 +88,7 @@ for (const profile of profiles) {
     });
   }
 }
+
 for (const output of [
   '"com.apple.photoanalysisd" => enabled',
   '"com.apple.photoanalysisd" => false',
@@ -90,12 +99,14 @@ for (const output of [
     const runner = CommandRunner.of({
       run: () => Effect.succeed({ status: 0, stdout: output, stderr: "" }),
     });
+
     await assert.rejects(
       run(checkDevboxPhotoAnalysis("devbox", 501, "darwin"), runner),
       /policy drift/,
     );
   });
 }
+
 for (const failure of ["exit", "spawn"] as const) {
   test(`Photos verification fails closed on ${failure}`, async () => {
     const runner = CommandRunner.of({
@@ -108,14 +119,17 @@ for (const failure of ["exit", "spawn"] as const) {
               stderr: "",
             }),
     });
+
     await assert.rejects(run(checkDevboxPhotoAnalysis("devbox", 501, "darwin"), runner));
   });
 }
+
 test("Photos verification rejects root without invoking launchctl", async () => {
   const runner = CommandRunner.of({
     run: () => {
       throw new Error("must not run");
     },
   });
+
   await assert.rejects(run(checkDevboxPhotoAnalysis("devbox", 0, "darwin"), runner), /non-root/);
 });

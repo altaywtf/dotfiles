@@ -12,21 +12,27 @@ import { runPolicy } from "./engine.ts";
 function command(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
+
     const values = new Map([
       ["user.name", "Fixture"],
       ["user.email", "fixture@example.invalid"],
       ["user.signingkey", "fixture-key"],
       ["commit.gpgsign", "true"],
     ]);
+
     const value = values.get(key ?? "");
+
     return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
+
   if (command === "gh") {
     return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
   }
+
   if (command === "ssh") {
     return { status: 1, stdout: "", stderr: "successfully authenticated" };
   }
+
   if (command === "tailscale" && args.includes("--json")) {
     return {
       status: 0,
@@ -34,15 +40,19 @@ function command(command: string, args: ReadonlyArray<string>) {
       stderr: "",
     };
   }
+
   if (command === "dig") {
     return { status: 0, stdout: "100.64.0.1\n", stderr: "" };
   }
+
   if (command === "dscacheutil") {
     return { status: 0, stdout: "ip_address: 100.64.0.1\n", stderr: "" };
   }
+
   if (command === "gitleaks" && args[0] === "dir") {
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
   }
+
   return { status: 0, stdout: "", stderr: "" };
 }
 
@@ -52,6 +62,7 @@ test("devbox policy passes a private, correctly scoped fixture", () => {
   const systemRoot = join(root, "system");
   const project = join(home, "projects/fixture/repo");
   const config = join(home, ".config/dotfiles/devbox.env");
+
   try {
     mkdirSync(join(home, ".ssh"), { recursive: true });
     mkdirSync(join(home, ".codex"), { recursive: true });
@@ -80,6 +91,7 @@ test("devbox policy passes a private, correctly scoped fixture", () => {
       stdout: () => {},
       stderr: () => {},
     });
+
     assert.equal(result.status, 0);
     assert.equal(result.summary.status, "pass");
     assert.equal(result.summary.user, "fixture");
@@ -93,14 +105,17 @@ test("devbox policy rejects another user's Codex trust", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-devbox-trust-"));
   const home = join(root, "users/fixture");
   const config = join(home, ".codex/config.toml");
+
   try {
     mkdirSync(join(home, ".codex"), { recursive: true });
     writeFileSync(config, `[projects."${join(root, "users/other/repo")}"]\n`, { mode: 0o600 });
+
     const policy = {
       name: "fixture",
       summary: "fixture",
       sections: [{ title: "trust", checks: [{ kind: "codex-trust", path: ".codex/config.toml" }] }],
     } as const;
+
     const result = runPolicy(policy, "json", { home, command, stdout: () => {}, stderr: () => {} });
     assert.equal(result.status, 1);
     assert.equal(result.summary.failed, 1);
@@ -111,6 +126,7 @@ test("devbox policy rejects another user's Codex trust", () => {
 
 test("devbox Git identity keeps separate missing-field failures", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-devbox-git-"));
+
   try {
     const policy = {
       name: "fixture",
@@ -124,6 +140,7 @@ test("devbox Git identity keeps separate missing-field failures", () => {
         },
       ],
     } as const;
+
     const result = runPolicy(policy, "json", {
       home: root,
       command: (name, args) =>
@@ -133,6 +150,7 @@ test("devbox Git identity keeps separate missing-field failures", () => {
       stdout: () => {},
       stderr: () => {},
     });
+
     assert.equal(result.summary.failed, 4);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -145,6 +163,7 @@ test("MagicDNS reports a failed JSON status command", () => {
     summary: "fixture",
     sections: [{ title: "tailscale", checks: [{ kind: "tailscale-magicdns" }] }],
   } as const;
+
   const result = runPolicy(policy, "json", {
     home: "/fixture",
     command: (_name, args) =>
@@ -154,6 +173,7 @@ test("MagicDNS reports a failed JSON status command", () => {
     stdout: () => {},
     stderr: () => {},
   });
+
   assert.equal(result.status, 1);
   assert.equal(result.summary.failed, 1);
 });

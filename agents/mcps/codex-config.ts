@@ -28,15 +28,19 @@ function configuredOAuth<S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
 ): Option.Option<S["Type"]> {
   const home = env.CODEX_HOME || (env.HOME ? join(env.HOME, ".codex") : undefined);
+
   if (home === undefined) {
     return Option.none();
   }
+
   let parsed: unknown;
+
   try {
     parsed = parseToml(readFileSync(join(home, "config.toml"), "utf8"));
   } catch {
     return Option.none();
   }
+
   return Schema.decodeUnknownOption(CodexConfig)(parsed).pipe(
     Option.filter(({ mcp_servers }) => Object.hasOwn(mcp_servers, name)),
     Option.flatMap(({ mcp_servers }) => Schema.decodeUnknownOption(CodexServer)(mcp_servers[name])),
@@ -52,7 +56,9 @@ export function codexOAuthMatches(
   if (oauth === undefined) {
     return Option.isNone(configuredOAuth(env, name, CodexClient));
   }
+
   const expected = new URL(codexCallbackUrl(oauth));
+
   return configuredOAuth(env, name, CodexOAuth).pipe(
     Option.exists(
       ({ client_id, callback_url }) =>

@@ -82,6 +82,7 @@ test("reads machine-local Markdown through a symlink", () => {
 test("omits private layers for blank Markdown", () => {
   const { home } = createFixture();
   mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
+
   for (const name of ["agents.start.md", "agents.end.md"]) {
     writeFileSync(join(home, ".config/dotfiles", name), " \n\t\n", { mode: 0o600 });
   }
@@ -125,12 +126,15 @@ test("requires fetched machine-local rules instead of a repository copy", () => 
 function agentSourceFixture(home: string, files: Record<string, string>): string {
   const source = join(home, "agent-source");
   mkdirSync(source, { recursive: true });
+
   for (const [name, contents] of Object.entries(files)) {
     mkdirSync(dirname(join(source, name)), { recursive: true });
     writeFileSync(join(source, name), contents, { mode: 0o600 });
   }
+
   mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
   writeFileSync(join(home, ".config/dotfiles/agent-source"), `${source}\n`, { mode: 0o600 });
+
   return source;
 }
 
@@ -138,6 +142,7 @@ const host = hostname().split(".")[0];
 
 test("links the stored agent source before rendering what reads it", () => {
   const { config, home } = createFixture();
+
   const source = agentSourceFixture(home, {
     "rules/agents.md": "## Source start rule\n",
     [`rules/agents.${host}.md`]: "## Source host rule\n",

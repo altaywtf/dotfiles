@@ -12,7 +12,9 @@ const ProcessRow = Schema.Struct({
   ageSeconds: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   command: Schema.NonEmptyString,
 });
+
 type ProcessRow = typeof ProcessRow.Type;
+
 type Finding = {
   readonly pid: number;
   readonly ageSeconds: number;
@@ -22,13 +24,17 @@ type Finding = {
 
 function elapsedSeconds(value: string): number {
   const match = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(value);
+
   if (!match) {
     return Number.NaN;
   }
+
   const [, days, hours, minutes, seconds] = match;
+
   if (Number(minutes) > 59 || Number(seconds) > 59) {
     return Number.NaN;
   }
+
   return (
     Number(days ?? 0) * 86_400 + Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds)
   );
@@ -37,25 +43,30 @@ function elapsedSeconds(value: string): number {
 export const parseProcesses = Effect.fn("parseProcesses")(function* (output: string) {
   const rows: Array<ProcessRow> = [];
   let skipped = 0;
+
   for (const line of output.split("\n").filter((value) => value.trim())) {
     const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line);
+
     const decoded = yield* Schema.decodeUnknownEffect(ProcessRow)({
       pid: Number(match?.[1]),
       ppid: Number(match?.[2]),
       ageSeconds: elapsedSeconds(match?.[3] ?? ""),
       command: match?.[4],
     }).pipe(Effect.option);
+
     if (decoded._tag === "Some") {
       rows.push(decoded.value);
     } else {
       skipped++;
     }
   }
+
   return { rows, skipped };
 });
 
 export function classifyWorkloads(rows: ReadonlyArray<ProcessRow>): Array<Finding> {
   const findings: Array<Finding> = [];
+
   for (const row of rows) {
     const executable = /^(?:\S*\/)?([^/\s]+)(?:\s|$)/.exec(row.command)?.[1];
     const arguments_ = row.command.split(/\s+/).slice(1);
@@ -65,6 +76,7 @@ export function classifyWorkloads(rows: ReadonlyArray<ProcessRow>): Array<Findin
     const dataDirectory = /(?:^|\s)-D\s+(\S+)/.exec(row.command)?.[1] ?? "";
     let name: string | undefined;
     let evidence = "";
+
     if (
       executable === "java" &&
       row.ppid === 1 &&
@@ -102,10 +114,12 @@ export function classifyWorkloads(rows: ReadonlyArray<ProcessRow>): Array<Findin
       name = "Watchman";
       evidence = "observed: file watcher; watched roots and client use unknown";
     }
+
     if (name) {
       findings.push({ pid: row.pid, ageSeconds: row.ageSeconds, name, evidence });
     }
   }
+
   return findings;
 }
 
@@ -119,39 +133,49 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
       complete: false,
     };
   }
+
   if (!Number.isSafeInteger(uid) || uid <= 0) {
     return { lines: ["unknown: run workload diagnostics as a non-root user"], complete: false };
   }
+
   const runner = yield* CommandRunner;
+
   const result = yield* runner
     .run("/bin/ps", ["-U", String(uid), "-ww", "-o", "pid=,ppid=,etime=,args="], {
       output: "capture",
       timeoutMs: 5000,
     })
     .pipe(Effect.option);
+
   if (result._tag === "None" || result.value.status !== 0) {
     return {
       lines: ["unknown: process inspection failed; no workload conclusion available"],
       complete: false,
     };
   }
+
   const { rows, skipped } = yield* parseProcesses(result.value.stdout);
   const findings = classifyWorkloads(rows);
+
   const lines = findings.map(
     (finding) =>
       `${finding.name}: PID ${finding.pid}, age ${Math.floor(finding.ageSeconds / 60)}m — ${finding.evidence}`,
   );
+
   if (!rows.length) {
     lines.push("unknown: no usable process rows returned");
   } else if (!findings.length) {
     lines.push("No matching development workload processes observed.");
   }
+
   if (skipped) {
     lines.push(`unknown: ${skipped} process rows could not be inspected`);
   }
+
   lines.push(
     "Current-user process snapshot only; age does not prove abandonment. No daemon clients contacted, services started, or processes stopped. Container/device/client state remains unknown.",
   );
+
   return { lines, complete: skipped === 0 && rows.length > 0 };
 });
 
@@ -159,10 +183,13 @@ const program = Effect.gen(function* () {
   if (process.argv.length > 2) {
     return yield* fail("Usage: node maintenance/workloads.ts", 2);
   }
+
   const report = yield* inspectWorkloads();
+
   for (const line of report.lines) {
     yield* Console.log(line);
   }
+
   if (!report.complete) {
     return yield* fail("workload inspection incomplete");
   }

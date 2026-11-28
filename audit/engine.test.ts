@@ -31,13 +31,16 @@ function fixture(t: TestContext): Fixture {
   const home = join(root, "home");
   mkdirSync(join(home, ".ssh"), { recursive: true });
   mkdirSync(join(home, ".codex"), { recursive: true });
+
   for (const path of [".gitconfig.local", ".ssh/config.local", ".codex/config.toml"]) {
     writeFileSync(join(home, path), "fixture\n", { mode: 0o600 });
   }
+
   writeFileSync(join(home, ".zshrc"), "export EDITOR=vim\n");
   writeFileSync(join(home, ".npmrc"), "//registry.npmjs.org/:_authToken=fixture\n", {
     mode: 0o600,
   });
+
   return { home, root };
 }
 
@@ -53,30 +56,38 @@ const quiet = { stdout: () => {}, stderr: () => {} };
 function cleanCommand(command: string, args: ReadonlyArray<string>) {
   if (command === "git") {
     const key = args.at(-1);
+
     const values = new Map([
       ["user.name", "Fixture"],
       ["user.email", "fixture@example.invalid"],
       ["user.signingkey", "fixture-key"],
       ["commit.gpgsign", "true"],
     ]);
+
     const value = values.get(key ?? "");
+
     return { status: value ? 0 : 1, stdout: value ?? "", stderr: "" };
   }
+
   if (command === "gh") {
     return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
   }
+
   if (command.endsWith("/socketfilterfw")) {
     return { status: 0, stdout: "Firewall is enabled. (State = 1)\n", stderr: "" };
   }
+
   if (command === "gitleaks" && args[0] === "dir") {
     writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
   }
+
   return { status: 0, stdout: "", stderr: "" };
 }
 
 test("workstation policy is declarative and passes a clean fixture", (t) => {
   const { home, root } = fixture(t);
   const output: Array<string> = [];
+
   const result = runPolicy(workstationPolicy(root), "json", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -84,6 +95,7 @@ test("workstation policy is declarative and passes a clean fixture", (t) => {
     stdout: (value) => output.push(value),
     stderr: (value) => output.push(value),
   });
+
   assert.equal(result.status, 0);
   assert.equal(result.summary.status, "pass");
   assert.equal(result.summary.secret_scan_count, 3);
@@ -101,6 +113,7 @@ test("explicit symlink roots stay in the secret scan", (t) => {
   symlinkSync(join(root, "missing"), join(external, "broken"));
   symlinkSync(external, join(home, ".aws"));
   const awsScan = policy({ kind: "secret-scan", sources: [{ kind: "path", path: ".aws" }] });
+
   const result = runPolicy(awsScan, "json", {
     home,
     command: (command, args) => {
@@ -110,10 +123,12 @@ test("explicit symlink roots stay in the secret scan", (t) => {
         assert.equal(readlinkSync(staged), realpathSync(join(external, "credentials")));
         assert.deepEqual(readdirSync(join(args.at(-1)!, "home/.aws")), ["credentials"]);
       }
+
       return cleanCommand(command, args);
     },
     ...quiet,
   });
+
   assert.equal(result.summary.secret_scan_count, 1);
   assert.equal(result.summary.warnings, 2);
   assert.equal(result.status, 0);
@@ -124,12 +139,14 @@ test("audit policy file sets Codex log thresholds", (t) => {
   const config = join(root, "audit.env");
   writeFileSync(config, "CODEX_LOG_WARN_BYTES=5\nCODEX_LOG_FAIL_BYTES=1000\n");
   writeFileSync(join(home, ".codex/logs-fixture.sqlite-wal"), "larger than five bytes\n");
+
   const result = runPolicy(policy({ kind: "codex-log-size", path: ".codex" }), "json", {
     home,
     env: { HOME: home, AUDIT_POLICY_FILE: config },
     command: cleanCommand,
     ...quiet,
   });
+
   assert.equal(result.summary.warnings, 1);
   assert.equal(result.status, 0);
 });
@@ -141,6 +158,7 @@ test("typed checks reject unsafe npm auth and SSH key modes", (t) => {
     mode: 0o644,
   });
   chmodSync(join(home, ".ssh/id_fixture"), 0o644);
+
   const result = runPolicy(
     policy(
       { kind: "npm-auth-boundary", path: ".npmrc" },
@@ -153,6 +171,7 @@ test("typed checks reject unsafe npm auth and SSH key modes", (t) => {
       ...quiet,
     },
   );
+
   assert.equal(result.summary.failed, 2);
   assert.equal(result.status, 1);
 });
@@ -179,6 +198,7 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
     "=== /C=IN/OU=emSign PKI/O=eMudhra Technologies Limited/CN=emSign ECC Root CA - G3\n",
   );
   const errors: Array<string> = [];
+
   const result = runPolicy(workstationPolicy(root), "text", {
     home,
     env: { HOME: home, TMPDIR: join(root, "tmp") },
@@ -189,6 +209,7 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
     stdout: () => {},
     stderr: (value) => errors.push(value),
   });
+
   assert.equal(result.summary.failed, 2);
   assert.equal(result.summary.warnings, 2);
   assert.deepEqual(errors.sort(), [
@@ -202,6 +223,7 @@ test("workstation flags readable env files, compromised roots, and a disabled fi
 test("file-mode mismatch severity comes from policy", (t) => {
   const { home } = fixture(t);
   chmodSync(join(home, ".zshrc"), 0o644);
+
   const result = runPolicy(
     policy({
       kind: "file-mode",
@@ -217,6 +239,7 @@ test("file-mode mismatch severity comes from policy", (t) => {
       ...quiet,
     },
   );
+
   assert.equal(result.status, 0);
   assert.equal(result.summary.warnings, 1);
 });
@@ -226,6 +249,7 @@ test("secret scan reports only sanitized locators and removes staging data", (t)
   const scratch = join(root, "tmp");
   mkdirSync(scratch);
   const output: Array<string> = [];
+
   const result = runPolicy(zshrcScan, "text", {
     home,
     env: { HOME: home, TMPDIR: scratch },
@@ -242,13 +266,16 @@ test("secret scan reports only sanitized locators and removes staging data", (t)
             },
           ]),
         );
+
         return { status: 183, stdout: "", stderr: "" };
       }
+
       return { status: 0, stdout: "", stderr: "" };
     },
     stdout: (value) => output.push(value),
     stderr: (value) => output.push(value),
   });
+
   assert.equal(result.status, 0);
   assert.equal(result.summary.warnings, 1);
   assert.equal(result.summary.secret_scan_rules["generic-api-key"], 1);
@@ -262,18 +289,21 @@ test("secret scan reports an unusable temporary root", (t) => {
   const { home, root } = fixture(t);
   const invalidTemporaryRoot = join(root, "not-a-directory");
   writeFileSync(invalidTemporaryRoot, "fixture\n");
+
   const result = runPolicy(zshrcScan, "json", {
     home,
     env: { HOME: home, TMPDIR: invalidTemporaryRoot },
     command: cleanCommand,
     ...quiet,
   });
+
   assert.equal(result.status, 1);
   assert.equal(result.summary.failed, 1);
 });
 
 test("secret scans fail closed on invalid reports and incomplete execution", (t) => {
   const { home, root } = fixture(t);
+
   for (const [contents, status, error] of [
     ["not json", 0, undefined],
     ["", 0, undefined],
@@ -285,19 +315,23 @@ test("secret scans fail closed on invalid reports and incomplete execution", (t)
     [JSON.stringify([{ RuleID: "generic-api-key" }]), 0, undefined],
   ] as const) {
     const output: Array<string> = [];
+
     const result = runPolicy(zshrcScan, "json", {
       home,
       env: { HOME: home, TMPDIR: join(root, "tmp") },
       command: (command, args) => {
         if (command === "gitleaks" && args[0] === "dir") {
           writeFileSync(args[args.indexOf("--report-path") + 1], contents);
+
           return { status, stdout: "", stderr: "", error };
         }
+
         return { status: 0, stdout: "", stderr: "" };
       },
       stdout: (value) => output.push(value),
       stderr: (value) => output.push(value),
     });
+
     assert.equal(result.status, 1, `report ${contents} with status ${status}`);
     assert.doesNotMatch(output.join(""), /private scanner diagnostic/);
     assert.deepEqual(readdirSync(join(root, "tmp")), []);
@@ -313,11 +347,13 @@ test("audit follows file symlinks and reports broken links and directory cycles"
   symlinkSync(join(root, "missing"), join(home, ".ssh/broken"));
   symlinkSync(join(home, ".ssh"), join(home, ".ssh/cycle"));
   const output: Array<string> = [];
+
   const result = runPolicy(policy({ kind: "ssh-private-key-modes", path: ".ssh" }), "text", {
     home,
     stdout: (value) => output.push(value),
     stderr: (value) => output.push(value),
   });
+
   assert.equal(result.status, 1);
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.warnings, 2);
@@ -335,6 +371,7 @@ test("directory identities warn when an include file is missing", (t) => {
     '[includeIf "gitdir:~/work/"]\n\tpath = work\n[includeIf "gitdir:~/club/"]\n\tpath = ~/.config/git/club\n',
   );
   const output: Array<string> = [];
+
   const result = runPolicy(
     policy({ kind: "git-directory-identities", path: ".config/git/identities" }),
     "text",
@@ -345,6 +382,7 @@ test("directory identities warn when an include file is missing", (t) => {
       stderr: (value) => output.push(value),
     },
   );
+
   assert.equal(result.summary.warnings, 1);
   assert.match(output.join(""), /include file is missing: .*\/\.config\/git\/club/);
   assert.doesNotMatch(output.join(""), /missing: .*\/\.config\/git\/work/);

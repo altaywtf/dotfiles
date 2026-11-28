@@ -34,6 +34,7 @@ const runner: Runner = (cwd, command, args) => {
     encoding: "utf8",
     env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_OPTIONAL_LOCKS: "0" },
   });
+
   return { status: result.status ?? 1, stdout: result.stdout ?? "" };
 };
 
@@ -52,6 +53,7 @@ const inspect = (f: Fixture, roots = f.roots, open: Array<string> = []) =>
 const git = (cwd: string, ...args: Array<string>) => {
   const result = runner(cwd, "git", args);
   assert.equal(result.status, 0, `git ${args.join(" ")}`);
+
   return result.stdout.trim();
 };
 
@@ -73,6 +75,7 @@ function fixture() {
   const roots = [join(root, "worktrees")];
   const tree = join(roots[0], "finished");
   git(repo, "worktree", "add", "-b", "finished", tree);
+
   return {
     root,
     repo,
@@ -85,6 +88,7 @@ function fixture() {
 
 test("clean merged worktree waits three days, is removed without force, then its branch is separately eligible", () => {
   const f = fixture();
+
   try {
     const first = clean(f, {}, baseline + gracePeriod);
     assert.ok(existsSync(f.tree));
@@ -104,6 +108,7 @@ test("clean merged worktree waits three days, is removed without force, then its
 
 test("dirty, ignored, locked and active worktrees are retained", () => {
   const f = fixture();
+
   try {
     writeFileSync(join(f.tree, "untracked"), "keep");
     assert.equal(inspect(f).eligible.length, 0);
@@ -127,6 +132,7 @@ test("dirty, ignored, locked and active worktrees are retained", () => {
 
 test("a detached worktree is removable once merged and retained while it is not", () => {
   const f = fixture();
+
   try {
     f.git(f.tree, "checkout", "--detach");
     f.git(f.repo, "branch", "-d", "finished");
@@ -148,6 +154,7 @@ test("a detached worktree is removable once merged and retained while it is not"
 
 test("a worktree beside its owning clone is evaluated, and unpushed work still retains it", () => {
   const f = fixture();
+
   try {
     const projectRoots = [...f.roots, join(f.root, "projects")];
     const stray = join(f.root, "projects/org/repo-stray");
@@ -178,6 +185,7 @@ test("a worktree beside its owning clone is evaluated, and unpushed work still r
 
 test("scheduled hygiene reports a stray worktree beside its owning clone", async () => {
   const f = fixture();
+
   try {
     const home = f.root;
     mkdirSync(join(home, ".local/state/dotfiles"), { recursive: true });
@@ -195,6 +203,7 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", async
       join(logDirectory(home), `hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`),
       "utf8",
     );
+
     assert.ok(log.includes("repo-stray"), "the stray worktree appears in the report");
     assert.ok(log.includes("HEAD not in remote default"), "with the reason it was retained");
     assert.ok(existsSync(stray), "unpushed work is never removed");
@@ -205,6 +214,7 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", async
 
 test("a branch merged upstream but absent from a lagging local HEAD names the cause", () => {
   const f = fixture();
+
   try {
     f.git(f.repo, "checkout", "-b", "done");
     f.git(f.repo, "commit", "--allow-empty", "-m", "landed upstream");
@@ -237,6 +247,7 @@ test("a branch merged upstream but absent from a lagging local HEAD names the ca
 
 test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", () => {
   const f = fixture();
+
   try {
     const now = Date.now();
     const first = clean(f, {}, now - 2 * gracePeriod);
@@ -260,6 +271,7 @@ test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", (
 for (const target of ["nested file", "Git index"] as const) {
   test(`recent ${target} activity protects a clean worktree with unchanged HEAD`, () => {
     const f = fixture();
+
     try {
       mkdirSync(join(f.tree, "nested"));
       writeFileSync(join(f.tree, "nested/file"), "content\n");
@@ -268,10 +280,12 @@ for (const target of ["nested file", "Git index"] as const) {
       f.git(f.tree, "push", "origin", "HEAD:main");
       const now = Date.now() + 2 * gracePeriod;
       const first = clean(f, {}, now - gracePeriod);
+
       const path =
         target === "nested file"
           ? join(f.tree, "nested/file")
           : join(f.git(f.tree, "rev-parse", "--absolute-git-dir"), "index");
+
       utimesSync(path, new Date(now - 1000), new Date(now - 1000));
       const second = clean(f, first.candidates, now);
       assert.ok(existsSync(f.tree));
@@ -285,6 +299,7 @@ for (const target of ["nested file", "Git index"] as const) {
 
 test("activity inspection does not follow symlinks and fails on missing paths", () => {
   const f = fixture();
+
   try {
     const outside = join(f.root, "outside");
     writeFileSync(outside, "outside");
@@ -300,13 +315,16 @@ test("activity inspection does not follow symlinks and fails on missing paths", 
 
 test("unavailable worktree activity retains an otherwise removable tree", () => {
   const f = fixture();
+
   try {
     const now = Date.now() + 2 * gracePeriod;
     const first = clean(f, {}, now - gracePeriod);
+
     const unavailable: Runner = (cwd, command, args) =>
       args.includes("--absolute-git-dir")
         ? { status: 0, stdout: join(f.root, "missing") }
         : runner(cwd, command, args);
+
     assert.throws(() => clean(f, first.candidates, now, { run: unavailable }));
     assert.ok(existsSync(f.tree));
   } finally {
@@ -316,6 +334,7 @@ test("unavailable worktree activity retains an otherwise removable tree", () => 
 
 test("unmerged commits survive even when their remote branch is gone", () => {
   const f = fixture();
+
   try {
     writeFileSync(join(f.tree, "tracked"), "unmerged work\n");
     f.git(f.tree, "commit", "-am", "keep");
@@ -329,12 +348,15 @@ test("unmerged commits survive even when their remote branch is gone", () => {
 
 test("activity arriving at removal time cancels eligibility", () => {
   const f = fixture();
+
   try {
     const first = clean(f, {}, baseline + gracePeriod);
     let checks = 0;
+
     const second = clean(f, first.candidates, baseline + 2 * gracePeriod, {
       activity: () => (++checks === 1 ? [] : [f.tree]),
     });
+
     assert.ok(existsSync(f.tree));
     assert.equal(Object.keys(second.candidates).length, 0);
   } finally {
@@ -344,6 +366,7 @@ test("activity arriving at removal time cancels eligibility", () => {
 
 test("existing upstreams and long-lived branches stay, changed HEAD restarts the grace period", () => {
   const f = fixture();
+
   try {
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(f.repo, "branch", "release/stable");
@@ -367,6 +390,7 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
 
 test("dry-run never deletes, failed remote reads and activity probes fail closed", () => {
   const f = fixture();
+
   try {
     const first = clean(f, {}, baseline + gracePeriod);
     f.git(f.tree, "push", "-u", "origin", "finished");
@@ -384,12 +408,16 @@ test("dry-run never deletes, failed remote reads and activity probes fail closed
       f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"),
       "refs/remotes/origin/finished",
     );
+
     const failed: Runner = (cwd, command, args) =>
       args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+
     assert.throws(() => clean(f, first.candidates, baseline + 2 * gracePeriod, { run: failed }));
     assert.ok(existsSync(f.tree));
+
     const missing: Runner = (cwd, command, args) =>
       args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+
     const skipped = clean(f, first.candidates, baseline + 2 * gracePeriod, { run: missing });
     assert.equal(
       skipped.entries[0]?.result,
@@ -403,6 +431,7 @@ test("dry-run never deletes, failed remote reads and activity probes fail closed
 
 test("repository discovery ignores symlinks and stays within its depth", () => {
   const f = fixture();
+
   try {
     symlinkSync(f.repo, join(f.root, "projects/linked"));
     assert.deepEqual(discoverRepositories(join(f.root, "projects")), [f.repo]);
@@ -413,15 +442,19 @@ test("repository discovery ignores symlinks and stays within its depth", () => {
 
 test("inactive and explicitly excluded checkouts need no remote access", () => {
   const f = fixture();
+
   try {
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "branch", "-d", "finished");
+
     const offline: Runner = (cwd, command, args) => {
       if (args[0] === "ls-remote" || args[0] === "remote") {
         throw new Error("unexpected network access");
       }
+
       return runner(cwd, command, args);
     };
+
     const result = clean(f, {}, baseline + gracePeriod, { run: offline });
     assert.deepEqual(result, { entries: [], candidates: {} });
     assert.ok(existsSync(join(f.repo, "tracked")));
@@ -437,11 +470,14 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
 
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
   let seen: Array<string> = [];
+
   const paths = openFiles("/fixture", (_cwd, command, args) => {
     assert.equal(command, "lsof");
     seen = args;
+
     return { status: 0, stdout: "p1\0n/fixture/file\0" };
   });
+
   assert.equal(seen[0], "-w");
   assert.deepEqual(paths, ["/fixture/file"]);
   assert.throws(

@@ -10,6 +10,7 @@ import { findingLocators, summarizeFindings } from "./findings.ts";
 
 test("gitleaks data exposes only safe locators and aggregate counts", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-data-"));
+
   try {
     const report = join(root, "report.json");
     const policy = join(root, "policy.json");
@@ -47,12 +48,14 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
       () => summarizeFindings(`{"private-key":${Number.MAX_SAFE_INTEGER + 1}}`, "", report, policy),
       /invalid count/,
     );
+
     for (const value of ["{", "[]", "null"]) {
       assert.throws(
         () => summarizeFindings(value, "", report, policy),
         /invalid persisted count map/,
       );
     }
+
     writeFileSync(
       report,
       JSON.stringify([
@@ -78,6 +81,7 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
 
 test("Gitleaks policy classifies rule severity", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-policy-"));
+
   try {
     const report = join(root, "report.json");
     const policy = join(root, "policy.json");

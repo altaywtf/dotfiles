@@ -12,6 +12,7 @@ import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts"
 import type { ProfileModel } from "../../profiles/model.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+
 type Capability = {
   packageType: "brew" | "cask";
   name: string;
@@ -21,25 +22,32 @@ type Capability = {
   bundleIdentifier?: string;
   teamIdentifier?: string;
 };
+
 const isArray = Schema.is(Schema.Array(Schema.Unknown));
+
 const xml = (capabilities: ReadonlyArray<Capability>) => {
   const value = (input: unknown): string => {
     if (Predicate.isString(input)) {
       return `<string>${input.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</string>`;
     }
+
     if (Predicate.isNumber(input)) {
       return `<integer>${input}</integer>`;
     }
+
     if (isArray(input)) {
       return `<array>${input.map(value).join("")}</array>`;
     }
+
     if (Predicate.isObject(input)) {
       return `<dict>${Object.entries(input)
         .map(([key, item]) => `<key>${key}</key>${value(item)}`)
         .join("")}</dict>`;
     }
+
     throw new Error("unsupported plist fixture value");
   };
+
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">${value({ version: 1, capabilities })}</plist>\n`;
 };
 
@@ -56,9 +64,11 @@ const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const actual = yield* CommandRunner;
+
     const model = yield* readProfileModelEffect(
       join(repoRoot, "chezmoi/.chezmoidata/profiles.json"),
     );
+
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-external-homebrew." });
     const managed = join(temporary, "managed tool");
     const log = join(temporary, "managed.log");
@@ -69,18 +79,22 @@ const program = Effect.scoped(
       { mode: 0o755 },
     );
     yield* fs.writeFileString(log, "");
+
     const command = (
       packageType: "brew" | "cask",
       name: string,
       args: ReadonlyArray<string>,
     ): Capability => ({ packageType, name, validator: "command", path: managed, arguments: args });
+
     const write = Effect.fn("writeExternalHomebrewFixture")(function* (
       capabilities: ReadonlyArray<Capability>,
     ) {
       yield* fs.writeFileString(config, xml(capabilities), { mode: 0o600 });
       yield* fs.chmod(config, 0o600);
     });
+
     const local = join(temporary, "Brewfile.local");
+
     const validate = Effect.fn("validateExternalHomebrewFixture")(function* (
       profile: string = "workstation",
       extra: Readonly<Record<string, string>> = {},
@@ -92,6 +106,7 @@ const program = Effect.scoped(
         MANAGED_TOOL_LOG: log,
         ...extra,
       });
+
       for (const key of [
         "HOMEBREW_BUNDLE_BREW_SKIP",
         "HOMEBREW_BUNDLE_CASK_SKIP",
@@ -102,8 +117,10 @@ const program = Effect.scoped(
           delete process.env[key];
         }
       }
+
       return yield* configureExternalCapabilities(repoRoot, profiles, profile);
     });
+
     yield* write([
       command("brew", "git", ["--label=hello | dünya", " spaced value "]),
       command("cask", "google-chrome", ["--version"]),
@@ -164,6 +181,7 @@ const program = Effect.scoped(
     delete process.env.MANAGED_TOOL_EXIT;
 
     const managedCask = "example/tap/managed-tool";
+
     const externalModel: ProfileModel = {
       ...model,
       profiles: {
@@ -174,6 +192,7 @@ const program = Effect.scoped(
         },
       },
     };
+
     yield* write([command("cask", managedCask, ["version"])]);
     assert.deepEqual(yield* validate("workstation", {}, externalModel), {});
     assert.equal(
@@ -186,18 +205,21 @@ const program = Effect.scoped(
     assert.equal((yield* validate("devbox", {}, externalModel).pipe(Effect.option))._tag, "None");
     yield* fs.writeFileString(local, `cask "${managedCask}"\n`);
     yield* fs.chmod(local, 0o600);
+
     for (const profile of ["workstation", "devbox"]) {
       assert.equal(
         (yield* validate(profile, { DOTFILES_BREWFILE_LOCAL: local })).HOMEBREW_BUNDLE_CASK_SKIP,
         managedCask,
       );
     }
+
     yield* write([command("cask", "uinaf/tap/slopwake", ["version"])]);
     assert.equal((yield* validate().pipe(Effect.option))._tag, "None");
 
     const app = join(temporary, "Managed Browser.app");
     yield* fs.makeDirectory(join(app, "Contents"), { recursive: true });
     yield* fs.writeFileString(join(app, "Contents/Info.plist"), "fixture");
+
     const fakeRunner = CommandRunner.of({
       run: (executable, args, options) => {
         if (executable === "/usr/libexec/PlistBuddy") {
@@ -207,6 +229,7 @@ const program = Effect.scoped(
             stderr: "",
           });
         }
+
         if (executable === "/usr/bin/codesign" && args?.[0] === "--verify") {
           return Effect.succeed({
             status: process.env.TEST_CODESIGN_FAIL ? 1 : 0,
@@ -214,6 +237,7 @@ const program = Effect.scoped(
             stderr: "",
           });
         }
+
         if (executable === "/usr/bin/codesign") {
           return Effect.succeed({
             status: 0,
@@ -221,14 +245,18 @@ const program = Effect.scoped(
             stderr: `TeamIdentifier=${process.env.TEST_TEAM || "MANAGEDTEAM"}\n`,
           });
         }
+
         return actual.run(executable, args, options);
       },
     });
+
     const validateBundle = (capability: Capability) =>
       Effect.gen(function* () {
         yield* write([capability]);
+
         return yield* validate();
       }).pipe(Effect.provideService(CommandRunner, fakeRunner));
+
     const validBundle = bundle("google-chrome", app, "com.example.ManagedBrowser", "MANAGEDTEAM");
     assert.equal((yield* validateBundle(validBundle)).HOMEBREW_BUNDLE_CASK_SKIP, "google-chrome");
     assert.equal(
@@ -256,4 +284,5 @@ const program = Effect.scoped(
     Effect.provide(NodeServices.layer),
   ),
 );
+
 runMain(program);

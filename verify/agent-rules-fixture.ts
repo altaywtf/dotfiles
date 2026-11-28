@@ -14,6 +14,7 @@ import { dirname, join, resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const sourceDir = join(repoRoot, "chezmoi");
+
 export const sharedFixtureRules =
   "## General guidelines\n\nFixture shared rule.\n\n### Delivery\n\nShared fixture delivery rule.\n";
 
@@ -40,6 +41,7 @@ export function createFixture(): AgentRulesFixture {
   mkdirSync(dirname(agentRulesCache(home)), { recursive: true });
   writeFileSync(config, "");
   writeFileSync(agentRulesCache(home), sharedFixtureRules, { mode: 0o600 });
+
   return { config, home, root };
 }
 
@@ -60,9 +62,11 @@ export function runChezmoiResult(
     "--override-data",
     JSON.stringify({ agentRulesPath: agentRulesCache(home), dotfilesProfile: profile }),
   ];
+
   if (command === "apply") {
     args.push("--force");
   }
+
   args.push(command);
 
   return spawnSync("chezmoi", args, {
@@ -87,6 +91,7 @@ export function runChezmoi(
 ): string {
   const result = runChezmoiResult(home, config, command, source, profile);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+
   return result.stdout;
 }
 
@@ -116,6 +121,7 @@ export function runWrapperResult(
 export function runWrapper(home: string, profile = "workstation"): string {
   const result = runWrapperResult(home, profile);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+
   return result.stdout;
 }
 
@@ -127,5 +133,6 @@ export function assertManagedRules(home: string): string {
   assert.equal(lstatSync(join(home, ".codex/AGENTS.md")).isSymbolicLink(), true);
   assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../.agents/AGENTS.md");
   assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../.agents/AGENTS.md");
+
   return readFileSync(rules, "utf8");
 }

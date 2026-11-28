@@ -7,11 +7,14 @@ import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
+
 const wallpaperIndex = join(
   process.env.HOME || "",
   "Library/Application Support/com.apple.wallpaper/Store/Index.plist",
 );
+
 const wallpaperSource = resolve(repoRoot, "bootstrap/darwin/assets/black-wallpaper.plist");
+
 const usage = `Usage:
   bootstrap/darwin/configure-desktop.ts [--check]
 
@@ -26,15 +29,19 @@ const defaultEquals = Effect.fn("defaultEquals")(function* (
 ) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["read", domain, key]);
+
   return result.status === 0 && result.stdout.trim() === expected;
 });
 
 const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
   const fs = yield* FileSystem.FileSystem;
+
   if (!(yield* fs.exists(wallpaperIndex))) {
     return false;
   }
+
   const runner = yield* CommandRunner;
+
   const provider = yield* runner.run("plutil", [
     "-extract",
     "AllSpacesAndDisplays.Linked.Content.Choices.0.Provider",
@@ -43,9 +50,11 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
     "-",
     wallpaperIndex,
   ]);
+
   if (provider.status !== 0 || provider.stdout.trim() !== "com.apple.wallpaper.choice.color") {
     return false;
   }
+
   const configuration = yield* runner.run("plutil", [
     "-extract",
     "AllSpacesAndDisplays.Linked.Content.Choices.0.Configuration",
@@ -54,15 +63,19 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
     "-",
     wallpaperIndex,
   ]);
+
   if (configuration.status !== 0) {
     return false;
   }
+
   const decodedPath = yield* fs.makeTempFileScoped({
     prefix: "wallpaper-configuration.",
     suffix: ".plist",
   });
+
   yield* fs.writeFile(decodedPath, Buffer.from(configuration.stdout.trim(), "base64"));
   const decoded = yield* runner.run("plutil", ["-p", decodedPath]);
+
   return (
     decoded.status === 0 &&
     decoded.stdout.includes('"systemColor"') &&
@@ -73,19 +86,26 @@ const wallpaperIsBlack = Effect.fn("wallpaperIsBlack")(function* () {
 const dockHasOnlyChrome = Effect.fn("dockHasOnlyChrome")(function* () {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["read", "com.apple.dock", "persistent-apps"]);
+
   if (result.status !== 0) {
     return false;
   }
+
   const bundleCount = result.stdout.match(/"bundle-identifier"/g)?.length ?? 0;
+
   const chromeCount =
     result.stdout.match(/"bundle-identifier" = "com\.google\.Chrome"/g)?.length ?? 0;
+
   if (bundleCount !== 1 || chromeCount !== 1) {
     return false;
   }
+
   const exported = yield* runner.run("defaults", ["export", "com.apple.dock", "-"]);
+
   if (exported.status !== 0) {
     return false;
   }
+
   const urlType = yield* runner.run(
     "plutil",
     [
@@ -100,12 +120,14 @@ const dockHasOnlyChrome = Effect.fn("dockHasOnlyChrome")(function* () {
     ],
     { stdin: new TextEncoder().encode(exported.stdout) },
   );
+
   return urlType.status === 0 && urlType.stdout.trim() === "15";
 });
 
 const dockArrayIsEmpty = Effect.fn("dockArrayIsEmpty")(function* (key: string) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["read", "com.apple.dock", key]);
+
   return !result.stdout.includes('"tile-data"');
 });
 
@@ -128,6 +150,7 @@ const stateIsCorrect = Effect.fn("desktopStateIsCorrect")(function* () {
 const writeDefault = Effect.fn("writeDefault")(function* (args: ReadonlyArray<string>) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("defaults", ["write", ...args], { output: "inherit" });
+
   if (result.status !== 0) {
     return yield* fail(`defaults write ${args[0]} ${args[1]} exited ${result.status}`);
   }
@@ -135,28 +158,37 @@ const writeDefault = Effect.fn("writeDefault")(function* (args: ReadonlyArray<st
 
 const program = Effect.gen(function* () {
   let checkOnly = false;
+
   for (const argument of process.argv.slice(2)) {
     if (argument === "--check") {
       checkOnly = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
+
       return;
     } else {
       yield* Console.error(usage);
+
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
+
   if (process.platform !== "darwin") {
     return yield* fail("desktop baseline requires macOS");
   }
+
   const fs = yield* FileSystem.FileSystem;
+
   if (!(yield* fs.exists("/Applications/Google Chrome.app"))) {
     return yield* fail("Google Chrome is not installed");
   }
+
   if (yield* stateIsCorrect()) {
     yield* Console.log("desktop baseline ok");
+
     return;
   }
+
   if (checkOnly) {
     return yield* fail("desktop baseline drift detected");
   }
@@ -191,9 +223,11 @@ const program = Effect.gen(function* () {
 
   const runner = yield* CommandRunner;
   const lint = yield* runner.run("plutil", ["-lint", wallpaperSource]);
+
   if (lint.status !== 0) {
     return yield* fail("black wallpaper plist is invalid");
   }
+
   yield* fs.makeDirectory(dirname(wallpaperIndex), { recursive: true });
   yield* fs.copyFile(wallpaperSource, wallpaperIndex);
   yield* fs.chmod(wallpaperIndex, 0o644);
@@ -203,9 +237,11 @@ const program = Effect.gen(function* () {
     { concurrency: "unbounded" },
   );
   yield* Effect.sleep("1 second");
+
   if (!(yield* stateIsCorrect())) {
     return yield* fail("desktop baseline did not converge");
   }
+
   yield* Console.log("desktop baseline applied");
 }).pipe(Effect.scoped, Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

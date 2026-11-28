@@ -47,6 +47,7 @@ function allowed(file: string, content: string): boolean {
 
 const program = Effect.gen(function* () {
   const runner = yield* CommandRunner;
+
   const contentScan = yield* runner.run("git", [
     "-C",
     repoRoot,
@@ -58,12 +59,14 @@ const program = Effect.gen(function* () {
     "--",
     ":!verify/vendor-neutral.ts",
   ]);
+
   if (contentScan.status !== 0 && contentScan.status !== 1) {
     return yield* fail(
       `vendor-neutral scan failed with git grep status ${contentScan.status}`,
       contentScan.status,
     );
   }
+
   const pathScan = yield* runner.run("git", [
     "-C",
     repoRoot,
@@ -72,6 +75,7 @@ const program = Effect.gen(function* () {
     "--others",
     "--exclude-standard",
   ]);
+
   if (pathScan.status !== 0) {
     return yield* fail(
       `vendor-neutral path scan failed with status ${pathScan.status}`,
@@ -80,24 +84,29 @@ const program = Effect.gen(function* () {
   }
 
   let unexpected = false;
+
   for (const path of pathScan.stdout.split(/\r?\n/).filter((value) => /uinaf/i.test(value))) {
     yield* Console.error(`unexpected vendor branding in path: ${path}`);
     unexpected = true;
   }
+
   for (const line of contentScan.stdout.split(/\r?\n/).filter(Boolean)) {
     const first = line.indexOf(":");
     const second = line.indexOf(":", first + 1);
     const file = line.slice(0, first);
     const lineNumber = line.slice(first + 1, second);
     const content = line.slice(second + 1);
+
     if (!allowed(file, content)) {
       yield* Console.error(`unexpected vendor branding: ${file}:${lineNumber}:${content}`);
       unexpected = true;
     }
   }
+
   if (unexpected) {
     return yield* fail("owner-name boundary failed");
   }
+
   yield* Console.log("ok owner names are limited to external coordinates");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 

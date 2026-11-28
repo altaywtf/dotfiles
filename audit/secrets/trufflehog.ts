@@ -7,10 +7,12 @@ const Location = Schema.Struct({
   line: Schema.Number,
   detector: Schema.String,
 });
+
 const Allowlist = Schema.Struct({
   version: Schema.Literal(1),
   findings: Schema.Array(Schema.Struct({ ...Location.fields, reason: Schema.NonEmptyString })),
 });
+
 const Finding = Schema.Struct({
   DetectorName: Schema.String,
   Verified: Schema.Boolean,
@@ -30,13 +32,17 @@ export function classifyTrufflehogFindings(
   const allowlist = Schema.decodeUnknownSync(Allowlist)(
     JSON.parse(readFileSync(allowlistPath, "utf8")),
   );
+
   const result: TrufflehogFindings = { allowed: 0, unexpected: [] };
+
   for (const line of stdout.split("\n")) {
     if (!line.trim()) {
       continue;
     }
+
     const finding = Schema.decodeUnknownSync(Finding)(JSON.parse(line));
     const { commit, file, line: number } = finding.SourceMetadata.Data.Git;
+
     const allowed =
       !finding.Verified &&
       allowlist.findings.some(
@@ -46,6 +52,7 @@ export function classifyTrufflehogFindings(
           entry.line === number &&
           entry.detector === finding.DetectorName,
       );
+
     if (allowed) {
       result.allowed += 1;
     } else {
@@ -54,5 +61,6 @@ export function classifyTrufflehogFindings(
       );
     }
   }
+
   return result;
 }

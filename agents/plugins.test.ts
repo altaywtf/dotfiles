@@ -65,22 +65,28 @@ class FixtureRuntime implements Runtime {
     if (command.endsWith("/resolve-profile.ts")) {
       const expectedFlag = args.indexOf("--expected");
       const expected = expectedFlag >= 0 ? args[expectedFlag + 1] : undefined;
+
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
+
       if (!Object.hasOwn(profileModel.profiles, this.profile)) {
         return { status: 3, stdout: "", stderr: "unknown profile" };
       }
+
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
     }
 
     const diagnostic = this.failures.get(`${command} ${args.join(" ")}`);
+
     if (diagnostic !== undefined) {
       return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
     }
+
     if (command === "agy" && args.join(" ") === "plugin list --json") {
       return { status: 0, stdout: "[]", stderr: "" };
     }
+
     return { status: 0, stdout: "", stderr: "" };
   }
 }
@@ -344,6 +350,7 @@ test("refreshes installed plugins and marketplaces on --update", () => {
 
 test("skips refresh commands after their marketplace add or plugin install fails", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       ["codex plugin marketplace add fixture/shared-market", { stdout: "", stderr: "name taken" }],
@@ -372,6 +379,7 @@ test("skips refresh commands after their marketplace add or plugin install fails
       ["claude plugin marketplace add fixture/shared-market", { stdout: "", stderr: "name taken" }],
     ]),
   });
+
   assert.equal(main(["--update"], addFailed), 1);
   assert.deepEqual(harnessCalls(addFailed, "claude"), [
     "plugin marketplace add fixture/shared-market",
@@ -391,6 +399,7 @@ test("does not prune or advance ownership when an install or refresh fails", () 
     ["codex plugin marketplace upgrade shared-market", "upgrade failed"],
   ] as const) {
     writePluginLock(home, [...fixtureSharedPlugins, retired]);
+
     const runtime = new FixtureRuntime(repoDir, home, {
       failures: new Map([[command, { stdout: "", stderr }]]),
     });
@@ -424,6 +433,7 @@ test("adds the personal layer only for personal profiles", () => {
 
 test("reports every failing command with a redacted diagnostic", () => {
   const { repoDir, home } = createFixture();
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [
@@ -477,9 +487,11 @@ test("collapses an identical plugin selected by more than one layer", () => {
   const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-workstation" });
 
   assert.equal(main([], runtime), 0);
+
   const installs = harnessCalls(runtime, "claude").filter((call) =>
     call.startsWith("plugin install"),
   );
+
   assert.deepEqual(installs, [
     "plugin install shared-plugin@shared-market",
     "plugin install second-plugin@shared-market",
@@ -537,8 +549,10 @@ test("prunes dropped plugins on present harnesses and defers absent ones until t
     { marketplace: "fixture/shared-market", name: "shared-plugin" },
     { marketplace: "fixture/retired-market", name: "retired-plugin" },
   ]);
+
   const removals = (runtime: FixtureRuntime, binary: string) =>
     harnessCalls(runtime, binary).filter((call) => /^plugin (uninstall|remove) /.test(call));
+
   const lockedHarnesses = () =>
     Object.fromEntries(
       Schema.decodeUnknownSync(LockedPlugins)(
@@ -582,6 +596,7 @@ test("does not advance ownership when a managed removal fails", () => {
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
   writePluginLock(home, [...fixtureSharedPlugins, retired]);
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [
@@ -612,6 +627,7 @@ test.each([
   const { repoDir, home } = createFixture();
   const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
   writePluginLock(home, [...fixtureSharedPlugins, retired]);
+
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
       [

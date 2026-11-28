@@ -37,6 +37,7 @@ printf '%s\\n' "$TEST_GH"
 `,
       { mode: 0o755 },
     );
+
     const result = spawnSync("/bin/sh", [helper], {
       encoding: "utf8",
       env: {
@@ -49,12 +50,14 @@ printf '%s\\n' "$TEST_GH"
         TEST_RESOLVE: join(root, "resolve"),
       },
     });
+
     assert.equal(result.status, status, result.stderr);
     assert.equal(result.stdout, status === 0 ? "fixture-credential" : "");
     assert.equal(
       readFileSync(join(root, "args"), "utf8"),
       "auth\ntoken\n--hostname\ngithub.example.com\n",
     );
+
     if (!direct) {
       assert.equal(
         readFileSync(join(root, "resolve"), "utf8"),
@@ -69,6 +72,7 @@ test("missing gh stops without emitting a credential", () => {
     encoding: "utf8",
     env: { PATH: "/nonexistent", HOME: "/nonexistent", MISE_CREDENTIAL_HOST: "github.com" },
   });
+
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout, "");
 });
