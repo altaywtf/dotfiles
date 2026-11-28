@@ -42,7 +42,7 @@ jobs:
 
       - name: Scan
         if: ${{ !cancelled() }}
-        uses: uinaf/.github/.github/actions/scan@d7b7f4ec4f167df83616cf08b04e7dc3e1d4ebd0 # v3.1.1
+        uses: uinaf/.github/.github/actions/scan@1dd8a74e77f76fcf055297528cb7b7e64825807f # v3.5.0
 
   verify-linux:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
