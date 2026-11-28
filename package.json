@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "26.6.11",
-    "@uinaf/oxlint-config": "1.0.1",
+    "@uinaf/oxlint-config": "1.0.3",
     "knip": "6.48.0",
     "oxlint": "1.95.0",
     "typescript": "7.0.2",

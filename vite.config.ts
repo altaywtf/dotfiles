@@ -30,14 +30,8 @@ export default defineConfig({
     rules: {
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-runtime-typeof": "off",
-      "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
+      "uinaf/no-comments": ["error", { allow: ["^renovate: "] }],
     },
-    overrides: [
-      {
-        files: ["bootstrap/darwin/chrome-state.test.ts"],
-        rules: { "anti-slop-effect/no-manual-tagged-construction": "off" },
-      },
-    ],
     options: { typeCheck: true, denyWarnings: true },
   },
 });
