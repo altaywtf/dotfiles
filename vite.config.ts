@@ -32,9 +32,14 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-runtime-typeof": "off",
-      "anti-slop-effect/no-manual-tagged-construction": "off",
       "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
     },
+    overrides: [
+      {
+        files: ["bootstrap/darwin/chrome-state.test.ts"],
+        rules: { "anti-slop-effect/no-manual-tagged-construction": "off" },
+      },
+    ],
     options: { typeCheck: true, denyWarnings: true },
   },
 });
