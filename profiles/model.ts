@@ -102,6 +102,7 @@ const validateProfile = Effect.fn("validateProfile")(function* (
 
 const parseProfileModelEffect = Effect.fn("parseProfileModel")(function* (contents: string) {
   const parsed = yield* Effect.try({
+    // SAFETY: JSON.parse returns any; unknown forces the schema decode below.
     try: () => JSON.parse(contents) as unknown,
     catch: (error) =>
       new ProfileModelError({

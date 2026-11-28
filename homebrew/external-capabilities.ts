@@ -40,6 +40,7 @@ const parsePlist = Effect.fn("parseExternalHomebrewPlist")(function* (path: stri
   }
 
   const json = yield* Effect.try({
+    // SAFETY: JSON.parse returns any; unknown forces the schema decode below.
     try: () => JSON.parse(converted.stdout) as unknown,
     catch: () =>
       new CliFailure({

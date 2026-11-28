@@ -105,6 +105,7 @@ const readPin = Effect.fn("readXcodePin")(function* () {
   );
 
   const parsed = yield* Effect.try({
+    // SAFETY: JSON.parse returns any; unknown forces the schema decode below.
     try: () => JSON.parse(contents) as unknown,
     catch: (error) =>
       new CliFailure({

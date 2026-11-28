@@ -111,7 +111,7 @@ test("verification bounds active checks and drains queued checks after failure",
   const checks = ["first", "second", "third", "fourth"].map((id) => ({
     id,
     domain: "static",
-    command: [id] as [string],
+    command: [id] satisfies [string],
     output: id,
   }));
 

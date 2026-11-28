@@ -32,7 +32,6 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-runtime-typeof": "off",
-      "anti-slop/require-safety-comment-for-type-assertion": "off",
       "anti-slop-effect/no-manual-tagged-construction": "off",
       "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
     },

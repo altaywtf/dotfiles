@@ -56,7 +56,8 @@ function ownerFileAlive(path: string, probe: LockProbe): boolean {
     return true;
   }
 
-  const { pid, bootTime } = metadata as { pid?: unknown; bootTime?: unknown };
+  const pid = "pid" in metadata ? metadata.pid : undefined;
+  const bootTime = "bootTime" in metadata ? metadata.bootTime : undefined;
 
   if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) {
     return true;

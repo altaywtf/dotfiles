@@ -116,6 +116,7 @@ const readRegistry = Effect.fn("readRegistry")(function* () {
     );
 
   const json = yield* Effect.try({
+    // SAFETY: JSON.parse returns any; unknown forces the schema decode below.
     try: () => JSON.parse(contents) as unknown,
     catch: (error) =>
       new CliFailure({
