@@ -27,9 +27,7 @@ export default defineConfig({
     extends: [shared],
     env,
     ignorePatterns: [...ignorePatterns, "chezmoi/**"],
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
-      "vite-plus/prefer-vite-plus-imports": "error",
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-runtime-typeof": "off",
       "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],

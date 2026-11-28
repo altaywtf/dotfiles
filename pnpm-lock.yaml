@@ -211,8 +211,8 @@ importers:
         specifier: 26.6.11
         version: 26.6.11
       '@uinaf/oxlint-config':
-        specifier: 1.0.0
-        version: 1.0.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
+        specifier: 1.0.1
+        version: 1.0.1(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
       knip:
         specifier: 6.48.0
         version: 6.48.0
@@ -1443,8 +1443,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@uinaf/oxlint-config@1.0.0':
-    resolution: {integrity: sha512-mijhPRhKF+MTJZHEh2aXWNAZpkeq1EF4J/sm2uh0NsoIioB8bW8AJJepqQ3+wXBCRB5k0d9K0aEUAuHyDPfhKw==}
+  '@uinaf/oxlint-config@1.0.1':
+    resolution: {integrity: sha512-1p41DSKyR+DqlsnShp4rz+c6F8ZBXkA0n1MsXGye/AMvzOFIXQxmUlVqQf/ZLNpurWU+t8A7XKunW1akBUHAHQ==}
     engines: {node: ^22.18.0 || >=24.0.0}
     peerDependencies:
       oxlint: '>=1.94.0'
@@ -1455,8 +1455,8 @@ packages:
       vite-plus:
         optional: true
 
-  '@uinaf/oxlint-plugin-no-comments@1.1.0':
-    resolution: {integrity: sha512-Jc1LomQyspHZCKNRX+5OLXqzWgz+Z1Jey1JxpbBITSxTrQ7RLR3JmWsSpbReyP8p6Xa/Bzx1+tVJJ67tD57kPw==}
+  '@uinaf/oxlint-plugin-no-comments@1.1.1':
+    resolution: {integrity: sha512-/rurT1L+Zi3IXFBkjyLOyWVwJATAnlOCvR8eMw3LoNz0mhkbcXeq78Ii9GHuF7t7TTaZgEnsxkN6vaIr9f13LQ==}
     engines: {node: '>=20.19.0'}
 
   '@vitest/browser-preview@5.1.1':
@@ -3138,10 +3138,10 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@uinaf/oxlint-config@1.0.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))':
+  '@uinaf/oxlint-config@1.0.1(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))':
     dependencies:
       '@cloudflare/oxlint-config': 0.2.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
-      '@uinaf/oxlint-plugin-no-comments': 1.1.0
+      '@uinaf/oxlint-plugin-no-comments': 1.1.1
     optionalDependencies:
       oxlint: 1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
       vite-plus: 1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
@@ -3150,7 +3150,7 @@ snapshots:
       - eslint-plugin-perfectionist
       - tsrs
 
-  '@uinaf/oxlint-plugin-no-comments@1.1.0': {}
+  '@uinaf/oxlint-plugin-no-comments@1.1.1': {}
 
   '@vitest/browser-preview@5.1.1(@voidzero-dev/vite-plus-core@8.3.8001(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@5.1.1)':
     dependencies:
