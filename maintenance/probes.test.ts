@@ -12,6 +12,7 @@ const processOptions = { cwd: process.cwd(), env: process.env, timeoutMs: 200 };
 
 test("finite probes kill a child that ignores TERM and preserve output", async () => {
   const started = performance.now();
+
   const result = await runProcess(
     process.execPath,
     [
@@ -25,6 +26,7 @@ test("finite probes kill a child that ignores TERM and preserve output", async (
     ],
     processOptions,
   );
+
   const elapsed = performance.now() - started;
   assert.equal(result.timedOut, true);
   assert.match(result.stdout, /^progress:\d+$/);
@@ -42,6 +44,7 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
     try {
       const deadline = performance.now() + 5000;
       const pid = await waitForPid(done, 5000);
+
       while (processAlive(pid)) {
         assert.ok(performance.now() < deadline, "descendant did not finish");
         await delay(20);
@@ -52,6 +55,7 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
   });
   const descendant = `setTimeout(() => { require('node:fs').writeFileSync(${JSON.stringify(done)}, String(process.pid)); process.exit(0); }, 1600)`;
   const started = performance.now();
+
   const result = await runProcess(
     process.execPath,
     [
@@ -65,6 +69,7 @@ test("finite probes stop draining inherited pipes and preserve the direct child'
     ],
     processOptions,
   );
+
   const elapsed = performance.now() - started;
   assert.equal(result.timedOut, true);
   assert.equal(result.status, 7);
@@ -85,6 +90,7 @@ test("a TERM handler exiting successfully still reports timeout", async () => {
     ],
     processOptions,
   );
+
   assert.deepEqual(result, { status: 0, stdout: "term", stderr: "", timedOut: true });
 });
 
@@ -98,8 +104,10 @@ test("ordinary exits and spawn failures retain their result", async () => {
       ],
       { ...processOptions, timeoutMs: 2000 },
     );
+
     assert.deepEqual(result, { status, stdout: "out", stderr: "err", timedOut: false });
   }
+
   const result = await runProcess("/nonexistent/maintenance-fixture", [], processOptions);
   assert.equal(result.status, 127);
   assert.equal(result.timedOut, false);
@@ -122,6 +130,7 @@ test("null timeout waits for completion without signalling the child", async () 
     ],
     { ...processOptions, timeoutMs: null },
   );
+
   assert.deepEqual(result, { status: 7, stdout: "finished", stderr: "", timedOut: false });
 });
 
@@ -129,6 +138,7 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
   const directory = await mkdtemp(join(tmpdir(), "maintenance-scan-cancel-"));
   const ready = join(directory, "pid");
   const controller = new AbortController();
+
   const completion = runProcess(
     process.execPath,
     [
@@ -141,6 +151,7 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
     ],
     { ...processOptions, timeoutMs: null, signal: controller.signal },
   );
+
   t.onTestFinished(async () => {
     controller.abort();
     await completion;

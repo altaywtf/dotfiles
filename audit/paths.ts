@@ -28,11 +28,13 @@ export function homePath(home: string, path: string): string {
 function present(path: string, skipped: SkippedPath): boolean {
   try {
     lstatSync(path);
+
     return true;
   } catch (error) {
     if (!(Predicate.hasProperty(error, "code") && error.code === "ENOENT")) {
       skipped(path);
     }
+
     return false;
   }
 }
@@ -41,7 +43,9 @@ function discoveredFile(path: string, skipped: SkippedPath): boolean {
   if (Option.exists(stat(path), (info) => info.isFile())) {
     return true;
   }
+
   skipped(path);
+
   return false;
 }
 
@@ -62,35 +66,46 @@ export function walkFiles(
   if (!present(root, skipped)) {
     return [];
   }
+
   try {
     const info = statSync(root);
+
     if (info.isFile()) {
       return [root];
     }
+
     if (!info.isDirectory()) {
       skipped(root);
+
       return [];
     }
+
     return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
       const path = join(root, entry.name);
+
       if (entry.isDirectory()) {
         return maxDepth > 0 && !options.skipDirectories?.has(entry.name)
           ? walkFiles(path, maxDepth - 1, skipped, options)
           : [];
       }
+
       if (entry.isFile()) {
         return [path];
       }
+
       if (!entry.isSymbolicLink()) {
         return [];
       }
+
       if (options.ignoreDirectoryLinks && linkedDirectory(path)) {
         return [];
       }
+
       return discoveredFile(path, skipped) ? [path] : [];
     });
   } catch {
     skipped(root);
+
     return [];
   }
 }
@@ -103,17 +118,23 @@ export function resolveSources(
   const paths = sources.flatMap((source) => {
     if (source.kind === "path") {
       const path = homePath(home, source.path);
+
       if (!present(path, skipped)) {
         return [];
       }
+
       if (Option.exists(stat(path), (info) => info.isFile() || info.isDirectory())) {
         return [path];
       }
+
       skipped(path);
+
       return [];
     }
+
     if (source.kind === "home-dotfiles") {
       const excluded = new Set(source.exclude ?? []);
+
       try {
         return readdirSync(home, { withFileTypes: true })
           .filter((entry) => entry.name.startsWith(".") && !excluded.has(entry.name))
@@ -125,10 +146,13 @@ export function resolveSources(
           .map((entry) => join(home, entry.name));
       } catch {
         skipped(home);
+
         return [];
       }
     }
+
     const root = homePath(home, source.path);
+
     return walkFiles(root, source.maxDepth ?? Number.POSITIVE_INFINITY, skipped, {
       skipDirectories: new Set(source.skipDirectories),
       ignoreDirectoryLinks: source.ignoreDirectoryLinks,
@@ -138,5 +162,6 @@ export function resolveSources(
       )
       .filter((path) => source.pathPattern === undefined || source.pathPattern.test(path));
   });
+
   return [...new Set(paths)].sort();
 }

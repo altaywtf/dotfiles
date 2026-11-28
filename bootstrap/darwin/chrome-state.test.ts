@@ -39,6 +39,7 @@ function updateChromeState(
 
 test("Chrome state updates one flag and preserves unrelated data", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+
   try {
     const path = join(root, "Chrome/Local State");
     mkdirSync(join(root, "Chrome"));
@@ -67,6 +68,7 @@ test("Chrome state updates one flag and preserves unrelated data", async () => {
 
 test("Chrome state creates safely and rejects malformed input without overwrite", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+
   try {
     const path = join(root, "Chrome/Local State");
     await updateChromeState(path, "enable", "vertical-tabs", "vertical-tabs@1");
@@ -86,10 +88,12 @@ test("Chrome state creates safely and rejects malformed input without overwrite"
 
 test("Chrome state CLI runs through a symlinked path", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+
   try {
     const cliPath = join(root, "chrome-state.ts");
     const statePath = join(root, "Local State");
     symlinkSync(join(import.meta.dirname, "chrome-state.ts"), cliPath);
+
     const result = spawnSync(
       process.execPath,
       [cliPath, statePath, "enable", "vertical-tabs", "vertical-tabs@1"],
@@ -97,6 +101,7 @@ test("Chrome state CLI runs through a symlinked path", () => {
         encoding: "utf8",
       },
     );
+
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")).browser.enabled_labs_experiments, [
       "vertical-tabs@1",
@@ -108,6 +113,7 @@ test("Chrome state CLI runs through a symlinked path", () => {
 
 test("Chrome state preserves existing data when reads fail", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+
   try {
     const path = join(root, "Local State");
     const original = '{"keep":"preferences"}\n';
@@ -148,10 +154,12 @@ function updateChromeProfiles(root: string, mode: "enable" | "disable") {
 
 test("Chrome profiles enable vertical tabs in every user profile", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
+
   try {
     for (const name of ["Default", "Profile 1", "System Profile"]) {
       mkdirSync(join(root, name));
     }
+
     const first = join(root, "Default/Preferences");
     const second = join(root, "Profile 1/Preferences");
     const system = join(root, "System Profile/Preferences");
@@ -180,6 +188,7 @@ test("Chrome profiles enable vertical tabs in every user profile", async () => {
 
 test("Chrome profiles seed Default and reject malformed preferences", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-profiles-"));
+
   try {
     assert.deepEqual(await updateChromeProfiles(root, "enable"), { checked: 1, updated: 1 });
     const path = join(root, "Default/Preferences");
@@ -202,6 +211,7 @@ const run = (path: string, mode: "enable" | "disable") =>
 
 test("Chrome Local State turns off the quit prompt and restores it", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-quit-"));
+
   try {
     const path = join(root, "Local State");
     writeFileSync(path, '{"browser":{"confirm_to_quit":true,"enabled_labs_experiments":["a@1"]}}');

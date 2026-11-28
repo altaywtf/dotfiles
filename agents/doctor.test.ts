@@ -45,12 +45,15 @@ class FixtureRuntime implements Runtime {
     if (command.endsWith("/resolve-profile.ts")) {
       return { status: 0, stdout: "workstation\n", stderr: "" };
     }
+
     const reply = this.replies.get(`${command} ${args.join(" ")}`) ?? {};
+
     return { status: reply.status ?? 0, stdout: reply.stdout ?? "", stderr: reply.stderr ?? "" };
   }
 }
 
 const temporaryDirectories: Array<string> = [];
+
 afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) {
     rmSync(path, { force: true, recursive: true });
@@ -71,6 +74,7 @@ function createFixture(): Fixture {
     join(repoDir, "chezmoi/.chezmoidata/profiles.json"),
     readFileSync(join(repoRoot, "chezmoi/.chezmoidata/profiles.json")),
   );
+
   for (const layer of ["developer", "workstation", "devbox", "personal"]) {
     writeFileSync(
       join(repoDir, `agents/mcps/${layer}.json`),
@@ -82,6 +86,7 @@ function createFixture(): Fixture {
       }),
     );
   }
+
   return { repoDir, home };
 }
 

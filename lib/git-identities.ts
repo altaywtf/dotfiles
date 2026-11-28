@@ -12,9 +12,11 @@ export function resolveGitPath(home: string, configFile: string, value: string):
   if (value === "~") {
     return home;
   }
+
   if (value.startsWith("~/")) {
     return join(home, value.slice(2));
   }
+
   return isAbsolute(value) ? value : resolve(dirname(configFile), value);
 }
 

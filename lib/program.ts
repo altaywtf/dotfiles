@@ -17,8 +17,10 @@ export function runMain(program: Effect.Effect<void, unknown>): void {
       if (Cause.hasInterruptsOnly(cause)) {
         return Effect.failCause(cause);
       }
+
       return Effect.sync(() => {
         const error = cause.reasons.find(Cause.isFailReason)?.error;
+
         const failure =
           !Cause.hasDies(cause) && isCliFailure(error)
             ? error
@@ -30,6 +32,7 @@ export function runMain(program: Effect.Effect<void, unknown>): void {
                     ? error.message
                     : String(error),
               });
+
         process.stderr.write(`FAILED: ${failure.message}\n`);
         process.exitCode = failure.exitCode;
       });

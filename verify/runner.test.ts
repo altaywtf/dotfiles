@@ -15,19 +15,24 @@ test("verification reports completed checks before a stalled child and cleans it
   const pidFile = join(root, "pid");
   const output: Array<string> = [];
   let failedBeforeTermination = false;
+
   const errorWrite = vi
     .spyOn(process.stderr, "write")
     .mockImplementation((chunk: string | Uint8Array) => {
       const text = String(chunk);
       output.push(text);
+
       if (text.includes("FAILED: quick")) {
         const pid = readPid(pidFile);
         failedBeforeTermination = pid !== undefined && processAlive(pid);
       }
+
       return true;
     });
+
   try {
     const started = Date.now();
+
     const result = await Effect.runPromise(
       runChecks(
         [
@@ -66,6 +71,7 @@ test("verification reports completed checks before a stalled child and cleans it
         3,
       ).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
     );
+
     assert.equal(result, false);
     assert.equal(failedBeforeTermination, true);
     assert.ok(
@@ -88,6 +94,7 @@ test("verification bounds active checks and drains queued checks after failure",
   let active = 0;
   let peak = 0;
   const completed: Array<string> = [];
+
   const runner = CommandRunner.of({
     run: (command) =>
       Effect.gen(function* () {
@@ -96,18 +103,22 @@ test("verification bounds active checks and drains queued checks after failure",
         yield* Effect.yieldNow;
         active -= 1;
         completed.push(command);
+
         return { status: command === "first" ? 7 : 0, stdout: "", stderr: "" };
       }),
   });
+
   const checks = ["first", "second", "third", "fourth"].map((id) => ({
     id,
     domain: "static",
-    command: [id] as [string],
+    command: [id] satisfies [string],
     output: id,
   }));
+
   const result = await Effect.runPromise(
     runChecks(checks, 300_000, 2).pipe(Effect.provideService(CommandRunner, runner)),
   );
+
   assert.equal(result, false);
   assert.equal(peak, 2);
   assert.equal(active, 0);

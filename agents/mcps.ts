@@ -40,6 +40,7 @@ type McpFailure = SyncFailure;
 const LockedMcpIdentity = Schema.Struct({ name: SafeName });
 
 const LockedMcp = Schema.Struct({ name: SafeName, harnesses: LockedHarnesses });
+
 type LockedMcp = typeof LockedMcp.Type;
 
 const McpLockDocument = Schema.Struct({
@@ -56,16 +57,18 @@ type McpLock = {
 
 function readMcpLock(lockPath: string): Array<LockedMcp> | undefined {
   const parsed = readLockFile(lockPath, "MCP");
+
   if (parsed === undefined) {
     return undefined;
   }
 
   const label = `Invalid managed MCP lock at ${lockPath}`;
-  const shapeMessage = `${label}: expected version 1 and an mcps array`;
-  const lock = decodeOr(McpLockDocument, parsed, shapeMessage);
+  const invalidLockMessage = `${label}: expected version 1 and an mcps array`;
+  const lock = decodeOr(McpLockDocument, parsed, invalidLockMessage);
   const entries = lock.mcps ?? lock.servers;
+
   if (entries === undefined) {
-    throw new Error(shapeMessage);
+    throw new Error(invalidLockMessage);
   }
 
   const mcps = entries.map((mcp, index) => {
@@ -74,12 +77,16 @@ function readMcpLock(lockPath: string): Array<LockedMcp> | undefined {
       mcp,
       `${label}: mcps[${index}] must have a safe name`,
     );
+
     return decodeOrThrow(LockedMcp, mcp, (detail) => `${label}: ${name} ${detail}`);
   });
+
   const names = mcps.map((mcp) => mcp.name);
+
   if (new Set(names).size !== names.length) {
     throw new Error(`${label}: MCP names must be unique`);
   }
+
   return mcps;
 }
 
@@ -99,6 +106,7 @@ function withKept(
   kept: ReadonlyArray<LockedMcp>,
 ): Array<LockedMcp> {
   const merged = new Map(next.map((mcp) => [mcp.name, mcp]));
+
   for (const mcp of kept) {
     const current = merged.get(mcp.name);
     merged.set(mcp.name, {
@@ -108,6 +116,7 @@ function withKept(
       ),
     });
   }
+
   return [...merged.values()];
 }
 
@@ -129,13 +138,16 @@ function runPlanned(
 ): boolean {
   writeLine(runtime.stdout, `${label}: ${binary} ${args.join(" ")}`);
   const result = runtime.run(binary, args, { stdout: "capture", stderr: "capture" });
+
   if (result.status !== 0) {
     failures.push({
       diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
       summary: `${label}: ${args.join(" ")} (exit ${result.status})`,
     });
+
     return false;
   }
+
   return true;
 }
 
@@ -145,23 +157,29 @@ function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<
 
   if (!runtime.commandExists("codex")) {
     writeLine(runtime.stdout, `Skipping ${label} MCPs: 'codex' is not installed`);
+
     return;
   }
+
   if (selected.length === 0) {
     writeLine(runtime.stdout, `No ${label} MCPs are selected for this profile`);
+
     return;
   }
 
   for (const mcp of selected) {
     const configuredUrl = `url: ${mcp.url}\n`;
+
     const matches = (result: { status: number; stdout: string }) =>
       result.status === 0 &&
       result.stdout.includes(configuredUrl) &&
       codexOAuthMatches(runtime.env, mcp.name, mcp.oauth);
+
     const existing = runtime.run("codex", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
+
     if (matches(existing)) {
       writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
       continue;
@@ -170,6 +188,7 @@ function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<
     const addArgs = codexAddArgs(mcp);
     writeLine(runtime.stdout, `${label}: codex ${addArgs.join(" ")}`);
     const added = runtime.run("codex", addArgs, { stdout: "capture", stderr: "capture" });
+
     if (added.status === 0) {
       continue;
     }
@@ -178,6 +197,7 @@ function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<
       stdout: "capture",
       stderr: "capture",
     });
+
     if (matches(converged)) {
       writeLine(
         runtime.stdout,
@@ -185,6 +205,7 @@ function applyCodex(runtime: Runtime, mcps: ReadonlyArray<Mcp>, failures: Array<
       );
       continue;
     }
+
     failures.push({
       diagnostic: sanitizeDiagnostic(`${added.stdout}\n${added.stderr}`),
       summary: `${label}: ${addArgs.join(" ")} (exit ${added.status})`,
@@ -196,6 +217,7 @@ function codexAddArgs(mcp: Mcp): Array<string> {
   if (mcp.oauth === undefined) {
     return ["mcp", "add", mcp.name, "--url", mcp.url];
   }
+
   return [
     "mcp",
     "add",
@@ -213,12 +235,14 @@ function claudeAddArgs(mcp: Mcp, headersHelper: string | undefined): Array<strin
   if (headersHelper === undefined && mcp.oauth === undefined) {
     return ["mcp", "add", "-t", "http", "-s", "user", mcp.name, mcp.url];
   }
+
   const config = JSON.stringify({
     type: "http",
     url: mcp.url,
     headersHelper,
     oauth: mcp.oauth,
   });
+
   return ["mcp", "add-json", "-s", "user", mcp.name, config];
 }
 
@@ -232,10 +256,13 @@ function applyClaude(
 
   if (!runtime.commandExists("claude")) {
     writeLine(runtime.stdout, `Skipping ${label} MCPs: 'claude' is not installed`);
+
     return;
   }
+
   if (selected.length === 0) {
     writeLine(runtime.stdout, `No ${label} MCPs are selected for this profile`);
+
     return;
   }
 
@@ -244,10 +271,12 @@ function applyClaude(
       mcp.headersHelper === undefined
         ? undefined
         : expandHeadersHelper(mcp.headersHelper, runtime.env.HOME);
+
     const existing = runtime.run("claude", ["mcp", "get", mcp.name], {
       stdout: "capture",
       stderr: "capture",
     });
+
     if (existing.status === 0) {
       if (
         existing.stdout.includes(`URL: ${mcp.url}\n`) &&
@@ -256,6 +285,7 @@ function applyClaude(
         writeLine(runtime.stdout, `${label}: ${mcp.name} is already configured`);
         continue;
       }
+
       const removed = runPlanned(
         runtime,
         label,
@@ -263,10 +293,12 @@ function applyClaude(
         ["mcp", "remove", "-s", "user", mcp.name],
         failures,
       );
+
       if (!removed) {
         continue;
       }
     }
+
     runPlanned(runtime, label, "claude", claudeAddArgs(mcp, headersHelper), failures);
   }
 }
@@ -280,8 +312,10 @@ function removeStaleMcps(
 
   for (const mcp of stale) {
     const leftoverHarnesses: Array<Harness> = [];
+
     for (const harness of mcp.harnesses) {
       const { binary, label } = HARNESS_INFO[harness];
+
       if (!runtime.commandExists(binary)) {
         leftoverHarnesses.push(harness);
         writeLine(runtime.stdout, `Skipping ${label} MCP removal: '${binary}' is not installed`);
@@ -291,6 +325,7 @@ function removeStaleMcps(
       const args = mcpRemoveArgs(harness, mcp.name);
       writeLine(runtime.stdout, `Removing stale managed MCP: ${mcp.name} from ${label}`);
       const removed = runPlanned(runtime, label, binary, args, failures);
+
       if (!removed) {
         leftoverHarnesses.push(harness);
       }
@@ -317,6 +352,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
+
   const { layers, mcps, localPath, localNames } = readLayeredMcps(
     repoDir,
     profileName,
@@ -325,6 +361,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
+
   if (localPath) {
     writeLine(runtime.stdout, `Local overlay: ${localPath}`);
   }
@@ -333,6 +370,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
   const previouslyManaged = readMcpLock(mcpLockPath);
   const overlay = guardOverlay(readOverlayOwnership(mcpLockPath), repoDir, localNames);
   const keptOverlay = (previouslyManaged ?? []).filter((mcp) => overlay.kept.has(mcp.name));
+
   const ownership = planOwnership({
     previous: (previouslyManaged ?? []).filter((mcp) => !keptOverlay.includes(mcp)),
     selected: mcps.map((mcp) => ({ name: mcp.name, harnesses: mcp.harnesses })),
@@ -341,6 +379,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
   });
 
   const failures: Array<McpFailure> = [];
+
   for (const harness of HARNESSES) {
     if (harness === "claude") {
       applyClaude(runtime, mcps, failures);
@@ -357,21 +396,26 @@ function apply(runtime: Runtime, options: McpOptions): number {
     if (!harnessPresent(runtime)) {
       writeLine(runtime.stdout, "No managed MCP lock found; skipping ownership initialization");
       writeLine(runtime.stdout, "Done.");
+
       return 0;
     }
+
     writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing MCPs");
     writeMcpLock(mcpLockPath, withKept(ownership.nextLock([]), keptOverlay), overlay.next);
     writeLine(runtime.stdout, "Done.");
+
     return 0;
   }
 
   const deferred = removeStaleMcps(runtime, ownership.removals, failures);
+
   if (failures.length > 0) {
     return reportMcpFailures(runtime, failures);
   }
 
   writeMcpLock(mcpLockPath, withKept(ownership.nextLock(deferred), keptOverlay), overlay.next);
   writeLine(runtime.stdout, "Done.");
+
   return 0;
 }
 
@@ -381,12 +425,16 @@ function reportMcpFailures(runtime: Runtime, failures: ReadonlyArray<McpFailure>
 
 export function main(args: ReadonlyArray<string>, runtime: Runtime = createRuntime()): number {
   const parsed = parseSyncArgs(args, USAGE, false);
+
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
+
     return 0;
   }
+
   if (parsed.kind === "error") {
     writeLine(runtime.stderr, parsed.message);
+
     return 2;
   }
 
@@ -394,11 +442,13 @@ export function main(args: ReadonlyArray<string>, runtime: Runtime = createRunti
     return withManagedLock(runtime.env, "mcps", () => apply(runtime, { profile: parsed.profile }));
   } catch (error) {
     writeLine(runtime.stderr, `MCP sync failed: ${errorMessage(error)}`);
+
     return 1;
   }
 }
 
 const entrypoint = process.argv[1];
+
 if (entrypoint !== undefined && resolve(entrypoint) === import.meta.filename) {
   runMain(
     Effect.sync(() => {

@@ -139,15 +139,19 @@ function modeOf(path: string): number {
 
 function checkFileMode(run: AuditRun, check: Extract<AuditCheck, { kind: "file-mode" }>): void {
   const path = homePath(run.home, check.path);
+
   if (!existsSync(path)) {
     return run.finding(check.missing, `missing ${path}`);
   }
+
   let mode: number;
+
   try {
     mode = modeOf(path);
   } catch {
     return run.finding(check.mismatch, `cannot inspect mode for ${path}`);
   }
+
   if (check.modes.includes(mode)) {
     run.finding("ok", `${path} mode ${mode.toString(8)}`);
   } else {
@@ -169,6 +173,7 @@ function checkPatterns(
       if (check.countAsSecretScan) {
         run.secret.scanned += 1;
       }
+
       if (check.pattern.test(readFileSync(path, "utf8"))) {
         run.finding(check.severity, `${path} contains ${check.label}`);
       } else {
@@ -182,9 +187,11 @@ function checkPatterns(
 
 function checkNpmAuth(run: AuditRun, pathValue: string): void {
   const path = homePath(run.home, pathValue);
+
   if (!existsSync(path)) {
     return;
   }
+
   checkFileMode(run, {
     kind: "file-mode",
     path,
@@ -193,6 +200,7 @@ function checkNpmAuth(run: AuditRun, pathValue: string): void {
     mismatch: "fail",
   });
   const unscoped = /^\s*(_auth|_authToken|username|_password|certfile|keyfile)\s*=/m;
+
   try {
     if (unscoped.test(readFileSync(path, "utf8"))) {
       run.finding("fail", `${path} contains auth settings without a registry scope`);
@@ -212,13 +220,16 @@ function checkPrivateModes(
     run.warn(`audit coverage skipped: ${path}`),
   )) {
     let mode: number;
+
     try {
       mode = modeOf(path);
     } catch {
       run.finding(check.mismatch, `cannot inspect mode for ${path}`);
       continue;
     }
+
     const matches = check.mode === undefined ? (mode & 0o077) === 0 : mode === check.mode;
+
     if (matches) {
       run.finding("ok", `${path} mode ${mode.toString(8)}`);
     } else {
@@ -238,6 +249,7 @@ function checkAbsentPaths(
 ): void {
   for (const value of check.paths) {
     const path = homePath(run.home, value);
+
     if (existsSync(path)) {
       run.finding(check.severity, `${check.label}: ${path}`);
     }
@@ -259,6 +271,7 @@ function checkGitIdentity(
   const email = gitValue(run, config, "user.email");
   const signingKey = gitValue(run, config, "user.signingkey");
   const signingEnabled = gitValue(run, config, "commit.gpgsign") === "true";
+
   if (check.identity === "combined") {
     run.finding(
       name && email ? "ok" : check.missing,
@@ -268,13 +281,16 @@ function checkGitIdentity(
     if (!name) {
       run.finding(check.missing, "missing git user.name");
     }
+
     if (!email) {
       run.finding(check.missing, "missing git user.email");
     }
+
     if (name && email) {
       run.finding("ok", "git identity is configured");
     }
   }
+
   run.finding(
     signingKey ? "ok" : check.missing,
     signingKey ? "git signing key configured" : "git signing key is not configured",
@@ -290,13 +306,17 @@ function checkGitDirectoryIdentities(
   check: Extract<AuditCheck, { kind: "git-directory-identities" }>,
 ): void {
   const file = homePath(run.home, check.path);
+
   if (!existsSync(file)) {
     return;
   }
+
   const listed = run.command("git", ["config", "--file", file, ...includeIfPathArgs]);
+
   if (listed.status !== 0 && listed.status !== 1) {
     return run.finding("warn", `cannot read directory identities in ${file}`);
   }
+
   for (const include of parseIncludeIfPaths(run.home, file, listed.stdout)) {
     run.finding(
       existsSync(include) ? "ok" : "warn",
@@ -311,49 +331,64 @@ export function readSettingsFile(path: string) {
   if (!existsSync(path)) {
     return {};
   }
+
   const settings: Record<string, string> = {};
+
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const match = line.match(/^([A-Z][A-Z0-9_]*)=(?:"([^"]*)"|'([^']*)'|([^#\s]*))\s*$/);
+
     if (match) {
       settings[match[1]] = match[2] ?? match[3] ?? match[4] ?? "";
     }
   }
+
   return settings;
 }
 
 function loadAuditSettings(run: AuditRun): Record<string, string> {
   const path = run.env.AUDIT_POLICY_FILE || join(run.home, ".config/dotfiles/audit.env");
+
   if (!existsSync(path)) {
     return {};
   }
+
   run.finding("ok", `loaded audit policy from ${path}`);
+
   return readSettingsFile(path);
 }
 
 function checkGithubAuth(run: AuditRun): void {
   const status = run.command("gh", ["auth", "status", "-h", "github.com"]);
+
   if (status.error?.message.includes("ENOENT")) {
     return run.finding("fail", "gh is missing");
   }
+
   if (status.status !== 0) {
     return run.finding("fail", "gh auth is not working for github.com");
   }
+
   run.finding("ok", "gh auth works for github.com");
+
   const sensitive = (
     run.settings.GH_SENSITIVE_SCOPES ||
     "delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
   ).split(/\s+/);
+
   const accepted = new Set((run.settings.GH_ACCEPTED_SCOPES || "").split(/\s+/));
+
   const scopes = new Set(
     status.stderr
       .match(/Token scopes:\s*(.*)/)?.[1]
       .replaceAll(/[',]/g, "")
       .split(/\s+/) ?? [],
   );
+
   for (const scope of sensitive) {
     if (!scopes.has(scope)) {
       continue;
     }
+
     run.finding(
       accepted.has(scope) ? "ok" : "warn",
       accepted.has(scope)
@@ -365,9 +400,11 @@ function checkGithubAuth(run: AuditRun): void {
 
 function checkGithubSshAuth(run: AuditRun): void {
   const result = run.command("ssh", ["-o", "BatchMode=yes", "-T", "git@github.com"]);
+
   if (result.error?.message.includes("ENOENT")) {
     return run.finding("fail", "ssh is missing");
   }
+
   const output = `${result.stdout}\n${result.stderr}`;
   run.finding(
     output.includes("successfully authenticated") ? "ok" : "fail",
@@ -379,17 +416,22 @@ function checkGithubSshAuth(run: AuditRun): void {
 
 function checkCodexTrust(run: AuditRun, pathValue: string): void {
   const path = homePath(run.home, pathValue);
+
   if (!existsSync(path)) {
     return run.finding("warn", `missing ${path}`);
   }
+
   const projects = [...readFileSync(path, "utf8").matchAll(/^\[projects\."([^"]+)"\]$/gm)].map(
     (match) => match[1],
   );
+
   const homeParent = dirname(run.home);
+
   for (const project of projects) {
     if (!existsSync(project)) {
       run.finding("warn", `Codex trusts missing project path: ${project}`);
     }
+
     if (project === run.home || project === join(run.home, "projects")) {
       run.finding("warn", `Codex trusts broad home path: ${project}`);
     } else if (project.startsWith(`${run.home}/`)) {
@@ -400,6 +442,7 @@ function checkCodexTrust(run: AuditRun, pathValue: string): void {
       run.finding("warn", `Codex trusts path outside this home: ${project}`);
     }
   }
+
   if (projects.length === 0) {
     run.finding("warn", "Codex has no trusted project entries");
   }
@@ -415,15 +458,19 @@ function systemResolves(run: AuditRun, name: string): boolean {
     ["getent", ["hosts", name]],
     ["host", [name]],
   ];
+
   for (const [command, args] of commands) {
     const result = run.command(command, args);
+
     if (result.error?.message.includes("ENOENT")) {
       continue;
     }
+
     return (
       commandWorked(result) && (command !== "dscacheutil" || result.stdout.includes("ip_address:"))
     );
   }
+
   return false;
 }
 
@@ -433,23 +480,30 @@ const decodeTailscaleStatus = Schema.decodeUnknownOption(
 
 function checkTailscaleMagicDns(run: AuditRun): void {
   const status = run.command("tailscale", ["status", "--peers=false"]);
+
   if (status.error?.message.includes("ENOENT")) {
     return run.finding("fail", "tailscale is missing");
   }
+
   if (!commandWorked(status)) {
     return run.finding("fail", "tailscale status failed");
   }
+
   run.finding("ok", "tailscale status works");
 
   const json = run.command("tailscale", ["status", "--json"]);
+
   if (!commandWorked(json)) {
     return run.finding("fail", "tailscale JSON status failed");
   }
+
   const dnsName = Option.match(decodeTailscaleStatus(json.stdout), {
     onNone: () => "",
     onSome: (status) => status.Self.DNSName.replace(/\.$/, ""),
   });
+
   const shortName = dnsName.split(".")[0];
+
   if (!dnsName || shortName === dnsName) {
     return run.finding("fail", "tailscale self DNS name is unavailable");
   }
@@ -462,10 +516,13 @@ function checkTailscaleMagicDns(run: AuditRun): void {
     dnsName,
     "A",
   ]);
+
   if (!commandWorked(direct) || !/^\d+[.]\d+[.]\d+[.]\d+$/m.test(direct.stdout)) {
     return run.finding("fail", "direct MagicDNS lookup failed through 100.100.100.100");
   }
+
   run.finding("ok", "direct MagicDNS lookup works through 100.100.100.100");
+
   if (systemResolves(run, shortName)) {
     run.finding("ok", "system resolver handles MagicDNS short hostnames");
   } else if (systemResolves(run, dnsName)) {
@@ -480,9 +537,11 @@ function checkTailscaleMagicDns(run: AuditRun): void {
 
 function checkSshModes(run: AuditRun, pathValue: string): void {
   const root = homePath(run.home, pathValue);
+
   if (!existsSync(root)) {
     return run.finding("warn", `missing ${root}`);
   }
+
   for (const path of walkFiles(root, Number.POSITIVE_INFINITY, (path) =>
     run.warn(`audit coverage skipped: ${path}`),
   )) {
@@ -490,6 +549,7 @@ function checkSshModes(run: AuditRun, pathValue: string): void {
       if (!privateKeyPattern.test(readFileSync(path, "utf8"))) {
         continue;
       }
+
       const mode = modeOf(path);
       run.finding(
         (mode & 0o077) === 0 ? "ok" : "fail",
@@ -547,6 +607,7 @@ function runCheck(run: AuditRun, check: AuditCheck): void {
       return checkTailscaleMagicDns(run);
     case "command-status": {
       const result = run.command(check.command, check.args);
+
       if (result.error?.message.includes("ENOENT")) {
         run.finding(check.missing, `${check.command} CLI is missing`);
       } else if (result.status !== 0) {
@@ -575,13 +636,17 @@ export function runPolicy(
     dependencies.stdout || ((value) => process.stdout.write(value)),
     dependencies.stderr || ((value) => process.stderr.write(value)),
   );
+
   run.settings = loadAuditSettings(run);
+
   for (const section of policy.sections) {
     run.section(section.title);
+
     for (const check of section.checks) {
       runCheck(run, check);
     }
   }
+
   return run.finish(policy.name, policy.summary, {
     secret_scan_count: run.secret.scanned,
     secret_scan_finding_count: run.secret.findings,

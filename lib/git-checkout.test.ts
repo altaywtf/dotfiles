@@ -7,6 +7,7 @@ import {
 } from "./git-checkout.ts";
 
 const sha = "a".repeat(40);
+
 const published = {
   headRef: "refs/heads/main\n",
   remoteHead: "refs/remotes/origin/main\n",

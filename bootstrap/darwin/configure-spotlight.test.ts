@@ -13,6 +13,7 @@ test(
   () => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-spotlight-"));
     const log = join(root, "commands.log");
+
     try {
       writeFileSync(
         join(root, "mdutil"),
@@ -44,6 +45,7 @@ exec "$@"
         args = ["--check"],
       ) => {
         writeFileSync(log, "");
+
         const result = spawnSync(process.execPath, [script, ...args], {
           encoding: "utf8",
           env: {
@@ -57,6 +59,7 @@ exec "$@"
             SPOTLIGHT_TEST_STATUS: status,
           },
         });
+
         return { ...result, commands: readFileSync(log, "utf8") };
       };
 

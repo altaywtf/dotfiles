@@ -72,15 +72,19 @@ export function reportSyncFailures(
 ): 1 {
   const noun = failures.length === 1 ? nouns[0] : nouns[1];
   writeLine(runtime.stderr, `${subject} failed for ${failures.length} ${noun}:`);
+
   for (const failure of failures) {
     writeLine(runtime.stderr, `  - ${failure.summary}`);
+
     for (const line of failure.diagnostic.split("\n")) {
       if (line.length > 0) {
         writeLine(runtime.stderr, `    ${line}`);
       }
     }
   }
+
   writeLine(runtime.stderr, `Fix the reported ${kind} failures, then rerun sync.`);
+
   return 1;
 }
 
@@ -99,25 +103,32 @@ export function parseSyncArgs(
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
+
     if (allowUpdate && arg === "--update") {
       update = true;
       continue;
     }
+
     if (arg === "--profile") {
       if (profile !== undefined) {
         return { kind: "error", message: `${usage}\n--profile may be provided only once` };
       }
+
       const value = args[index + 1];
+
       if (value === undefined) {
         return { kind: "error", message: `${usage}\n--profile requires a value` };
       }
+
       profile = value;
       index += 1;
       continue;
     }
+
     if (arg === "--help" || arg === "-h") {
       return { kind: "help" };
     }
+
     return { kind: "error", message: `${usage}\nUnknown argument: ${arg}` };
   }
 
@@ -132,18 +143,23 @@ export function composeLayers<T, Layer extends string = AgentLayer>(
 ): Array<T> {
   const seen = new Map<string, string>();
   const entries: Array<T> = [];
+
   for (const entry of selected.flatMap((layer) => manifests.get(layer) ?? [])) {
     const key = keyOf(entry);
-    const shape = JSON.stringify(entry);
+    const serialized = JSON.stringify(entry);
     const previous = seen.get(key);
-    if (previous === shape) {
+
+    if (previous === serialized) {
       continue;
     }
+
     if (previous !== undefined) {
       throw new Error(conflictMessage(key));
     }
-    seen.set(key, shape);
+
+    seen.set(key, serialized);
     entries.push(entry);
   }
+
   return entries;
 }

@@ -24,6 +24,7 @@ const bounded = (
 ) =>
   Effect.gen(function* () {
     const real = yield* CommandRunner;
+
     return yield* Effect.gen(function* () {
       return yield* (yield* BoundedCommand).run(command, args, options);
     }).pipe(
@@ -31,12 +32,14 @@ const bounded = (
       Effect.provideService(CommandRunner, CommandRunner.of(wrap(real))),
     );
   }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
+
 const execute = (script: string, options: BoundedCommandOptions, wrap?: (real: Runner) => Runner) =>
   bounded(process.execPath, ["-e", script], options, wrap);
 
 async function diagnostics(t: TestContext, prefix = "dotfiles-bounded-") {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+
   return join(directory, "diagnostics");
 }
 
@@ -47,8 +50,10 @@ const Diagnostic = Schema.fromJsonString(
 );
 
 const untilWorkerExits = `setInterval(()=>{try{process.kill(${process.pid},0)}catch{process.exit(0)}},500)`;
+
 const childScript = (path: string) =>
   `require('node:fs').writeFileSync(${JSON.stringify(path)},String(process.pid)); process.on('SIGTERM',()=>{}); ${untilWorkerExits}`;
+
 const treeScript = (path: string) => `
 require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(childScript(path))}],{detached:true,stdio:'ignore'}).unref();
 process.on('SIGTERM',()=>{}); ${untilWorkerExits};
@@ -68,10 +73,12 @@ for (const status of [0, 23]) {
 
 test("a command that exits before the first inventory still proves cleanup", async (t) => {
   const diagnosticDirectory = await diagnostics(t);
+
   for (let attempt = 0; attempt < 10; attempt++) {
     const result = await Effect.runPromise(
       bounded("/bin/sh", ["-c", "exit 0"], { diagnosticDirectory, timeoutMs: 2000 }),
     );
+
     assert.deepEqual(result, { status: 0, ...clean });
   }
 });
@@ -79,6 +86,7 @@ test("a command that exits before the first inventory still proves cleanup", asy
 test("a command that dies before release still returns", { timeout: 10_000 }, async (t) => {
   const diagnosticDirectory = await diagnostics(t);
   let armed = true;
+
   const exit = await Effect.runPromise(
     bounded(
       "/bin/sh",
@@ -90,16 +98,20 @@ test("a command that dies before release still returns", { timeout: 10_000 }, as
             ? Effect.gen(function* () {
                 armed = false;
                 const gates = yield* real.run("pgrep", ["-x", "-P", String(process.pid), "sh"]);
+
                 for (const pid of gates.stdout.split("\n").filter(Boolean)) {
                   process.kill(Number(pid), "SIGKILL");
                 }
+
                 yield* Effect.sleep(200);
+
                 return yield* real.run(command, args, options);
               })
             : real.run(command, args, options),
       }),
     ).pipe(Effect.exit),
   );
+
   assert.ok(Exit.isFailure(exit) || exit.value.status !== 0);
 });
 
@@ -108,12 +120,15 @@ for (const diagnosticFailure of [false, true]) {
     const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
     const pidFile = join(directory, "child.pid");
     const diagnosticDirectory = join(directory, "diagnostics");
+
     if (diagnosticFailure) {
       await writeFile(diagnosticDirectory, "blocked");
     }
+
     const unrelated = spawn(process.execPath, ["-e", untilWorkerExits], {
       stdio: "ignore",
     });
+
     t.onTestFinished(async () => {
       unrelated.kill("SIGKILL");
       await waitForPid(pidFile)
@@ -121,6 +136,7 @@ for (const diagnosticFailure of [false, true]) {
         .catch(() => false);
       await rm(directory, { recursive: true, force: true });
     });
+
     const completion = Effect.runPromise(
       execute(treeScript(pidFile), {
         diagnosticDirectory,
@@ -129,6 +145,7 @@ for (const diagnosticFailure of [false, true]) {
         pollIntervalMs: 30,
       }),
     );
+
     const child = await waitForPid(pidFile);
     const result = await completion;
     assert.equal(result.status, 124);
@@ -137,6 +154,7 @@ for (const diagnosticFailure of [false, true]) {
     assert.equal(processAlive(child), false);
     assert.equal(unrelated.exitCode, null);
     assert.ok(unrelated.pid && processAlive(unrelated.pid));
+
     if (diagnosticFailure) {
       assert.equal(result.diagnosticPath, undefined);
     } else {
@@ -146,17 +164,21 @@ for (const diagnosticFailure of [false, true]) {
         Schema.decodeUnknownSync(Diagnostic)(content).processes.some((row) => row.pid === child),
       );
       assert.doesNotMatch(content, /setInterval|SIGTERM|child.pid|PATH=/);
+
       if (process.platform === "darwin") {
         const stacks = JSON.parse(content).stacks;
         assert.ok(stacks.length > 0);
         assert.match(stacks[0].callGraph, /^Call graph:/);
         assert.doesNotMatch(stacks[0].callGraph, /Binary Images:/);
       }
+
       assert.equal((await stat(result.diagnosticPath)).mode & 0o777, 0o600);
     }
+
     const next = await Effect.runPromise(
       execute("process.exit(0)", { diagnosticDirectory, timeoutMs: 2000 }),
     );
+
     assert.equal(next.status, 0);
   });
 }
@@ -165,6 +187,7 @@ test("cancellation cleans a detached child before returning", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
   const pidFile = join(directory, "child.pid");
   const controller = new AbortController();
+
   const completion = Effect.runPromiseExit(
     execute(treeScript(pidFile), {
       diagnosticDirectory: join(directory, "diagnostics"),
@@ -174,6 +197,7 @@ test("cancellation cleans a detached child before returning", async (t) => {
     }),
     { signal: controller.signal },
   );
+
   t.onTestFinished(async () => {
     controller.abort();
     await completion;
@@ -204,6 +228,7 @@ test("unavailable process inventory reports incomplete cleanup", async (t) => {
       () => ({ run: invalidRow }),
     ),
   );
+
   assert.equal(result.status, 124);
   assert.equal(result.cleanupComplete, false);
   assert.equal(result.diagnosticPath, undefined);
@@ -211,6 +236,7 @@ test("unavailable process inventory reports incomplete cleanup", async (t) => {
 
 test("a transient inventory failure does not void cleanup proof", async (t) => {
   let first = true;
+
   const result = await Effect.runPromise(
     execute(
       "process.exit(0)",
@@ -221,17 +247,21 @@ test("a transient inventory failure does not void cleanup proof", async (t) => {
             if (command !== "/bin/ps" || !first) {
               return real.run(command, args, options);
             }
+
             first = false;
+
             return invalidRow();
           }),
       }),
     ),
   );
+
   assert.deepEqual(result, { status: 0, ...clean });
 });
 
 test("a failed watcher inventory does not void cleanup proof once the final inventory is clean", async (t) => {
   let calls = 0;
+
   const result = await Effect.runPromise(
     execute(
       "setTimeout(()=>{},300)",
@@ -242,12 +272,15 @@ test("a failed watcher inventory does not void cleanup proof once the final inve
             if (command !== "/bin/ps") {
               return real.run(command, args, options);
             }
+
             calls += 1;
+
             return calls >= 2 && calls <= 4 ? invalidRow() : real.run(command, args, options);
           }),
       }),
     ),
   );
+
   assert.deepEqual(result, { status: 0, ...clean });
 });
 
@@ -259,6 +292,7 @@ test("a missed root identity cannot certify cleanup even when the command exits 
       () => ({ run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }) }),
     ),
   );
+
   assert.equal(result.status, 0);
   assert.equal(result.timedOut, false);
   assert.equal(result.cleanupComplete, false);
@@ -284,6 +318,7 @@ test("a system account reported with a negative UID does not invalidate the upda
       }),
     ),
   );
+
   assert.equal(result.status, 0);
   assert.equal(result.cleanupComplete, true);
 });

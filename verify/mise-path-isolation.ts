@@ -49,6 +49,7 @@ esac
     const result = yield* runCleanZsh("-lic", "mise doctor");
     assert.equal(result.status, 0, result.stderr);
     const log = yield* fs.readFileString(join(home, ".probe.log"));
+
     for (const expected of [
       `flags=-lic mise doctor`,
       `zdotdir=${join(temporary, "zdot")}`,
@@ -61,6 +62,7 @@ esac
     ]) {
       assert.ok(log.split("\n").includes(expected), expected);
     }
+
     assert.equal(log.includes("/Users/fixture/.local/share/mise"), false);
     const observedPath = /^path=(.*)$/m.exec(log)?.[1] || "";
     assert.ok(observedPath.endsWith("/usr/bin:/bin:/usr/sbin:/sbin"));
@@ -79,11 +81,13 @@ esac
     process.env.SHELL = fakeZsh;
     process.env.PATH = `${join(temporary, "shim-bin")}:/usr/bin:/bin`;
     assert.equal(yield* resolveZsh(), fakeZsh);
+
     for (const key of Object.keys(process.env)) {
       if (!(key in saved)) {
         delete process.env[key];
       }
     }
+
     Object.assign(process.env, saved);
     yield* Console.log("ok mise PATH probes are isolated from an activated caller shell");
   }).pipe(

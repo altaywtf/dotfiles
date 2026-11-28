@@ -27,6 +27,7 @@ test("workload classification needs specific evidence and never emits argv", asy
 28 1 00:01 /bin/node /tmp/server.js --token=unrelated-test-value
 `),
   );
+
   assert.equal(skipped, 0);
   const findings = classifyWorkloads(rows);
   assert.deepEqual(
@@ -39,10 +40,12 @@ test("workload classification needs specific evidence and never emits argv", asy
 
 test("partial parse retains safe findings and reports incomplete inspection", async () => {
   const calls: Array<Array<string>> = [];
+
   const runner = CommandRunner.of({
     run: (command, args = [], options) => {
       calls.push([command, ...args]);
       assert.equal(options?.timeoutMs, 5000);
+
       return Effect.succeed({
         status: 0,
         stdout: "11 1 00:01 /bin/watchman\nmalformed secret-value\n12 1 00:99 /bin/adb server",
@@ -50,15 +53,18 @@ test("partial parse retains safe findings and reports incomplete inspection", as
       });
     },
   });
+
   const report = await Effect.runPromise(
     inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
   );
+
   assert.equal(report.complete, false);
   assert.match(report.lines.join("\n"), /Watchman: PID 11/);
   assert.match(report.lines.join("\n"), /2 process rows/);
   assert.doesNotMatch(report.lines.join("\n"), /secret-value/);
   assert.deepEqual(calls, [["/bin/ps", "-U", "501", "-ww", "-o", "pid=,ppid=,etime=,args="]]);
 });
+
 test.each([
   [
     "failed ps spawn",
@@ -77,19 +83,23 @@ test.each([
   ],
 ] as const)("%s is unknown and sanitized", async (_case, outcome, message) => {
   const runner = CommandRunner.of({ run: () => outcome });
+
   const report = await Effect.runPromise(
     inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
   );
+
   assert.equal(report.complete, false);
   assert.match(report.lines.join("\n"), message);
   assert.doesNotMatch(report.lines.join("\n"), /secret-value|No matching/);
 });
+
 test("unsupported platforms and root do not inspect processes", async () => {
   const runner = CommandRunner.of({
     run: () => {
       throw new Error("must not execute");
     },
   });
+
   for (const [platform, uid] of [
     ["linux", 501],
     ["darwin", 0],
@@ -97,6 +107,7 @@ test("unsupported platforms and root do not inspect processes", async () => {
     const report = await Effect.runPromise(
       inspectWorkloads(platform, uid).pipe(Effect.provideService(CommandRunner, runner)),
     );
+
     assert.equal(report.complete, false);
   }
 });

@@ -20,7 +20,9 @@ const homeDotfiles = {
   kind: "home-dotfiles",
   exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"],
 } as const;
+
 const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
+
 const profileModelPath = fileURLToPath(
   new URL("../chezmoi/.chezmoidata/profiles.json", import.meta.url),
 );
@@ -33,9 +35,11 @@ export function devboxPolicy(
   profileName = "devbox",
 ): AuditPolicy {
   requireProfile(readProfileModel(profileModelPath), profileName);
+
   const codexPrivateSources = codexPrivateDirectories.map(
     (name) => ({ kind: "path", path: join(".codex", name) }) as const,
   );
+
   return {
     name: "devbox-security",
     summary: "devbox security audit summary",
@@ -174,11 +178,14 @@ function runDevbox(
 ): number {
   const home = env.HOME || "";
   const user = env.USER || "";
+
   const configPath =
     explicitConfig || env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
+
   const config = existsSync(configPath) ? readSettingsFile(configPath) : {};
   const devboxUser = config.DEVBOX_USER || env.DEVBOX_USER || user;
   const profileName = readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim();
+
   return runPolicy(devboxPolicy(user, devboxUser, configPath, "/", profileName), format, {
     home,
     env,
@@ -188,6 +195,7 @@ function runDevbox(
 function main(args: Array<string>): number {
   let format: AuditFormat = "text";
   let config = "";
+
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--json") {
       format = "json";
@@ -195,9 +203,11 @@ function main(args: Array<string>): number {
       config = args[++index];
     } else {
       process.stderr.write("Usage: audit/devbox.ts [--config PATH] [--json]\n");
+
       return 2;
     }
   }
+
   return runDevbox(format, config);
 }
 

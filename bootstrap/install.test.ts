@@ -11,9 +11,11 @@ for (const maintenance of [false, true]) {
   test(`unknown steps fail before any ${maintenance ? "maintenance" : "setup"} command`, (t) => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-invalid-steps-"));
     t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+
     const model = JSON.parse(
       readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json"), "utf8"),
     );
+
     model.profileModel.profiles.developer.installSteps = [
       "apply-dotfiles",
       "install-runtimes",
@@ -22,12 +24,15 @@ for (const maintenance of [false, true]) {
     ];
     mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
     writeFileSync(join(root, "chezmoi/.chezmoidata/profiles.json"), JSON.stringify(model));
+
     for (const file of ["bootstrap/apply-dotfiles.ts", "homebrew/brew-bundle.ts", "bin/mise"]) {
       const path = join(root, file);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, '#!/bin/sh\nprintf invoked >> "$TEST_LOG"\n', { mode: 0o700 });
     }
+
     const log = join(root, "commands");
+
     const result = spawnSync(
       process.execPath,
       [
@@ -48,6 +53,7 @@ for (const maintenance of [false, true]) {
         },
       },
     );
+
     assert.equal(result.status, 2, result.stderr);
     assert.match(result.stderr, /\["installSteps"\]\[3\]/);
     assert.equal(existsSync(log), false, "validation must precede every mutating command");
@@ -57,9 +63,11 @@ for (const maintenance of [false, true]) {
 test("apply keeps the recorded profile unless --switch-profile is given", (t) => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-switch-profile-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+
   const model = JSON.parse(
     readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json"), "utf8"),
   );
+
   model.profileModel.profiles.developer.installSteps = [
     "apply-dotfiles",
     "install-runtimes",
@@ -67,15 +75,19 @@ test("apply keeps the recorded profile unless --switch-profile is given", (t) =>
   ];
   mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
   writeFileSync(join(root, "chezmoi/.chezmoidata/profiles.json"), JSON.stringify(model));
+
   for (const file of ["bootstrap/apply-dotfiles.ts", "bin/mise"]) {
     const path = join(root, file);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, '#!/bin/sh\nprintf "%s\\n" "$0" >> "$TEST_LOG"\n', { mode: 0o700 });
   }
+
   const marker = join(root, ".config/dotfiles/profile");
   const log = join(root, "commands");
+
   const install = (...extra: Array<string>) => {
     rmSync(log, { force: true });
+
     return spawnSync(
       process.execPath,
       [join(source, "bootstrap/install.ts"), "--profile", "developer", ...extra],

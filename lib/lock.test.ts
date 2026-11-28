@@ -17,6 +17,7 @@ import { acquireDirectoryLock, lockOwnerAlive, processAlive } from "./lock.ts";
 function fixture(t: TestContext): string {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-lock-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+
   return join(root, "converge.lock");
 }
 
@@ -41,10 +42,12 @@ test("a dead holder is reclaimed and the lock is reacquired", (t) => {
     `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
   );
   const messages: Array<string> = [];
+
   const release = acquireDirectoryLock(lock, {
     processAlive: () => false,
     log: (message) => messages.push(message),
   });
+
   assert.equal(JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")).pid, process.pid);
   assert.ok(messages.some((message) => message.includes("reclaiming stale lock")));
   release();
@@ -92,6 +95,7 @@ test("contention waits with backoff and acquires after release, without real sle
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
   const slept: Array<number> = [];
+
   const release = acquireDirectoryLock(lock, {
     waitMs: 900_000,
     now: () => time,
@@ -101,11 +105,13 @@ test("contention waits with backoff and acquires after release, without real sle
     sleep: (ms) => {
       slept.push(ms);
       time += ms;
+
       if (time >= 30_000) {
         rmSync(lock, { recursive: true, force: true });
       }
     },
   });
+
   assert.deepEqual(slept, [5000, 10_000, 20_000]);
   release();
   assert.equal(existsSync(lock), false);
@@ -149,13 +155,16 @@ test("two contenders reclaiming the same dead owner yield exactly one holder", (
   );
   let releaseA: (() => void) | undefined;
   let injected = false;
+
   const probeB = (pid: number) => {
     if (!injected) {
       injected = true;
       releaseA = acquireDirectoryLock(lock, { ...silent, processAlive: alive });
     }
+
     return alive(pid);
   };
+
   assert.throws(
     () => acquireDirectoryLock(lock, { ...silent, processAlive: probeB }),
     /held by an active process/,
@@ -183,6 +192,7 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
   );
   let vanished = false;
   const slept: Array<number> = [];
+
   const release = acquireDirectoryLock(lock, {
     ...silent,
     waitMs: 60_000,
@@ -191,6 +201,7 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
         vanished = true;
         rmSync(join(lock, "owner.json"));
       }
+
       return false;
     },
     sleep: (ms) => {
@@ -198,6 +209,7 @@ test("a losing reclaim falls through to the wait path instead of acquiring", (t)
       rmSync(lock, { recursive: true, force: true });
     },
   });
+
   assert.deepEqual(slept, [5000], "the contender waited instead of claiming the owner-less lock");
   release();
 });

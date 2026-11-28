@@ -42,10 +42,12 @@ function createFixture(
     join(root, "agents/rules/shared.json"),
     `${JSON.stringify({ version: 1, sources })}\n`,
   );
+
   if (options.cached !== false) {
     mkdirSync(join(root, "state/dotfiles"), { recursive: true });
     writeFileSync(cache, originalRules);
   }
+
   return { cache, root };
 }
 
@@ -59,9 +61,11 @@ function run<A>(
 
 async function captureWarnings<A>(action: (warnings: Array<string>) => Promise<A>): Promise<A> {
   const warnings: Array<string> = [];
+
   const warn = vi.spyOn(console, "warn").mockImplementation((...values: Array<unknown>) => {
     warnings.push(values.map(String).join(" "));
   });
+
   try {
     return await action(warnings);
   } finally {
@@ -78,6 +82,7 @@ test("parses a strict ordered HTTPS source config", async () => {
       }),
     ),
   );
+
   assert.deepEqual(parsed.sources, [
     "https://rules.example.test/first.md",
     "https://rules.example.test/second.md",
@@ -101,6 +106,7 @@ test("composes normalized source fragments in configured order", async () => {
       { source: "second", contents: "\n### Delivery\n\nSecond.\n\n" },
     ]),
   );
+
   assert.equal(contents, "## General guidelines\n\nFirst.\n\n### Delivery\n\nSecond.\n");
   await assert.rejects(
     Effect.runPromise(composeRuleSources([{ source: "empty", contents: " \n" }])),
@@ -121,11 +127,14 @@ test("composes normalized source fragments in configured order", async () => {
 test("refreshes the cache only after every source and the secret scan succeed", async () => {
   const sources = ["https://rules.example.test/first.md", "https://rules.example.test/second.md"];
   const { cache, root } = createFixture(sources, { cached: false });
+
   const fetched = new Map([
     [sources[0], "## General guidelines\n\nFirst.\n"],
     [sources[1], "### Delivery\n\nSecond.\n"],
   ]);
+
   let scanned = "";
+
   const runtime: RuleRuntime = {
     fetch: (url) => Effect.succeed(fetched.get(url) ?? ""),
     scan: (contents) =>
@@ -133,6 +142,7 @@ test("refreshes the cache only after every source and the secret scan succeed", 
         scanned = contents;
       }),
   };
+
   try {
     assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
     const expected = "## General guidelines\n\nFirst.\n\n### Delivery\n\nSecond.\n";
@@ -156,8 +166,10 @@ test("keeps the cache when refresh or secret validation is unavailable", async (
       scan: () => Effect.fail(new RuleRefreshUnavailable({ message: "scanner unavailable" })),
     },
   ];
+
   for (const runtime of runtimes) {
     const { cache, root } = createFixture();
+
     try {
       assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "offline");
       assert.equal(readFileSync(cache, "utf8"), originalRules);
@@ -171,6 +183,7 @@ test("includes HTTP failures in the machine-local cache warning", async () => {
   const { cache, root } = createFixture();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response("", { status: 503 });
+
   try {
     await captureWarnings(async (warnings) => {
       assert.equal(
@@ -194,13 +207,16 @@ test("includes timeout failures in the machine-local cache warning", async () =>
       init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
     });
   let timeoutError: RuleRefreshUnavailable;
+
   try {
     timeoutError = await Effect.runPromise(
       Effect.gen(function* () {
         const fiber = yield* Effect.forkChild(
           liveRuleRuntime.fetch("https://rules.example.test/shared.md").pipe(Effect.flip),
         );
+
         yield* TestClock.adjust("10 seconds");
+
         return yield* Fiber.join(fiber);
       }).pipe(Effect.provide(TestClock.layer())),
     );
@@ -209,10 +225,12 @@ test("includes timeout failures in the machine-local cache warning", async () =>
   }
 
   const { cache, root } = createFixture();
+
   const runtime: RuleRuntime = {
     fetch: () => Effect.fail(timeoutError),
     scan: () => Effect.succeed(undefined),
   };
+
   try {
     await captureWarnings(async (warnings) => {
       assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "offline");
@@ -236,8 +254,10 @@ test("rejects invalid or secret-bearing fetched content without replacing the ca
       scan: () => Effect.fail(new RuleContentFailure({ message: "possible secret" })),
     },
   ];
+
   for (const runtime of runtimes) {
     const { cache, root } = createFixture();
+
     try {
       await assert.rejects(
         run(refreshAgentRules(root, cache, { runtime })),
@@ -252,10 +272,12 @@ test("rejects invalid or secret-bearing fetched content without replacing the ca
 
 test("requires a machine-local cache when offline or refresh is unavailable", async () => {
   const { cache, root } = createFixture(undefined, { cached: false });
+
   const runtime: RuleRuntime = {
     fetch: (url) => Effect.fail(new RuleRefreshUnavailable({ message: `offline: ${url}` })),
     scan: () => Effect.succeed(undefined),
   };
+
   try {
     await assert.rejects(
       run(refreshAgentRules(root, cache, { offline: true })),
@@ -273,14 +295,18 @@ test("requires a machine-local cache when offline or refresh is unavailable", as
 test("online refresh replaces an unreadable cache", async (context) => {
   if (process.getuid?.() === 0) {
     context.skip("requires a non-root test runner");
+
     return;
   }
+
   const { cache, root } = createFixture();
   chmodSync(cache, 0o000);
+
   const runtime: RuleRuntime = {
     fetch: () => Effect.succeed("## General guidelines\n\nRefreshed rules.\n"),
     scan: () => Effect.succeed(undefined),
   };
+
   try {
     assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
     assert.equal(readFileSync(cache, "utf8"), "## General guidelines\n\nRefreshed rules.\n");
@@ -294,6 +320,7 @@ test("refuses a shared-writable or symlinked cache", async () => {
   const { cache, root } = createFixture();
   const target = join(root, "foreign-rules.md");
   writeFileSync(target, originalRules);
+
   try {
     chmodSync(cache, 0o666);
     await assert.rejects(

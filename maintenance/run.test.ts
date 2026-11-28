@@ -34,6 +34,7 @@ const accepted = (overrides: Record<string, Schema.Json> = {}) =>
   );
 
 const JsonRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
+
 const AlertBody = Schema.fromJsonString(
   Schema.Struct({
     from: Schema.Json,
@@ -60,17 +61,20 @@ const recordingSender = (sent: Array<SentAlert>, respond: () => Response = () =>
       subject: body.subject,
       text: body.text,
     });
+
     return respond();
   }) satisfies typeof fetch;
 
 const receiptPath = (home: string) =>
   join(home, ".local/state/dotfiles/updates/software-update.json");
+
 const readReceipt = async (home: string) =>
   Schema.decodeUnknownSync(JsonRecord)(await readFile(receiptPath(home), "utf8"));
 
 async function tempHome(t: TestContext, prefix: string) {
   const home = await mkdtemp(join(tmpdir(), prefix));
   t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+
   return home;
 }
 
@@ -80,10 +84,12 @@ function fixedCommand(outcome: { status: number; timedOut?: boolean; cleanupComp
     service: BoundedCommand.of({
       run: () => {
         command.executions++;
+
         return Effect.succeed({ timedOut: false, cleanupComplete: true, ...outcome });
       },
     }),
   };
+
   return command;
 }
 
@@ -109,11 +115,14 @@ for (const scenario of [
 ] as const) {
   test(`update reporting preserves ${scenario} without repeating the command`, async (t) => {
     const home = await tempHome(t, "dotfiles-report-");
+
     if (scenario !== "unconfigured") {
       await writeAlertConfig(home, scenario === "invalid" ? "not-json" : undefined);
     }
+
     let executions = 0;
     const sent: Array<SentAlert> = [];
+
     const expected =
       scenario === "failure" || scenario === "rejected"
         ? 23
@@ -122,9 +131,11 @@ for (const scenario of [
           : scenario === "timeout"
             ? 124
             : 0;
+
     const runner = BoundedCommand.of({
       run: () => {
         executions++;
+
         return scenario === "spawn"
           ? Effect.fail(
               new BoundedCommandError({
@@ -139,25 +150,31 @@ for (const scenario of [
             });
       },
     });
+
     const send = recordingSender(sent, () =>
       scenario === "rejected" ? new Response(null, { status: 503 }) : accepted(),
     );
+
     assert.equal(await Effect.runPromise(update(home, runner, send)), expected);
     assert.equal(executions, 1);
     const receipt = await readFile(receiptPath(home), "utf8");
     assert.doesNotMatch(receipt, /secret-token|secret diagnostic/);
     assert.equal(JSON.parse(receipt).exitCode, expected);
     assert.equal(JSON.parse(receipt).timedOut, scenario === "timeout" ? true : undefined);
+
     const historyPath = join(
       logDirectory(home),
       `software-update-history-${new Date().toISOString().slice(0, 10)}.log`,
     );
+
     const history = await readFile(historyPath, "utf8");
     assert.doesNotMatch(history, /secret-token|secret diagnostic/);
+
     const records = history
       .trim()
       .split("\n")
       .map((line) => Schema.decodeUnknownSync(JsonRecord)(line));
+
     assert.equal(records.length, 3);
     assert.equal(records[0].state, "running");
     assert.equal(records[0].cleanupComplete, false);
@@ -176,6 +193,7 @@ for (const scenario of [
     );
     const alerted = expected !== 0 && scenario !== "invalid";
     assert.equal(sent.length, alerted ? 1 : 0, "one attempt, never retried");
+
     if (alerted) {
       assert.equal(sent[0].url, alertConfig.endpoint);
       assert.equal(sent[0].token, "Bearer secret-token");
@@ -207,10 +225,12 @@ test("rotation preserves launchd's append descriptor and expires only owned date
   await writeFile(active, "previous run\n", { mode: 0o600 });
   await utimes(active, new Date(now), new Date(now));
   const info = lstatSync(active);
+
   const archive = join(
     directory,
     `software-update-${info.mtime.toISOString().replaceAll(":", "-")}.log`,
   );
+
   const expired = join(directory, "hygiene-2026-09-01.log");
   const retained = join(directory, "hygiene-2026-09-02.log");
   const unrelated = join(directory, "another-app-2026-09-01.log");
@@ -218,12 +238,14 @@ test("rotation preserves launchd's append descriptor and expires only owned date
     [expired, retained, unrelated].map((path) => writeFile(path, "keep unless expired\n")),
   );
   const fd = openSync(active, "a");
+
   try {
     rotateUpdateLog(home, "software-update", now);
     writeSync(fd, "new run\n");
   } finally {
     closeSync(fd);
   }
+
   assert.equal(lstatSync(active).ino, info.ino);
   assert.equal(readFileSync(active, "utf8"), "new run\n");
   assert.equal(readFileSync(archive, "utf8"), "previous run\n");
@@ -239,20 +261,25 @@ for (const outcome of ["network", 401, 500, "malformed", "unacknowledged", "boun
     await writeAlertConfig(home);
     const command = fixedCommand({ status: 23 });
     const sent: Array<SentAlert> = [];
+
     const failing = recordingSender(sent, () => {
       if (outcome === "network") {
         throw new TypeError("fetch failed");
       }
+
       if (typeof outcome === "number") {
         return new Response(null, { status: outcome });
       }
+
       if (outcome === "malformed") {
         return new Response("<html>", { status: 200 });
       }
+
       return outcome === "bounced"
         ? accepted({ permanent_bounces: [alertConfig.to] })
         : accepted({ queued: [] });
     });
+
     assert.equal(await Effect.runPromise(update(home, command.service, failing)), 23);
     assert.equal(command.executions, 1);
     assert.equal(sent.length, 1);
@@ -271,6 +298,7 @@ test("interrupting alert delivery aborts fetch once and keeps the cleanup gate c
   const started = Promise.withResolvers<void>();
   const controller = new AbortController();
   const command = fixedCommand({ status: 124, timedOut: true, cleanupComplete: false });
+
   const send: typeof fetch = (_input, init) =>
     new Promise((_resolve, reject) => {
       sends++;
@@ -285,9 +313,11 @@ test("interrupting alert delivery aborts fetch once and keeps the cleanup gate c
       );
       started.resolve();
     });
+
   const completion = Effect.runPromiseExit(update(home, command.service, send), {
     signal: controller.signal,
   });
+
   t.onTestFinished(async () => {
     controller.abort();
     await completion;
@@ -309,10 +339,12 @@ test("alerts follow transitions: one failure email, silence while failing, one r
   await writeAlertConfig(home);
   const sent: Array<SentAlert> = [];
   const send = recordingSender(sent);
+
   const execute = (script: string) =>
     Effect.runPromise(
       Effect.gen(function* () {
         const bounded = yield* BoundedCommand;
+
         return yield* runUpdate(
           "software-update",
           home,
@@ -339,6 +371,7 @@ test("alerts follow transitions: one failure email, silence while failing, one r
         Effect.provide(NodeServices.layer),
       ),
     );
+
   const alertOf = async () => (await readReceipt(home)).alert;
   assert.equal(await execute("process.exit(0)"), 0);
   assert.equal(await alertOf(), "not-needed");
@@ -386,12 +419,15 @@ test("only a different boot reopens an incomplete receipt", async (t) => {
   const home = await tempHome(t, "dotfiles-update-rebooted-");
   await mkdir(join(home, ".local/state/dotfiles/updates"), { recursive: true });
   const command = fixedCommand({ status: 0 });
+
   const blocked = async (receipt: Record<string, Schema.Json>, current: string | undefined) => {
     await writeFile(receiptPath(home), JSON.stringify({ cleanupComplete: false, ...receipt }));
+
     return (
       (await Effect.runPromise(update(home, command.service, undefined, () => current))) === 125
     );
   };
+
   assert.equal(await blocked({ bootId: "boot-a" }, "boot-a"), true);
   assert.equal(await blocked({}, "boot-b"), true);
   assert.equal(await blocked({ bootId: "boot-a" }, undefined), true);
@@ -405,6 +441,7 @@ test("only a different boot reopens an incomplete receipt", async (t) => {
 
 test("a pre-spawn failure remains retryable without removing the receipt", async (t) => {
   const home = await tempHome(t, "dotfiles-update-spawn-");
+
   const execute = (command: string, args: Array<string>) =>
     Effect.runPromise(
       runUpdate("software-update", home, command, args).pipe(
@@ -413,6 +450,7 @@ test("a pre-spawn failure remains retryable without removing the receipt", async
         Effect.provide(NodeServices.layer),
       ),
     );
+
   assert.equal(await execute(join(home, "missing-executable"), []), 127);
   assert.equal((await readReceipt(home)).cleanupComplete, undefined);
   assert.equal(await execute(process.execPath, ["-e", "process.exit(0)"]), 0);
@@ -422,18 +460,22 @@ test("a transient initial receipt failure does not leave a cleanup block for an 
   const home = await tempHome(t, "dotfiles-update-transient-storage-");
   let rejectInitialWrite = true;
   const command = fixedCommand({ status: 0 });
+
   const execute = () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
+
         return yield* runUpdate("software-update", home, "fixture", []).pipe(
           Effect.provideService(FileSystem.FileSystem, {
             ...fs,
             writeFileString: (path, content, options) => {
               if (rejectInitialWrite && path.endsWith(`software-update.json.${process.pid}.tmp`)) {
                 rejectInitialWrite = false;
+
                 return fs.writeFileString(home, content, options);
               }
+
               return fs.writeFileString(path, content, options);
             },
           }),
@@ -443,6 +485,7 @@ test("a transient initial receipt failure does not leave a cleanup block for an 
         Effect.provide(NodeServices.layer),
       ),
     );
+
   assert.equal(await execute(), 125);
   assert.equal(command.executions, 0);
   assert.notEqual((await readReceipt(home)).cleanupComplete, false);

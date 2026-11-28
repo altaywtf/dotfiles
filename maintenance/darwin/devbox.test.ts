@@ -14,10 +14,12 @@ test("system updates keep packages and tools in one headless owner job", async (
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const target = { user: "example", uid: 502, group: "staff", home: "/Users/example & space" };
   const repository = join(target.home, "projects/dotfiles");
+
   const jobs = updateJobs(
     { target, repository, node: "/fixture/node", namespace: "local.dotfiles", check: false },
     "/opt/homebrew",
   );
+
   const [job, ...others] = jobs;
   assert.ok(job);
   assert.deepEqual(others, []);
@@ -72,6 +74,7 @@ const enrollments = [
   ["devbox", "loaded"],
   ["devbox", "plist"],
 ] as const;
+
 for (const [profile, scenario] of enrollments) {
   test(`${profile} enrollment handles ${scenario} without a shared repair script`, async (t) => {
     const uid = process.getuid?.();
@@ -88,10 +91,12 @@ for (const [profile, scenario] of enrollments) {
     const calls: Array<Array<string>> = [];
     const oldLabel = "local.dotfiles.homebrew-update.fixture";
     const oldPlist = `/Library/LaunchDaemons/${oldLabel}.plist`;
+
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
         const loaded = scenario === "loaded" && args[1] === `system/${oldLabel}`;
+
         return Effect.succeed({
           status: args[0] === "print" && !loaded ? 113 : 0,
           stdout: [command, ...args].some((part) => part.endsWith("/brew"))
@@ -101,12 +106,15 @@ for (const [profile, scenario] of enrollments) {
         });
       },
     });
+
     const getuid = vi.spyOn(process, "getuid").mockReturnValue(0);
     t.onTestFinished(() => getuid.mockRestore());
+
     const outcome = await Effect.runPromise(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const info = yield* fs.stat(home);
+
         return yield* installUpdateJobs({
           target: { user: "fixture", uid, group: "staff", home },
           repository,
@@ -130,10 +138,12 @@ for (const [profile, scenario] of enrollments) {
         );
       }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)),
     );
+
     assert.equal(
       calls.some((call) => call[0]?.endsWith("/brew")),
       false,
     );
+
     if (scenario === "headless") {
       assert.equal(outcome._tag, "Success");
       assert.deepEqual(

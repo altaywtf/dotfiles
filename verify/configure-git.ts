@@ -11,6 +11,7 @@ import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const configurator = join(repoRoot, "identity/configure-git.ts");
+
 const signerSource = join(
   repoRoot,
   "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless",
@@ -23,14 +24,17 @@ const program = Effect.scoped(
         delete process.env[key];
       }
     }
+
     const fs = yield* FileSystem.FileSystem;
     const runner = yield* CommandRunner;
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-configure-git." });
+
     const run = (
       command: string,
       args: ReadonlyArray<string>,
       env: Readonly<Record<string, string>> = {},
     ) => runner.run(command, args, { env });
+
     const makeHome = Effect.fn("makeGitFixtureHome")(function* (name: string, encrypted = false) {
       const home = join(temporary, name);
       const signer = join(home, ".local/libexec/dotfiles/git-ssh-sign-agentless");
@@ -50,6 +54,7 @@ const program = Effect.scoped(
         })).status,
         0,
       );
+
       const rendered = yield* runner.run("chezmoi", [
         "--source",
         join(repoRoot, "chezmoi"),
@@ -60,12 +65,16 @@ const program = Effect.scoped(
         "cat",
         join(home, ".ssh/config"),
       ]);
+
       assert.equal(rendered.status, 0, rendered.stderr);
+
       const ssh = rendered.stdout
         .replaceAll("~/.ssh", `${home}/.ssh`)
         .replaceAll("~/.colima", `${home}/.colima`);
+
       yield* fs.writeFileString(join(home, ".ssh/config"), ssh, { mode: 0o600 });
       const key = join(home, ".ssh/signing");
+
       const generated = yield* run("ssh-keygen", [
         "-q",
         "-t",
@@ -75,9 +84,12 @@ const program = Effect.scoped(
         "-f",
         key,
       ]);
+
       assert.equal(generated.status, 0, generated.stderr);
+
       return { home, key, signer };
     });
+
     const configure = (
       home: string,
       profile: string,
@@ -94,6 +106,7 @@ const program = Effect.scoped(
         GIT_SIGN_COMMITS: "true",
         ...extra,
       });
+
     const renderSsh = Effect.fn("renderSshConfig")(function* (data: string) {
       const rendered = yield* runner.run("chezmoi", [
         "--source",
@@ -105,9 +118,12 @@ const program = Effect.scoped(
         "cat",
         join(temporary, ".ssh/config"),
       ]);
+
       assert.equal(rendered.status, 0, rendered.stderr);
+
       return rendered.stdout;
     });
+
     const source = yield* renderSsh('{"dotfilesProfile":"devbox"}');
     assert.equal(source.split("\n")[0], "Include ~/.ssh/github.config");
     assert.match(source, /^Include ~\/\.ssh\/config\.d\/\*\.conf$/m);
@@ -138,9 +154,11 @@ const program = Effect.scoped(
       (yield* fs.readFileString(github)).match(/^# dotfiles: github-ssh begin$/gm)?.length,
       1,
     );
+
     const before = createHash("sha256")
       .update(yield* fs.readFile(github))
       .digest("hex");
+
     assert.equal((yield* configure(personal.home, "workstation", personal.key)).status, 0);
     assert.equal(
       createHash("sha256")
@@ -148,12 +166,14 @@ const program = Effect.scoped(
         .digest("hex"),
       before,
     );
+
     const effective = yield* run("ssh", [
       "-F",
       join(personal.home, ".ssh/config"),
       "-G",
       "github.com",
     ]);
+
     assert.match(effective.stdout, /^identityagent none$/m);
     assert.match(effective.stdout, /^identityfile .*\/\.ssh\/signing$/m);
 
@@ -164,11 +184,13 @@ const program = Effect.scoped(
       (yield* run("git", ["-C", proof, "add", "proof.txt"], { HOME: personal.home })).status,
       0,
     );
+
     const commit = yield* run(
       "git",
       ["-C", proof, "commit", "-q", "-m", "test: prove agentless signing"],
       { HOME: personal.home },
     );
+
     assert.equal(commit.status, 0, commit.stderr);
     assert.equal(
       (yield* run("git", ["-C", proof, "verify-commit", "HEAD"], { HOME: personal.home })).status,
@@ -209,15 +231,19 @@ const program = Effect.scoped(
       (yield* run("git", ["-C", workDir, "add", "proof.txt"], { HOME: personal.home })).status,
       0,
     );
+
     const workCommit = yield* run(
       "git",
       ["-C", workDir, "commit", "-q", "-m", "test: prove directory identity"],
       { HOME: personal.home },
     );
+
     assert.equal(workCommit.status, 0, workCommit.stderr);
+
     const workLog = yield* run("git", ["-C", workDir, "log", "-1", "--format=%an|%ae|%G?|%GF"], {
       HOME: personal.home,
     });
+
     const workFingerprint = (yield* run("ssh-keygen", ["-lf", workKey])).stdout.split(" ")[1];
     assert.equal(workLog.stdout.trim(), `Work User|work@example.com|G|${workFingerprint}`);
 
@@ -229,12 +255,14 @@ const program = Effect.scoped(
       join(personal.home, ".ssh/config.local"),
       `Host *\n  CanonicalizeHostname yes\n`,
     );
+
     const alias = yield* run("ssh", [
       "-F",
       join(personal.home, ".ssh/config"),
       "-G",
       "github-work",
     ]);
+
     assert.equal(alias.status, 0, alias.stderr);
     assert.match(alias.stdout, /^hostname github\.com$/m);
     assert.deepEqual(
@@ -248,11 +276,13 @@ const program = Effect.scoped(
     assert.match(encryptedResult.stderr, /must be an unencrypted SSH private key/);
     const permissive = yield* makeHome("permissive");
     yield* fs.chmod(permissive.key, 0o644);
+
     const permissiveResult = yield* configure(
       permissive.home,
       "personal-workstation",
       permissive.key,
     );
+
     assert.equal(permissiveResult.status, 1);
     assert.match(permissiveResult.stderr, /permissions must be owner-only/);
     const invalid = yield* makeHome("invalid");
@@ -268,4 +298,5 @@ const program = Effect.scoped(
     Effect.provide(NodeServices.layer),
   ),
 );
+
 runMain(program);

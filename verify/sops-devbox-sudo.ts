@@ -41,6 +41,7 @@ printf '<%s>' "$@" >"$FAKE_SOPS_LOG"
 `,
       { mode: 0o700 },
     );
+
     const result = yield* runner.run(
       process.execPath,
       [join(repoRoot, "identity/sops-devbox-sudo.ts"), "--", "/usr/bin/true"],
@@ -56,6 +57,7 @@ printf '<%s>' "$@" >"$FAKE_SOPS_LOG"
         },
       },
     );
+
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       yield* fs.readFileString(log),

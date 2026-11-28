@@ -12,6 +12,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { Match } from "effect";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test, vi } from "vite-plus/test";
@@ -34,7 +35,9 @@ function git(cwd: string, ...args: Array<string>) {
       },
     },
   );
+
   assert.equal(result.status, 0, result.stderr);
+
   return result.stdout.trim();
 }
 
@@ -49,27 +52,34 @@ function fixture(t: TestContext) {
   git(upstream, "add", ".");
   git(upstream, "commit", "-m", "first");
   git(root, "clone", upstream, repo);
+
   const advance = () => {
     writeFileSync(join(upstream, "policy"), "second\n");
     git(upstream, "commit", "-am", "second");
+
     return git(upstream, "rev-parse", "HEAD");
   };
+
   return { root, repo, upstream, advance };
 }
 
 function withWarnings(action: () => void): Array<Array<unknown>> {
   const warnings: Array<Array<unknown>> = [];
+
   const stderr = vi
     .spyOn(process.stderr, "write")
     .mockImplementation((chunk: string | Uint8Array) => {
       warnings.push([String(chunk)]);
+
       return true;
     });
+
   try {
     action();
   } finally {
     stderr.mockRestore();
   }
+
   return warnings;
 }
 
@@ -100,33 +110,42 @@ test("clean default checkout advances and repeat convergence preserves the revis
 for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diverged", "rebase"]) {
   test(`preserves ${state} work without updating the checkout`, (t) => {
     const { repo, advance } = fixture(t);
+
     if (state !== "ahead") {
       advance();
     }
+
     if (state === "dirty") {
       writeFileSync(join(repo, "policy"), "local\n");
     }
+
     if (state === "untracked") {
       writeFileSync(join(repo, "notes"), "keep\n");
     }
+
     if (state === "branch") {
       git(repo, "checkout", "-b", "feature");
     }
+
     if (state === "detached") {
       git(repo, "checkout", "--detach");
     }
+
     if (state === "ahead" || state === "diverged") {
       writeFileSync(join(repo, "policy"), "local\n");
       git(repo, "commit", "-am", "local work");
     }
+
     if (state === "rebase") {
       mkdirSync(join(repo, ".git/rebase-merge"));
     }
+
     const before = git(repo, "rev-parse", "HEAD");
     const content = readFileSync(join(repo, "policy"), "utf8");
     assert.throws(() => syncCheckout(repo));
     assert.equal(git(repo, "rev-parse", "HEAD"), before);
     assert.equal(readFileSync(join(repo, "policy"), "utf8"), content);
+
     if (state === "untracked") {
       assert.equal(readFileSync(join(repo, "notes"), "utf8"), "keep\n");
     }
@@ -186,6 +205,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
   writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
   let time = 0;
   const slept: Array<number> = [];
+
   const waited = acquireCheckoutLock(repo, {
     now: () => time,
     uptimeMs: () => time,
@@ -194,11 +214,13 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
     sleep: (ms) => {
       slept.push(ms);
       time += ms;
+
       if (time >= 30_000) {
         rmSync(lock, { recursive: true, force: true });
       }
     },
   });
+
   assert.deepEqual(slept, [5000, 10_000, 20_000]);
   waited();
   assert.equal(existsSync(lock), false);
@@ -213,7 +235,14 @@ test("bootstrap failure preserves exit status and releases the lock", (t) => {
 });
 
 for (const state of ["clean", "dirty", "unreachable"] as const) {
-  test(`agent rule checkout ${state === "clean" ? "advances before maintenance" : state === "dirty" ? "with local work is kept with a warning and convergence succeeds" : "that cannot fetch fails after maintenance"}`, (t) => {
+  const outcome = Match.value(state).pipe(
+    Match.when("clean", () => "advances before maintenance"),
+    Match.when("dirty", () => "with local work is kept with a warning and convergence succeeds"),
+    Match.when("unreachable", () => "that cannot fetch fails after maintenance"),
+    Match.exhaustive,
+  );
+
+  test(`agent rule checkout ${outcome}`, (t) => {
     const f = fixture(t);
     const { root, repo } = f;
     publishBootstrap(t, f, 'cat "$RULES" > "$RENDERED"');
@@ -223,12 +252,15 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
     symlinkSync(join(rules.repo, "policy"), join(home, ".config/dotfiles/agents.end.md"));
     chmodSync(join(rules.repo, "policy"), 0o600);
     const next = rules.advance();
+
     if (state === "dirty") {
       writeFileSync(join(rules.repo, "notes"), "keep\n");
     }
+
     if (state === "unreachable") {
       rmSync(rules.upstream, { recursive: true });
     }
+
     const before = git(rules.repo, "rev-parse", "HEAD");
     const rendered = join(root, "AGENTS.md");
     const previous = { RULES: process.env.RULES, RENDERED: process.env.RENDERED };
@@ -239,6 +271,7 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
     const umask = process.umask(0o022);
     t.onTestFinished(() => {
       process.umask(umask);
+
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) {
           delete process.env[key];
@@ -247,6 +280,7 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
         }
       }
     });
+
     if (state === "unreachable") {
       withWarnings(() =>
         assert.throws(
@@ -267,6 +301,7 @@ for (const state of ["clean", "dirty", "unreachable"] as const) {
       assert.equal(git(rules.repo, "rev-parse", "HEAD"), next);
       assert.equal(readFileSync(rendered, "utf8"), "second\n");
     }
+
     assert.equal(statSync(join(rules.repo, "policy")).mode & 0o777, 0o600);
   });
 }
@@ -283,6 +318,7 @@ function runInstall(t: TestContext, args: Array<string>, failure = false) {
     join(root, "chezmoi/.chezmoidata/profiles.json"),
     readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")),
   );
+
   function stub(path: string, name: string) {
     mkdirSync(resolve(path, ".."), { recursive: true });
     writeFileSync(
@@ -291,7 +327,9 @@ function runInstall(t: TestContext, args: Array<string>, failure = false) {
       { mode: 0o755 },
     );
   }
+
   stub(join(root, "homebrew/brew-bundle.ts"), "brew-bundle.ts");
+
   for (const name of [
     "apply-dotfiles.ts",
     "install-oh-my-zsh.ts",
@@ -301,10 +339,13 @@ function runInstall(t: TestContext, args: Array<string>, failure = false) {
   ]) {
     stub(join(root, "bootstrap", name), name);
   }
+
   for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
     stub(join(root, "agents", name), name);
   }
+
   stub(join(bin, "mise"), "mise");
+
   const result = spawnSync(process.execPath, [join(source, "bootstrap/install.ts"), ...args], {
     encoding: "utf8",
     env: {
@@ -315,6 +356,7 @@ function runInstall(t: TestContext, args: Array<string>, failure = false) {
       PATH: `${bin}:${process.env.PATH}`,
     },
   });
+
   return { status: result.status, stderr: result.stderr, steps: readFileSync(log, "utf8") };
 }
 
@@ -325,13 +367,17 @@ for (const failure of [false, true]) {
       ["--profile", "personal-devbox", "--maintenance"],
       failure,
     );
+
     assert.equal(status, failure ? 19 : 0, stderr);
+
     if (process.platform === "darwin") {
       assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
     } else {
       assert.doesNotMatch(steps, /brew-bundle/);
     }
+
     assert.doesNotMatch(steps, /--retire-auth/);
+
     if (failure) {
       assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
     } else {

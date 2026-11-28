@@ -57,6 +57,7 @@ function reportEntries(report: string, key: string): Array<{ id: string; text: s
     .filter((line) => line.startsWith(`${key}[]=`))
     .map((line) => {
       const [id = "unknown", text = ""] = line.slice(key.length + 3).split("|");
+
       return { id, text };
     });
 }
@@ -65,6 +66,7 @@ function positiveInteger(value: string, option: string): number {
   if (!/^\d+$/.test(value)) {
     throw new Error(`invalid ${option}: ${value}`);
   }
+
   return Number(value);
 }
 
@@ -80,9 +82,11 @@ export function parseHostArgs(args: ReadonlyArray<string>): HostAuditOptions | "
       help: { type: "boolean", short: "h" },
     },
   });
+
   if (values.help) {
     return "help";
   }
+
   return {
     format: values.json ? "json" : "text",
     allowSudoPrompt: values["allow-sudo-prompt"] ?? false,
@@ -110,6 +114,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
 
   report.section("host security audit");
   let temporaryDirectory = "";
+
   try {
     const temporaryRoot = env.TMPDIR || tmpdir();
     mkdirSync(temporaryRoot, { recursive: true });
@@ -119,6 +124,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     const logFile = join(temporaryDirectory, "lynis.log");
     writeFileSync(reportFile, "", { mode: 0o600 });
     writeFileSync(logFile, "", { mode: 0o600 });
+
     const args = [
       "audit",
       "system",
@@ -129,14 +135,18 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
       "--log-file",
       logFile,
     ];
+
     const commandOptions = {
       output: options.format === "json" ? ("discard" as const) : ("capture" as const),
       timeoutMs: 600_000,
     };
+
     let result: CommandResult | undefined;
     let executable = "lynis";
+
     if (uid !== 0 && options.allowSudoPrompt) {
       const availability = command("lynis", ["--version"], { output: "discard" });
+
       if (availability.error?.message.includes("ENOENT")) {
         report.fail("lynis is missing");
       } else {
@@ -150,6 +160,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     }
 
     const started = result?.error === undefined && result !== undefined;
+
     if (result) {
       if (result.error?.message.includes("ENOENT")) {
         report.fail(`${executable} is missing`);
@@ -161,8 +172,10 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
             "running Lynis without sudo; rerun with --allow-sudo-prompt for deeper OS checks",
           );
         }
+
         if (result.status !== 0) {
           report.fail(`lynis exited with status ${result.status ?? "unknown"}`);
+
           if (options.format === "text") {
             stderr(`${result.stdout}\n${result.stderr}`.split("\n").slice(0, 40).join("\n") + "\n");
           }
@@ -174,6 +187,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
       report.fail("lynis did not write a report file");
     } else if (started) {
       const contents = readFileSync(reportFile, "utf8");
+
       if (!contents) {
         report.fail("lynis did not write a report file");
       } else {
@@ -182,11 +196,13 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
         testsPerformed = Number(reportValue(contents, "lynis_tests_done")) || 0;
         warningEntries = reportEntries(contents, "warning");
         suggestionEntries = reportEntries(contents, "suggestion");
+
         if (warningEntries.length > 0) {
           report.warn(`lynis reported ${warningEntries.length} warnings`);
         } else {
           report.ok("lynis reported no warnings");
         }
+
         if (options.minHardeningIndex !== undefined && hardeningIndex < options.minHardeningIndex) {
           report.fail(
             `lynis hardening index ${hardeningIndex} is below ${options.minHardeningIndex}`,
@@ -194,10 +210,12 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
         } else {
           report.ok(`lynis hardening index ${hardeningIndex}`);
         }
+
         if (options.format === "text") {
           stdout(
             `lynis tests performed: ${testsPerformed}\nlynis suggestions: ${suggestionEntries.length}\n`,
           );
+
           for (const [title, entries] of [
             ["Lynis warnings", warningEntries],
             ["Top Lynis suggestions", suggestionEntries],
@@ -205,7 +223,9 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
             if (entries.length === 0) {
               continue;
             }
+
             stdout(`\n${title}:\n`);
+
             for (const entry of entries.slice(0, 10)) {
               stdout(`  - ${entry.id}: ${entry.text}\n`);
             }
@@ -217,12 +237,15 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     if (options.keepArtifacts) {
       mkdirSync(options.keepArtifacts, { recursive: true, mode: 0o700 });
       chmodSync(options.keepArtifacts, 0o700);
+
       if (canAccess(reportFile, constants.R_OK)) {
         copyFileSync(reportFile, join(options.keepArtifacts, "lynis-report.dat"));
       }
+
       if (canAccess(logFile, constants.R_OK)) {
         copyFileSync(logFile, join(options.keepArtifacts, "lynis.log"));
       }
+
       if (options.format === "text") {
         report.warn(
           `kept full Lynis artifacts under ${options.keepArtifacts}; review before sharing`,
@@ -250,13 +273,17 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
 function main(args: ReadonlyArray<string>): number {
   try {
     const options = parseHostArgs(args);
+
     if (options === "help") {
       process.stdout.write(usage);
+
       return 0;
     }
+
     return runHostAudit(options).status;
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n${usage}`);
+
     return 2;
   }
 }

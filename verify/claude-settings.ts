@@ -25,6 +25,7 @@ type Settings = Record<string, Schema.Json | undefined> & {
   modelSettings?: Record<string, Record<string, Schema.Json | undefined>>;
   permissions?: Record<string, Schema.Json | undefined>;
 };
+
 type Fixture = {
   contents: string;
   profile?: string;
@@ -36,6 +37,7 @@ type Fixture = {
 const repoRoot = resolve(import.meta.dirname, "..");
 const JsonRecord = Schema.Record(Schema.String, Schema.Json);
 const JsonDocument = Schema.fromJsonString(JsonRecord);
+
 const decodeSettings = Schema.decodeUnknownSync(
   Schema.fromJsonString(
     Schema.StructWithRest(
@@ -50,10 +52,12 @@ const decodeSettings = Schema.decodeUnknownSync(
     ),
   ),
 );
+
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedMode = "defaultMode";
 const memoryDirectory = "~/.claude/memory";
+
 const managedEnv = {
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
   DISABLE_ERROR_REPORTING: "1",
@@ -64,8 +68,10 @@ function unmanagedEnv(env: Record<string, Schema.Json> | undefined) {
   const rest = Object.fromEntries(
     Object.entries(env ?? {}).filter(([key]) => !Object.hasOwn(managedEnv, key)),
   );
+
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
+
 const fixtures: Array<Fixture> = [
   { contents: "", expected: {} },
   {
@@ -169,10 +175,12 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
     writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", {
       mode: 0o600,
     });
+
     if (fixture.gateway !== undefined) {
       mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
       writeFileSync(join(home, ".config/dotfiles/gatewai.json"), fixture.gateway, { mode: 0o600 });
     }
+
     const child = spawn(
       "chezmoi",
       [
@@ -202,6 +210,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
+
     const stdout: Array<Buffer> = [];
     const stderr: Array<Buffer> = [];
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
@@ -209,13 +218,16 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
     child.on("error", reject);
     child.on("close", (status) => {
       const output = Buffer.concat(stderr).toString();
+
       try {
         if (fixture.malformed) {
           assert.notEqual(status, 0);
           assert.match(output, /fromJson|invalid character|unexpected end/i);
           finish();
+
           return;
         }
+
         assert.equal(status, 0, output);
         const actual = decodeSettings(Buffer.concat(stdout).toString());
         const expected = fixture.expected ?? {};
@@ -338,11 +350,13 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   assert.equal(readFileSync(path, "utf8"), firstContents);
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
+
   const reordered = `${JSON.stringify(
     Object.fromEntries(
       Object.entries(Schema.decodeUnknownSync(JsonDocument)(firstContents)).toReversed(),
     ),
   )}\n`;
+
   writeFileSync(path, reordered);
   const reorderedMtime = statSync(path, { bigint: true }).mtimeNs;
   await runApply("workstation", fixtureRoot);
@@ -352,6 +366,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
 
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-claude-settings-"));
+
   try {
     const results = await Promise.allSettled([
       ...fixtures.map((fixture, index) => renderFixture(fixture, join(root, "render", `${index}`))),
@@ -359,7 +374,9 @@ async function main(): Promise<void> {
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),
     ]);
+
     const failure = results.find((result) => result.status === "rejected");
+
     if (failure?.status === "rejected") {
       throw failure.reason;
     }

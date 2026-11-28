@@ -13,6 +13,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const sourceRoot = resolve(import.meta.dirname, "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
 const defaultProfile = "developer";
+
 const usage = `Usage: ./dotfiles diff|check [PROFILE]
        ./dotfiles apply [PROFILE] [--switch-profile] [--agent-source DIR]
 
@@ -32,11 +33,13 @@ const delegate = Effect.fn("delegateDotfilesCommand")(function* (
   profile: string,
 ) {
   const runner = yield* CommandRunner;
+
   const result = yield* runner.run(resolve(repoRoot, owner), args, {
     cwd: repoRoot,
     stdin: "inherit",
     output: "inherit",
   });
+
   if (result.status !== 0) {
     return yield* fail(
       `${owner} failed; fix the error above and rerun ./dotfiles ${commandName} ${profile}`,
@@ -47,19 +50,25 @@ const delegate = Effect.fn("delegateDotfilesCommand")(function* (
 
 const program = Effect.gen(function* () {
   const argv = process.argv.slice(2);
+
   if (argv.length === 1 && (argv[0] === "-h" || argv[0] === "--help")) {
     yield* Console.log(usage);
+
     return;
   }
+
   const switchProfile = argv.includes("--switch-profile");
   const agentSourceIndex = argv.indexOf("--agent-source");
   const agentSource = agentSourceIndex === -1 ? undefined : argv[agentSourceIndex + 1];
+
   const args = argv.filter(
     (argument, index) =>
       argument !== "--switch-profile" &&
       (agentSourceIndex === -1 || (index !== agentSourceIndex && index !== agentSourceIndex + 1)),
   );
+
   const optionCount = (switchProfile ? 1 : 0) + (agentSourceIndex === -1 ? 0 : 2);
+
   if (
     args.length < 1 ||
     args.length > 2 ||
@@ -68,9 +77,12 @@ const program = Effect.gen(function* () {
     (agentSourceIndex !== -1 && (!agentSource || agentSource.startsWith("--")))
   ) {
     yield* Console.error(usage);
+
     return yield* fail("invalid operator arguments", 2);
   }
+
   const commandName = args[0];
+
   const requestedProfile =
     args[1] ??
     (yield* resolveProfile(undefined, { ...process.env, DOTFILES_PROFILE: defaultProfile }).pipe(
@@ -78,22 +90,27 @@ const program = Effect.gen(function* () {
         (error) => new CliFailure({ exitCode: error.exitCode, message: error.message }),
       ),
     ));
+
   const model = yield* readProfileModelEffect(
     resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json"),
   );
+
   let profile: string;
+
   try {
     requireProfile(model, requestedProfile);
     profile = requestedProfile;
   } catch {
     yield* Console.error(`unsupported profile: ${requestedProfile}`);
     yield* Console.error(usage);
+
     return yield* fail("unsupported profile", 2);
   }
 
   yield* Console.error(
     "Not included: Homebrew packages, identities, secrets, or host-wide settings.",
   );
+
   switch (commandName) {
     case "diff":
       yield* Console.log(`Per-user convergence steps for ${profile}:`);
@@ -104,6 +121,7 @@ const program = Effect.gen(function* () {
         profile,
       );
       yield* Console.log("\nDotfile changes:");
+
       return yield* delegate(
         "bootstrap/apply-dotfiles.ts",
         ["--profile", profile, "--dry-run", "--verbose"],
@@ -114,6 +132,7 @@ const program = Effect.gen(function* () {
       if (agentSource !== undefined) {
         yield* saveAgentSource(resolve(homedir(), ".config/dotfiles"), agentSource);
       }
+
       return yield* delegate(
         "bootstrap/install.ts",
         ["--profile", profile, ...(switchProfile ? ["--switch-profile"] : [])],
@@ -125,6 +144,7 @@ const program = Effect.gen(function* () {
     default:
       yield* Console.error(`unsupported command: ${commandName}`);
       yield* Console.error(usage);
+
       return yield* fail("unsupported command", 2);
   }
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

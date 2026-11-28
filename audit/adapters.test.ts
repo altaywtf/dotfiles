@@ -31,12 +31,14 @@ const lynisRunner: CommandRunner = (_command, args) => {
     ].join("\n"),
   );
   writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
+
   return { status: 0, stdout: "", stderr: "" };
 };
 
 test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
   const output: Array<string> = [];
+
   try {
     const result = runHostAudit(
       { format: "json", allowSudoPrompt: false, minHardeningIndex: 70 },
@@ -47,6 +49,7 @@ test("host adapter summarizes Lynis without exposing its report", () => {
         stdout: (value) => output.push(value),
       },
     );
+
     assert.equal(result.status, 0);
     assert.deepEqual(result.summary, {
       audit: "host-security",
@@ -72,17 +75,20 @@ test("host adapter summarizes Lynis without exposing its report", () => {
 
 test("privileged host adapter checks Lynis before invoking sudo", () => {
   const calls: Array<string> = [];
+
   const result = runHostAudit(
     { format: "json", allowSudoPrompt: true },
     {
       uid: 501,
       command: (command, args) => {
         calls.push(`${command} ${args.join(" ")}`);
+
         return { status: null, stdout: "", stderr: "", error: new Error("spawn lynis ENOENT") };
       },
       stdout: () => {},
     },
   );
+
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.privileged, false);
   assert.deepEqual(calls, ["lynis --version"]);
@@ -96,6 +102,7 @@ test("host adapter rejects an empty Lynis report", () => {
       stdout: () => {},
     },
   );
+
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.warnings, 1);
 });
@@ -107,15 +114,19 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   const artifact = "800-53r5_moderate_macos_26.0";
   const compliance = join(mscp, "build", artifact, `${artifact}_compliance.sh`);
   const calls: Array<[string, ReadonlyArray<string>, CommandOptions | undefined]> = [];
+
   const command: CommandRunner = (name, args, options) => {
     calls.push([name, args, options]);
+
     return { status: 0, stdout: name === "sw_vers" ? "26.6\n" : "", stderr: "" };
   };
+
   mkdirSync(join(repo, ".git"), { recursive: true });
   mkdirSync(join(mscp, ".git"), { recursive: true });
   mkdirSync(dirname(compliance), { recursive: true });
   writeFileSync(compliance, "#!/bin/zsh\n");
   chmodSync(compliance, 0o755);
+
   try {
     const result = runRepoAudit(
       {
@@ -127,6 +138,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
       },
       { command, repoRoot: repo, uid: 0, stdout: () => {} },
     );
+
     assert.deepEqual(result.summary, {
       audit: "repo-security",
       status: "pass",
@@ -179,6 +191,7 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-audit-test-"));
   const main = join(root, "main");
   const linked = join(root, "linked");
+
   try {
     mkdirSync(main);
     git(main, "init", "--quiet", "--initial-branch=main");
@@ -205,21 +218,26 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
     writeFileSync(join(linked, "node_modules/dependency/tests/fixture.ts"), "dependency fixture\n");
 
     const scans: Array<ReadonlyArray<string>> = [];
+
     const command: CommandRunner = (name, args, options) => {
       if (name === "git") {
         return runCommand(name, args, options);
       }
+
       if (name === "trufflehog" && args[0] === "filesystem") {
         scans.push(args);
       }
+
       return { status: 0, stdout: "", stderr: "" };
     };
+
     const result = runRepoAudit(noMscp(root), {
       command,
       repoRoot: linked,
       uid: 0,
       stdout: () => {},
     });
+
     assert.equal(result.summary.failed, 0);
     assert.equal(scans.length, 1);
     const paths = (scans[0] ?? []).filter((arg) => !arg.startsWith("--")).slice(1);
@@ -236,10 +254,12 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
 test("linked worktree scan fails closed on paths that do not decode", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
   const scans: Array<ReadonlyArray<string>> = [];
+
   const command: CommandRunner = (name, args, options) => {
     if (name === "git" && args.includes("worktree")) {
       return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };
     }
+
     if (name === "git" && options?.strictUtf8) {
       return {
         status: 0,
@@ -248,19 +268,24 @@ test("linked worktree scan fails closed on paths that do not decode", () => {
         error: new Error("git output is not valid UTF-8"),
       };
     }
+
     if (name === "trufflehog" && args[0] === "filesystem") {
       scans.push(args);
     }
+
     return { status: 0, stdout: "", stderr: "" };
   };
+
   try {
     mkdirSync(join(root, ".git"));
+
     const result = runRepoAudit(noMscp(root), {
       command,
       repoRoot: join(root, "linked"),
       uid: 0,
       stdout: () => {},
     });
+
     assert.equal(result.summary.failed, 1);
     assert.deepEqual(scans, []);
   } finally {

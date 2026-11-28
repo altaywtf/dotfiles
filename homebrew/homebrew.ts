@@ -16,17 +16,22 @@ export const requirePrefixOwner = Effect.fn("requireHomebrewPrefixOwner")(functi
   const fs = yield* FileSystem.FileSystem;
   const prefix = yield* homebrewPrefix();
   const info = yield* fs.stat(prefix).pipe(Effect.option);
+
   if (Option.isNone(info) || info.value.type !== "Directory") {
     return yield* fail(`Homebrew prefix does not exist: ${prefix}`);
   }
+
   const ownerUid = Option.getOrUndefined(info.value.uid);
   const currentUid = process.getuid?.();
+
   if (ownerUid === currentUid) {
     return prefix;
   }
+
   const owner = yield* runRaw("id", ["-un", String(ownerUid)]);
   const current = yield* run("id", ["-un"]);
   const ownerName = owner.status === 0 ? owner.stdout.trim() : `uid ${ownerUid}`;
+
   return yield* fail(
     `Homebrew mutations must run as prefix owner ${ownerName}; current user is ${current.stdout.trim()}`,
   );
@@ -45,19 +50,25 @@ const localBrewfile = Effect.fn("localBrewfile")(function* (repoRoot: string) {
   const fs = yield* FileSystem.FileSystem;
   const link = yield* fs.readLink(path).pipe(Effect.option);
   const exists = yield* fs.exists(path);
+
   if (!exists && Option.isNone(link)) {
     return Option.none<string>();
   }
+
   const info = yield* fs.stat(path).pipe(Effect.option);
+
   if (Option.isSome(link) || Option.isNone(info) || info.value.type !== "File") {
     return yield* fail(`invalid local Brewfile: ${path} must be a regular file`);
   }
+
   if (Option.getOrUndefined(info.value.uid) !== process.getuid?.()) {
     return yield* fail(`unsafe local Brewfile: ${path} must be owned by the current user`);
   }
+
   if ((info.value.mode & 0o022) !== 0) {
     return yield* fail(`unsafe local Brewfile: ${path} must not be group or world writable`);
   }
+
   yield* fs.access(path, { readable: true }).pipe(
     Effect.mapError(
       () =>
@@ -67,6 +78,7 @@ const localBrewfile = Effect.fn("localBrewfile")(function* (repoRoot: string) {
         }),
     ),
   );
+
   return Option.some(path);
 });
 
@@ -75,6 +87,7 @@ export const withLocalBrewfile = Effect.fn("withLocalBrewfile")(function* (
   files: ReadonlyArray<string>,
 ) {
   const local = yield* localBrewfile(repoRoot);
+
   return Option.isSome(local) ? [...files, local.value] : files;
 });
 
@@ -84,13 +97,16 @@ export const composeBrewfile = Effect.fn("composeBrewfile")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const composed = yield* fs.makeTempFile({ directory: repoRoot, prefix: "Brewfile.composed." });
+
   const contents = yield* Effect.forEach(files, (file) =>
     fs.readFileString(brewfilePath(repoRoot, file)),
   );
+
   yield* fs.writeFileString(
     composed,
     contents.map((content) => (content.endsWith("\n") ? content : `${content}\n`)).join(""),
   );
+
   return composed;
 });
 
@@ -100,6 +116,7 @@ export const removeComposedBrewfile = Effect.fn("removeComposedBrewfile")(functi
 ) {
   const fs = yield* FileSystem.FileSystem;
   const parent = dirname(composed);
+
   if (parent !== repoRoot && basename(parent).startsWith("Brewfile.composed.")) {
     yield* fs.remove(parent, { recursive: true, force: true });
   } else {
@@ -116,29 +133,36 @@ export const bundleDrift = Effect.fn("homebrewBundleDrift")(function* (
     repoRoot,
     yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile)),
   );
+
   const result = yield* runRaw("brew", ["bundle", "cleanup", "--file", composed], {
     env: {
       HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile,
       HOMEBREW_NO_AUTO_UPDATE: "1",
     },
   }).pipe(Effect.ensuring(removeComposedBrewfile(repoRoot, composed).pipe(Effect.orDie)));
+
   if (result.status !== 0 && !/^Would /m.test(result.stdout)) {
     const detail =
       [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n") || "no output";
+
     return yield* fail(
       `brew bundle cleanup exited ${result.status} without a plan for the composed Brewfile:\n${detail}`,
     );
   }
+
   let show = false;
+
   return result.stdout
     .split("\n")
     .filter((line) => {
       if (/^Would (uninstall|untap)/.test(line)) {
         show = true;
       }
+
       if (line.startsWith("Would `brew cleanup`")) {
         show = false;
       }
+
       return show;
     })
     .join("\n");
@@ -149,18 +173,25 @@ export const trustTaps = Effect.fn("trustHomebrewTaps")(function* (
   files: ReadonlyArray<string>,
 ) {
   const support = yield* runRaw("brew", ["trust", "--help"]);
+
   if (support.status !== 0) {
     return;
   }
+
   const fs = yield* FileSystem.FileSystem;
+
   for (const file of files) {
     const contents = yield* fs.readFileString(isAbsolute(file) ? file : join(repoRoot, file));
+
     for (const line of contents.split("\n")) {
       const tap = /^\s*tap\s+"([^"]+)"/.exec(line)?.[1];
+
       if (!tap) {
         continue;
       }
+
       const trusted = yield* runRaw("brew", ["trust", "--tap", tap]);
+
       if (trusted.status !== 0) {
         return yield* fail(
           `failed to trust tap ${tap}; a managed Homebrew that refuses trust must supply its entries through the external-homebrew contract`,

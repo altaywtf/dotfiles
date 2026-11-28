@@ -61,9 +61,11 @@ export function parseRepoArgs(
       help: { type: "boolean", short: "h" },
     },
   });
+
   if (values.help) {
     return "help";
   }
+
   return {
     format: values.json ? "json" : "text",
     mscp: !(values["skip-mscp"] ?? false),
@@ -79,6 +81,7 @@ export function parseRepoArgs(
 
 export function mscpPlatformVersion(version: string): string | undefined {
   const major = version.split(".", 1)[0];
+
   return /^\d+$/.test(major) ? `${major}.0` : undefined;
 }
 
@@ -91,61 +94,77 @@ function scannerResult(
 ): boolean {
   if (result.error?.message.includes("ENOENT")) {
     report.warn(missing);
+
     return false;
   } else if (result.error) {
     report.fail(`${failure}: ${result.error.message}`);
   } else {
     report.output(result);
+
     if (result.status === 0) {
       report.ok(success);
     } else {
       report.fail(failure);
     }
   }
+
   return true;
 }
 
 function trufflehogHistoryResult(report: AuditReport, result: CommandResult): boolean {
   if (result.error?.message.includes("ENOENT")) {
     report.warn("trufflehog is not installed");
+
     return false;
   }
+
   if (result.error || result.status !== 0) {
     report.fail(
       `trufflehog history scan failed: ${result.error?.message ?? `exit ${result.status}`}`,
     );
+
     return true;
   }
+
   let findings: TrufflehogFindings;
+
   try {
     findings = classifyTrufflehogFindings(result.stdout, trufflehogAllowlist);
   } catch (error) {
     report.fail(
       `cannot read trufflehog findings: ${error instanceof Error ? error.message : String(error)}`,
     );
+
     return true;
   }
+
   for (const finding of findings.unexpected) {
     report.fail(`trufflehog finding: ${finding}`);
   }
+
   if (findings.unexpected.length === 0) {
     report.ok(
       `trufflehog found no verified or unknown leaks${findings.allowed ? ` (${findings.allowed} allowlisted)` : ""}`,
     );
   }
+
   return true;
 }
 
 function trufflehogSource(repoRoot: string, command: CommandRunner): string {
   const git = Option.liftThrowable(() => statSync(join(repoRoot, ".git")))();
+
   if (Option.exists(git, (info) => info.isDirectory())) {
     return repoRoot;
   }
+
   const worktrees = command("git", ["-C", repoRoot, "worktree", "list", "--porcelain"]);
+
   const source = worktrees.stdout
     .split("\n")
     .find((line) => line.startsWith("worktree "))
     ?.slice(9);
+
   return source && existsSync(join(source, ".git")) ? source : repoRoot;
 }
 
@@ -155,9 +174,11 @@ function worktreeFiles(repoRoot: string, command: CommandRunner): Array<string> 
     ["-C", repoRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
     { strictUtf8: true },
   );
+
   if (listed.error || listed.status !== 0) {
     return undefined;
   }
+
   return listed.stdout
     .split("\0")
     .filter(Boolean)
@@ -175,6 +196,7 @@ export function runRepoAudit(
   const stdout = dependencies.stdout ?? ((value: string) => process.stdout.write(value));
   const stderr = dependencies.stderr ?? ((value: string) => process.stderr.write(value));
   const report = new AuditReport(options.format, stdout, stderr);
+
   const output = {
     output: options.format === "json" ? ("discard" as const) : ("capture" as const),
     timeoutMs: 600_000,
@@ -201,6 +223,7 @@ export function runRepoAudit(
   );
 
   const source = trufflehogSource(repoRoot, command);
+
   const trufflehogAvailable = trufflehogHistoryResult(
     report,
     command(
@@ -209,8 +232,10 @@ export function runRepoAudit(
       { ...output, output: "capture" },
     ),
   );
+
   if (source !== repoRoot && trufflehogAvailable) {
     const files = worktreeFiles(repoRoot, command);
+
     if (files === undefined) {
       report.fail("cannot list linked worktree files");
     } else if (files.length > 0) {
@@ -237,6 +262,7 @@ export function runRepoAudit(
   }
 
   report.section("macOS compliance baseline");
+
   if (!options.mscp) {
     report.ok("mSCP audit skipped");
   } else if (!existsSync(join(options.mscpDir, ".git"))) {
@@ -246,19 +272,24 @@ export function runRepoAudit(
     );
   } else {
     const version = command("sw_vers", ["-productVersion"]);
+
     const platform =
       version.status === 0 && !version.error
         ? mscpPlatformVersion(version.stdout.trim())
         : undefined;
+
     if (version.status !== 0 || version.error) {
       report.warn("cannot determine the macOS version for the generated mSCP script");
     } else if (!platform) {
       report.warn(`cannot map macOS ${version.stdout.trim()} to an mSCP platform version`);
     }
+
     const artifact = platform ? `${options.mscpBaseline}_macos_${platform}` : "";
+
     const script =
       options.mscpScript ||
       (artifact ? join(options.mscpDir, "build", artifact, `${artifact}_compliance.sh`) : "");
+
     if (!script) {
       report.warn("pass --mscp-script because the default generated path could not be determined");
     } else if (!existsSync(script)) {
@@ -270,12 +301,14 @@ export function runRepoAudit(
       report.warn(`generated mSCP compliance script is not executable: ${script}`);
     } else {
       let result: CommandResult | undefined;
+
       if (uid === 0) {
         result = command("zsh", [script, "--check"], output);
       } else if (options.allowSudoPrompt) {
         result = command("sudo", ["zsh", script, "--check"], output);
       } else {
         const sudo = command("sudo", ["-n", "true"], { output: "discard" });
+
         if (sudo.status === 0 && !sudo.error) {
           result = command("sudo", ["-n", "zsh", script, "--check"], output);
         } else {
@@ -284,8 +317,10 @@ export function runRepoAudit(
           );
         }
       }
+
       if (result) {
         report.output(result);
+
         if (result.status === 0 && !result.error) {
           report.ok("mSCP check passed");
         } else {
@@ -303,13 +338,17 @@ export function runRepoAudit(
 function main(args: ReadonlyArray<string>): number {
   try {
     const options = parseRepoArgs(args);
+
     if (options === "help") {
       process.stdout.write(usage);
+
       return 0;
     }
+
     return runRepoAudit(options).status;
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n${usage}`);
+
     return 2;
   }
 }

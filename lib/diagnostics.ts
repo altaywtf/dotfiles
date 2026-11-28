@@ -21,9 +21,12 @@ export function sanitizeDiagnostic(stderr: string): string {
           "[REDACTED]",
         ),
     );
+
   const diagnostic = lines.join("\n");
+
   if (diagnostic.length <= MAX_DIAGNOSTIC_LENGTH) {
     return diagnostic;
   }
+
   return `${diagnostic.slice(0, MAX_DIAGNOSTIC_LENGTH - 3)}...`;
 }

@@ -7,6 +7,7 @@ import { resolveSources } from "./paths.ts";
 
 test("home discovery includes linked config files and reports broken links", () => {
   const root = mkdtempSync(join(tmpdir(), "audit-paths-"));
+
   try {
     writeFileSync(join(root, "config"), "fixture");
     symlinkSync(join(root, "config"), join(root, ".zshrc"));

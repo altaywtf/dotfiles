@@ -13,12 +13,14 @@ import { fail, runMain } from "../../lib/program.ts";
 const repoRoot = resolve(import.meta.dirname, "../..");
 const policyDomain = "com.google.Chrome";
 const flagOverrides = [{ name: "vertical-tabs", value: "vertical-tabs@1" }] as const;
+
 const policies = [
   { key: "SearchContentSharingSettings", type: "-int", value: "1" },
   { key: "LensOverlaySettings", type: "-int", value: "1" },
   { key: "LensRegionSearchEnabled", type: "-bool", value: "false" },
   { key: "LensDesktopNTPSearchEnabled", type: "-bool", value: "false" },
 ] as const;
+
 const usage = `Usage:
   bootstrap/darwin/configure-chrome.ts [options]
 
@@ -41,16 +43,21 @@ const program = Effect.gen(function* () {
   let statePath =
     process.env.CHROME_LOCAL_STATE ||
     `${process.env.HOME || ""}/Library/Application Support/Google/Chrome/Local State`;
+
   let mode: "disable" | "enable" = "enable";
   let allowRunning = false;
   const args = process.argv.slice(2);
+
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+
     if (argument === "--state") {
       const value = args[index + 1];
+
       if (!value) {
         return yield* fail("--state requires a value", 2);
       }
+
       statePath = value;
       index += 1;
     } else if (argument === "--disable") {
@@ -59,42 +66,52 @@ const program = Effect.gen(function* () {
       allowRunning = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
+
       return;
     } else {
       yield* Console.error(usage);
+
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
 
   const runner = yield* CommandRunner;
+
   for (const policy of policies) {
     const args =
       mode === "enable"
         ? ["write", policyDomain, policy.key, policy.type, policy.value]
         : ["delete", policyDomain, policy.key];
+
     const result = yield* runner.run("defaults", args, {
       output: mode === "enable" ? "inherit" : "ignore",
     });
+
     if (mode === "enable" && result.status !== 0) {
       return yield* fail(`defaults write ${policyDomain} ${policy.key} exited ${result.status}`);
     }
   }
+
   const policySummary = policies
     .map((policy) => (mode === "enable" ? `${policy.key}=${policy.value}` : policy.key))
     .join(", ");
+
   yield* Console.log(
     mode === "enable"
       ? `configured Chrome policies: ${policySummary}`
       : `removed Chrome policies: ${policySummary}`,
   );
+
   if (!allowRunning) {
     const running = yield* runner.run("pgrep", ["-x", "Google Chrome"]);
+
     if (running.status === 0) {
       return yield* fail(
         "quit Google Chrome before changing Local State, or rerun with --allow-running",
       );
     }
   }
+
   for (const flag of flagOverrides) {
     const result = yield* runner.run(
       process.execPath,
@@ -107,10 +124,12 @@ const program = Effect.gen(function* () {
       ],
       { output: "inherit" },
     );
+
     if (result.status !== 0) {
       return yield* fail(`Chrome Local State update for ${flag.name} exited ${result.status}`);
     }
   }
+
   const quitPrompt = yield* updateChromeLocalStatePreferencesEffect(statePath, mode);
   yield* Console.log(
     `${mode === "enable" ? "disabled" : "restored"} Chrome hold-to-quit prompt${quitPrompt ? "" : " (unchanged)"}`,
@@ -119,9 +138,11 @@ const program = Effect.gen(function* () {
   yield* Console.log(
     `${mode === "enable" ? "applied" : "cleared"} vertical tabs and tab search pin in ${profiles.updated} of ${profiles.checked} Chrome profiles`,
   );
+
   const summary = flagOverrides
     .map((flag) => (mode === "enable" ? flag.value : flag.name))
     .join(", ");
+
   yield* Console.log(
     mode === "enable"
       ? `configured Chrome flags: ${summary} in ${statePath}`

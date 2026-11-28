@@ -1,4 +1,4 @@
-import cloudflare from "@cloudflare/oxlint-config";
+import shared, { env, ignorePatterns } from "@uinaf/oxlint-config/effect/vite-plus";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -24,18 +24,20 @@ export default defineConfig({
     ignorePatterns: ["chezmoi/**/*.tmpl", "chezmoi/**/modify_*", "chezmoi/**/symlink_*"],
   },
   lint: {
-    ...cloudflare,
-    ignorePatterns: [...(cloudflare.ignorePatterns ?? []), "chezmoi/**"],
-    jsPlugins: [
-      ...(cloudflare.jsPlugins ?? []),
-      { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
-      { name: "comments", specifier: "@uinaf/oxlint-plugin-no-comments" },
-    ],
+    extends: [shared],
+    env,
+    ignorePatterns: [...ignorePatterns, "chezmoi/**"],
     rules: {
-      ...cloudflare.rules,
-      "vite-plus/prefer-vite-plus-imports": "error",
-      "comments/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
+      "anti-slop/no-unknown-parameters": "off",
+      "anti-slop/no-runtime-typeof": "off",
+      "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],
     },
-    options: { ...cloudflare.options, typeCheck: true, denyWarnings: true },
+    overrides: [
+      {
+        files: ["bootstrap/darwin/chrome-state.test.ts"],
+        rules: { "anti-slop-effect/no-manual-tagged-construction": "off" },
+      },
+    ],
+    options: { typeCheck: true, denyWarnings: true },
   },
 });

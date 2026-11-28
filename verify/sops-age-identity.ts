@@ -59,10 +59,12 @@ cat "$input"
     );
     const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
     const base = { HOME: home, XDG_CONFIG_HOME: join(home, ".config"), PATH: path };
+
     const execute = (
       args: ReadonlyArray<string> = [],
       extra: Readonly<Record<string, string>> = {},
     ) => runner.run(process.execPath, [script, ...args], { env: { ...base, ...extra } });
+
     const provision = yield* execute();
     assert.equal(provision.status, 0, provision.stderr);
     const identity = join(home, ".config/sops/age/keys.txt");
@@ -96,20 +98,24 @@ cat "$input"
     assert.equal((yield* execute([], { SOPS_AGE_KEY_FILE: explicit })).status, 0);
     assert.equal(yield* fs.exists(explicit), true);
     const concurrent = join(temporary, "concurrent/keys.txt");
+
     const concurrentResult = yield* execute([], {
       SOPS_AGE_KEY_FILE: concurrent,
       AGE_CONCURRENT_IDENTITY: concurrent,
     });
+
     assert.equal(concurrentResult.status, 0, concurrentResult.stderr);
     assert.equal(yield* fs.readFileString(concurrent), "concurrent-fixture-key\n");
     const racedLink = join(temporary, "raced-link/keys.txt");
     const linkTarget = join(temporary, "untouched.txt");
     yield* fs.writeFileString(linkTarget, "untouched", { mode: 0o644 });
+
     const racedResult = yield* execute([], {
       SOPS_AGE_KEY_FILE: racedLink,
       AGE_CONCURRENT_IDENTITY: racedLink,
       AGE_CONCURRENT_SYMLINK: linkTarget,
     });
+
     assert.notEqual(racedResult.status, 0);
     assert.equal(yield* fs.readLink(racedLink), linkTarget);
     assert.equal(yield* fs.readFileString(linkTarget), "untouched");
@@ -127,9 +133,11 @@ cat "$input"
 
     const missing = join(temporary, "missing");
     yield* fs.makeDirectory(missing);
+
     const missingResult = yield* runner.run(process.execPath, [script, "--check"], {
       env: { HOME: missing, XDG_CONFIG_HOME: join(missing, ".config"), PATH: path },
     });
+
     assert.notEqual(missingResult.status, 0);
     assert.equal(yield* fs.exists(join(missing, ".config/sops/age/keys.txt")), false);
 
@@ -138,9 +146,11 @@ cat "$input"
     yield* fs.makeDirectory(join(symlinkHome, ".config/sops"), { recursive: true });
     yield* fs.makeDirectory(symlinkTarget);
     yield* fs.symlink(symlinkTarget, join(symlinkHome, ".config/sops/age"));
+
     const symlinkResult = yield* runner.run(process.execPath, [script], {
       env: { HOME: symlinkHome, XDG_CONFIG_HOME: join(symlinkHome, ".config"), PATH: path },
     });
+
     assert.notEqual(symlinkResult.status, 0);
     assert.notEqual((yield* execute(["--check", "--print-recipient"])).status, 0);
     yield* Console.log(

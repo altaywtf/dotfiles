@@ -21,18 +21,23 @@ export function logDirectory(home: string): string {
     process.platform === "darwin"
       ? join(home, "Library/Logs/dotfiles")
       : join(home, ".local/state/dotfiles/logs");
+
   mkdirSync(directory, { recursive: true, mode: 0o700 });
+
   return directory;
 }
 
 function pruneLogs(directory: string, now = Date.now()): void {
   const cutoff = new Date(now - 6 * day).toISOString().slice(0, 10);
+
   for (const name of readdirSync(directory)) {
     const date =
       /^(?:software-update|hygiene)(?:-history)?-(\d{4}-\d{2}-\d{2})(?:T[\d.-]+Z)?\.log$/.exec(
         name,
       )?.[1];
+
     const path = join(directory, name);
+
     if (date && date < cutoff && lstatSync(path).isFile()) {
       unlinkSync(path);
     }
@@ -46,23 +51,28 @@ export function dailyLog(
 ): string {
   const directory = logDirectory(home);
   pruneLogs(directory, now);
+
   return join(directory, `${name}-${new Date(now).toISOString().slice(0, 10)}.log`);
 }
 
 export function rotateUpdateLog(home: string, job: "software-update", now = Date.now()): void {
   const directory = logDirectory(home);
   const path = join(directory, `${job}.log`);
+
   if (existsSync(path)) {
     const info = lstatSync(path);
+
     if (!info.isFile()) {
       throw new Error("update log must be a regular file");
     }
+
     if (info.size > 0) {
       const timestamp = info.mtime.toISOString().replaceAll(":", "-");
       copyFileSync(path, join(directory, `${job}-${timestamp}.log`));
       truncateSync(path, 0);
     }
   }
+
   pruneLogs(directory, now);
 }
 
@@ -76,20 +86,27 @@ export function capLogs(
   between: () => void = () => {},
 ): Array<Entry> {
   const entries: Array<Entry> = [];
+
   if (!existsSync(directory)) {
     return entries;
   }
+
   for (const name of readdirSync(directory)) {
     if (!name.endsWith(".log")) {
       continue;
     }
+
     const path = join(directory, name);
+
     try {
       const info = lstatSync(path);
+
       if (!info.isFile() || info.size <= cap) {
         continue;
       }
+
       const fd = openSync(path, "r+");
+
       try {
         const tail = Buffer.alloc(cap);
         const read = readSync(fd, tail, 0, cap, info.size - cap);
@@ -98,6 +115,7 @@ export function capLogs(
         ftruncateSync(fd, 0);
         between();
         const appender = openSync(path, "a");
+
         try {
           writeSync(appender, tail, start, read - start, null);
         } finally {
@@ -106,6 +124,7 @@ export function capLogs(
       } finally {
         closeSync(fd);
       }
+
       entries.push({
         target: path,
         result: `capped from ${info.size} to ${lstatSync(path).size} bytes`,
@@ -117,5 +136,6 @@ export function capLogs(
       });
     }
   }
+
   return entries;
 }

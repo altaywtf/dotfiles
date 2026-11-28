@@ -36,6 +36,7 @@ function stream(mode: StreamMode | undefined): "ignore" | "inherit" | "pipe" {
 function isExecutable(path: string): boolean {
   try {
     accessSync(path, constants.X_OK);
+
     return true;
   } catch {
     return false;
@@ -48,6 +49,7 @@ function executableNames(command: string, env: NodeJS.ProcessEnv): Array<string>
   }
 
   const extensions = (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";");
+
   return [command, ...extensions.map((extension) => `${command}${extension.toLowerCase()}`)];
 }
 
@@ -58,6 +60,7 @@ export function createRuntime(env: NodeJS.ProcessEnv = process.env): Runtime {
     stderr: process.stderr,
     commandExists(command) {
       const names = executableNames(command, env);
+
       return (env.PATH ?? "")
         .split(delimiter)
         .filter((directory) => directory.length > 0)
@@ -93,10 +96,12 @@ export function resolveProfileName(
   expectedProfile: string | undefined,
 ): string {
   const args = expectedProfile === undefined ? [] : ["--expected", expectedProfile];
+
   const result = runtime.run(join(scriptDir, "resolve-profile.ts"), args, {
     stdout: "capture",
     stderr: "capture",
   });
+
   if (result.status !== 0) {
     const detail = result.stderr.trim();
     throw new Error(`Profile resolution failed${detail ? `: ${detail}` : ""}`);

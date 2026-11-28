@@ -13,6 +13,7 @@ const homeDotfiles = {
   kind: "home-dotfiles",
   exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"],
 } as const;
+
 const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
 const launchAgents = { kind: "files", path: "Library/LaunchAgents" } as const;
 
@@ -34,6 +35,7 @@ export const projectEnvFiles = {
 
 export function compromisedRoots(systemRoot: string) {
   const label = "roots of the compromised eMudhra intermediates";
+
   return [
     {
       kind: "pattern-absent",
@@ -171,8 +173,10 @@ function runWorkstation(format: AuditFormat): number {
 function main(args: Array<string>): number {
   if (args.length > 1 || (args[0] !== undefined && args[0] !== "--json")) {
     process.stderr.write("Usage: audit/workstation.ts [--json]\n");
+
     return 2;
   }
+
   return runWorkstation(args[0] === "--json" ? "json" : "text");
 }
 

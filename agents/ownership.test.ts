@@ -5,6 +5,7 @@ import type { Harness } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
 
 type Entry = { name: string; harnesses: ReadonlyArray<Harness> };
+
 type Case = {
   previous: ReadonlyArray<Entry>;
   selected: ReadonlyArray<Entry>;
@@ -14,6 +15,7 @@ type Case = {
 
 const keyOf = (entry: Entry) => entry.name;
 const NAMES = ["a", "b", "c"];
+
 const SUBSETS: ReadonlyArray<ReadonlyArray<Harness>> = (
   [[], ["claude"], ["codex"], ["claude", "codex"]] satisfies Array<Array<Harness>>
 ).map((harnesses) => Object.freeze(harnesses));
@@ -34,6 +36,7 @@ function entryLists(names: ReadonlyArray<string>): Array<ReadonlyArray<Entry>> {
 
 function frozen(entry: Entry): Entry {
   Object.freeze(entry.harnesses);
+
   return Object.freeze(entry);
 }
 
@@ -45,9 +48,11 @@ function entriesFrom(
   owned: ReadonlyArray<{ name: string; harness: Harness }>,
 ): ReadonlyArray<Entry> {
   const byName = new Map<string, Array<Harness>>();
+
   for (const { name, harness } of owned) {
     byName.set(name, [...(byName.get(name) ?? []), harness]);
   }
+
   return Object.freeze([...byName].map(([name, harnesses]) => frozen({ name, harnesses })));
 }
 
@@ -61,6 +66,7 @@ function subsets<T>(items: ReadonlyArray<T>): Array<Array<T>> {
 function* cases(withDeferral: boolean): Generator<Case> {
   const previousLists = entryLists(NAMES);
   const selectedLists = entryLists([...NAMES].reverse());
+
   for (const previous of previousLists) {
     for (const selected of selectedLists) {
       const stale = previous.flatMap(({ name, harnesses }) =>
@@ -68,6 +74,7 @@ function* cases(withDeferral: boolean): Generator<Case> {
           .filter((harness) => !pairs(selected).includes(`${name}:${harness}`))
           .map((harness) => ({ name, harness })),
       );
+
       for (const available of SUBSETS) {
         for (const deferred of withDeferral ? subsets(stale) : [[]]) {
           yield { previous, selected, available, deferred: entriesFrom(deferred) };
@@ -79,18 +86,22 @@ function* cases(withDeferral: boolean): Generator<Case> {
 
 function forEveryCase(property: (input: Case) => void, withDeferral = false): void {
   let checked = 0;
+
   for (const input of cases(withDeferral)) {
     try {
       property(input);
     } catch (error) {
       throw new Error(`property failed for ${JSON.stringify(input)}`, { cause: error });
     }
+
     checked += 1;
   }
+
   assert.ok(checked > 10_000);
 }
 
 const sorted = (values: ReadonlyArray<string>) => [...values].sort();
+
 const plan = (input: Case, previous: ReadonlyArray<Entry> = input.previous) =>
   planOwnership({ previous, selected: input.selected, available: input.available, keyOf });
 
@@ -107,9 +118,12 @@ test("removals are exactly the owned (name, harness) pairs no longer selected, n
 test("the next lock owns selected pairs on present harnesses, owned pairs on absent ones, and deferred removals until a retry removes them", () => {
   forEveryCase((input) => {
     const lock = plan(input).nextLock(input.deferred);
+
     const present = (pair: string) =>
       input.available.some((harness) => pair.endsWith(`:${harness}`));
+
     const owned = pairs(input.previous);
+
     const expected = new Set([
       ...pairs(input.selected).filter((pair) => present(pair) || owned.includes(pair)),
       ...pairs(input.deferred),

@@ -10,6 +10,7 @@ import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
 const defaultPinPath = join(repoRoot, "chezmoi/.chezmoidata/xcode.json");
+
 const usage = `Usage:
   bootstrap/darwin/xcode.ts
   bootstrap/darwin/xcode.ts --check
@@ -37,24 +38,31 @@ const catalogLine = /^(.*) \(([^)]+)\) \[(Apple Silicon|Intel|Universal)\](.*)$/
 
 function parseCatalogLine(line: string): XcodeRelease | undefined {
   const trimmed = line.trim();
+
   if (!trimmed || trimmed.startsWith("xcodes")) {
     return undefined;
   }
+
   const [left, path] = trimmed.split("\t");
   const match = catalogLine.exec(left ?? "");
+
   if (!match?.[1] || !match[2]) {
     return undefined;
   }
+
   const flags = match[4] ?? "";
+
   const release: XcodeRelease = {
     version: match[1].trim(),
     build: match[2],
     selected: flags.includes("(Selected)"),
     installed: flags.includes("(Installed") || flags.includes("(Selected)") || Boolean(path),
   };
+
   if (path) {
     release.path = path;
   }
+
   return release;
 }
 
@@ -85,6 +93,7 @@ const xcodeEnv = { NO_COLOR: "1" };
 const readPin = Effect.fn("readXcodePin")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = process.env.DOTFILES_XCODE_FILE || defaultPinPath;
+
   const contents = yield* fs.readFileString(path).pipe(
     Effect.mapError(
       (error) =>
@@ -94,7 +103,9 @@ const readPin = Effect.fn("readXcodePin")(function* () {
         }),
     ),
   );
+
   const parsed = yield* Effect.try({
+    // SAFETY: JSON.parse returns any; unknown forces the schema decode below.
     try: () => JSON.parse(contents) as unknown,
     catch: (error) =>
       new CliFailure({
@@ -102,6 +113,7 @@ const readPin = Effect.fn("readXcodePin")(function* () {
         message: `Xcode pin ${path} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
       }),
   });
+
   return yield* Schema.decodeUnknownEffect(XcodePin)(parsed).pipe(
     Effect.mapError(
       (error) =>
@@ -115,6 +127,7 @@ const runXcodes = Effect.fn("runXcodes")(function* (
   options: { output?: "capture" | "inherit"; stdin?: "inherit" } = {},
 ) {
   const runner = yield* CommandRunner;
+
   return yield* runner.run("xcodes", args, {
     env: xcodeEnv,
     output: options.output ?? "capture",
@@ -124,12 +137,14 @@ const runXcodes = Effect.fn("runXcodes")(function* (
 
 const catalog = Effect.fn("xcodeCatalog")(function* (args: ReadonlyArray<string>) {
   const result = yield* runXcodes(args);
+
   if (result.status !== 0) {
     return yield* fail(
       `xcodes ${args[0]} exited ${result.status}${result.stderr.trim() ? `: ${result.stderr.trim()}` : ""}`,
       result.status,
     );
   }
+
   return parseCatalog(result.stdout);
 });
 
@@ -139,16 +154,19 @@ const selectedRelease = (releases: ReadonlyArray<XcodeRelease>) =>
 const checkPin = Effect.fn("checkXcodePin")(function* (pin: XcodePin) {
   const installed = yield* catalog(["installed"]);
   const selected = selectedRelease(installed);
+
   if (!selected) {
     return yield* fail(
       "no Xcode is selected; install the declared release with mise run xcode:install",
     );
   }
+
   if (!satisfiesPin(selected.version, pin.release) || selected.build !== pin.build) {
     return yield* fail(
       `selected Xcode is ${describeRelease(selected)}; pin is ${pin.release} (${pin.build})`,
     );
   }
+
   yield* Console.log(`Xcode ${describeRelease(selected)} matches the pin`);
 });
 
@@ -162,19 +180,26 @@ const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (
   const configPath = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
   const wrapper = join(repoRoot, "identity/sops-devbox-sudo.ts");
   const config = yield* fs.stat(configPath).pipe(Effect.option);
+
   const useWrapper =
     Option.isSome(config) && config.value.type === "File" && (yield* fs.exists(wrapper));
+
   let resolved = command;
+
   if (!command.includes("/")) {
     const located = yield* runner.run("which", [command]);
+
     if (located.status !== 0 || !located.stdout.trim()) {
       return yield* fail(`missing ${command}`);
     }
+
     resolved = located.stdout.trim();
   }
+
   const result: CommandResult = useWrapper
     ? yield* runner.run(process.execPath, [wrapper, "--", resolved, ...args], { output: "inherit" })
     : yield* runner.run("sudo", ["-n", resolved, ...args], { output: "inherit" });
+
   if (result.status !== 0) {
     return yield* fail(
       `privileged ${command} exited ${result.status}; run \`sudo ${[resolved, ...args].join(" ")}\` in a terminal, then rerun mise run xcode:install; on a headless host, configure sops-devbox-sudo (docs/devbox.md)`,
@@ -193,21 +218,30 @@ const installRelease = Effect.fn("installXcodeRelease")(function* (pin: XcodePin
   yield* requirePrefixOwner();
   const installed = yield* catalog(["installed"]);
   const selected = selectedRelease(installed);
+
   if (selected && satisfiesPin(selected.version, pin.release)) {
     yield* Console.log(`Xcode ${describeRelease(selected)} already selected`);
+
     return;
   }
+
   const present = installed.find((release) => satisfiesPin(release.version, pin.release));
+
   if (present) {
     yield* selectRelease(present);
+
     return;
   }
+
   const available = yield* catalog(["list"]);
   const target = pickInstallTarget(available, pin.release);
+
   if (!target) {
     return yield* fail(`no stable Xcode ${pin.release} is available from xcodes`);
   }
+
   yield* Console.log(`Installing Xcode ${describeRelease(target)}`);
+
   const install = yield* runXcodes(
     [
       "install",
@@ -220,33 +254,41 @@ const installRelease = Effect.fn("installXcodeRelease")(function* (pin: XcodePin
     ],
     { output: "inherit", stdin: "inherit" },
   );
+
   if (install.status !== 0) {
     return yield* fail(
       `xcodes install exited ${install.status}; if Apple ID authentication failed, complete it in a terminal and retry`,
       install.status,
     );
   }
+
   yield* selectRelease(target);
 });
 
 const program = Effect.gen(function* () {
   const args = process.argv.slice(2);
   let check = false;
+
   for (const argument of args) {
     if (argument === "--check") {
       check = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
+
       return;
     } else {
       yield* Console.error(usage);
+
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
+
   const pin = yield* readPin();
+
   if (check) {
     return yield* checkPin(pin);
   }
+
   yield* installRelease(pin);
   yield* checkPin(pin);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

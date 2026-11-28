@@ -14,6 +14,7 @@ import { cleanRepository, discoverRepositories, openFiles } from "./repositories
 type Entry = { target: string; result: string };
 
 const interval = 3 * 86_400_000;
+
 const State = Schema.Struct({
   lastRun: Schema.Number,
   lastCache: Schema.Number,
@@ -22,20 +23,25 @@ const State = Schema.Struct({
     Schema.Struct({ head: Schema.String, since: Schema.Number }),
   ),
 });
+
 type State = typeof State.Type;
+
 type LoadedState = { state: State; recovered: boolean };
 
 export function readState(statePath: string): LoadedState {
   const empty: State = { lastRun: 0, lastCache: 0, candidates: {} };
   let text: string;
+
   try {
     text = readFileSync(statePath, "utf8");
   } catch (error) {
     if (Predicate.hasProperty(error, "code") && error.code === "ENOENT") {
       return { state: empty, recovered: false };
     }
+
     throw error;
   }
+
   try {
     return {
       state: Schema.decodeUnknownSync(Schema.fromJsonString(State))(text),
@@ -57,17 +63,22 @@ export async function hygiene(
   const directory = join(home, ".local/state/dotfiles");
   const statePath = join(directory, "hygiene.json");
   const { state, recovered } = readState(statePath);
+
   if (recovered) {
     process.stderr.write(
       `Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}\n`,
     );
   }
+
   if (scheduled && now >= state.lastRun && now - state.lastRun < interval) {
     process.stdout.write("Host hygiene: next run is not due.\n");
+
     return;
   }
+
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   let release: () => void;
+
   try {
     release = acquireDirectoryLock(join(directory, "hygiene.lock"));
   } catch (error) {
@@ -75,14 +86,17 @@ export async function hygiene(
       cause: error,
     });
   }
+
   try {
     const roots = [".codex/worktrees", ".claude/worktrees", "projects"].map((path) =>
       join(home, path),
     );
+
     const next: Record<string, { head: string; since: number }> = {};
     const reports: Record<string, Array<Entry>> = {};
     let failed = false;
     const activity = () => openFiles(home);
+
     for (const repo of discoverRepositories(join(home, "projects"))) {
       try {
         const result = cleanRepository(repo, roots, state.candidates, now, apply, activity);
@@ -95,7 +109,9 @@ export async function hygiene(
         ];
       }
     }
+
     const cacheDue = !scheduled || now - state.lastCache >= interval;
+
     const cache = cacheDue
       ? await Effect.runPromise(
           cacheCleanup(home, apply).pipe(
@@ -105,10 +121,12 @@ export async function hygiene(
           { signal },
         )
       : { status: 0, stdout: "Cache cleanup is not due." };
+
     process.stdout.write(`${cache.stdout}\n`);
     failed ||= cache.status !== 0;
     const logs = apply ? capLogs(logDirectory(home)) : [];
     failed ||= logs.some((entry) => entry.result.startsWith("log cap failed"));
+
     const report = JSON.stringify(
       {
         startedAt: new Date(now).toISOString(),
@@ -121,7 +139,9 @@ export async function hygiene(
       null,
       2,
     );
+
     process.stdout.write(`${report}\n`);
+
     if (apply) {
       writeFileSync(dailyLog(home, "hygiene", now), `${cache.stdout}\n${report}\n`, {
         flag: "a",
@@ -139,6 +159,7 @@ export async function hygiene(
       );
       renameSync(temporary, statePath);
     }
+
     if (failed) {
       throw new Error("some hygiene checks failed; inspect the report");
     }
@@ -150,14 +171,17 @@ export async function hygiene(
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const controller = new AbortController();
   let interrupted: "SIGINT" | "SIGTERM" | undefined;
+
   const interrupt = (signal: "SIGINT" | "SIGTERM") => {
     interrupted ??= signal;
     controller.abort();
   };
+
   const onInterrupt = () => interrupt("SIGINT");
   const onTerminate = () => interrupt("SIGTERM");
   process.on("SIGINT", onInterrupt);
   process.on("SIGTERM", onTerminate);
+
   try {
     if (
       process.getuid?.() === 0 ||
@@ -165,6 +189,7 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     ) {
       throw new Error("Usage (as the owning user): hygiene.ts [--apply] [--scheduled] [--dry-run]");
     }
+
     await hygiene(
       homedir(),
       process.argv.includes("--apply") && !process.argv.includes("--dry-run"),
@@ -180,6 +205,7 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   } finally {
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
+
     if (interrupted) {
       process.kill(process.pid, interrupted);
     }

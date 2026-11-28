@@ -8,6 +8,7 @@ import { commit, init, invoke, run } from "./pre-push-fixture.ts";
 
 test("empty input and deletions succeed without inspecting the worktree", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-empty-"));
+
   try {
     const repo = init(root);
     const base = commit(repo, "base\n");
@@ -25,6 +26,7 @@ test("empty input and deletions succeed without inspecting the worktree", () => 
 
 test("existing, new, and multiple ref updates inspect only outgoing commits", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-updates-"));
+
   try {
     const repo = init(root);
     const base = commit(repo, "base\n");
@@ -50,6 +52,7 @@ test("existing, new, and multiple ref updates inspect only outgoing commits", ()
 
 test("URL remotes and repositories without tracking refs check new history", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-url-"));
+
   try {
     const repo = init(root);
     const bad = commit(repo, "bad   \n");
@@ -62,6 +65,7 @@ test("URL remotes and repositories without tracking refs check new history", () 
 
 test("missing required objects fail with an actionable diagnostic", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-missing-"));
+
   try {
     const repo = init(root);
     const local = commit(repo, "clean\n");
@@ -77,15 +81,18 @@ test("missing required objects fail with an actionable diagnostic", () => {
 
 test("mirror-shaped non-commit and deletion updates are ignored safely", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-mirror-"));
+
   try {
     const repo = init(root);
     const commitOid = commit(repo, "clean\n");
     const blobOid = run(repo.path, ["git", "hash-object", "file.txt"]);
+
     const input = [
       `refs/heads/main ${commitOid} refs/heads/main ${repo.zeroOid}`,
       `refs/custom/blob ${blobOid} refs/custom/blob ${repo.zeroOid}`,
       `(delete) ${repo.zeroOid} refs/heads/old ${commitOid}`,
     ].join("\n");
+
     assert.equal(invoke(repo, `${input}\n`).status, 0);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -94,6 +101,7 @@ test("mirror-shaped non-commit and deletion updates are ignored safely", () => {
 
 test("merge-only defects fail while clean merges pass", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-merge-"));
+
   try {
     const repo = init(root);
     const base = commit(repo, "base\n");
@@ -105,6 +113,7 @@ test("merge-only defects fail while clean merges pass", () => {
     const clean = commit(repo, "clean resolution\n", "merge.txt");
     const update = (oid: string) => `refs/heads/target ${oid} refs/heads/target ${base}\n`;
     assert.equal(invoke(repo, update(clean)).status, 0);
+
     for (const content of ["bad resolution   \n", "<<<<<<< fixture\n"]) {
       writeFileSync(join(repo.path, "merge.txt"), content);
       run(repo.path, ["git", "add", "merge.txt"]);

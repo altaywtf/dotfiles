@@ -10,6 +10,7 @@ const directories: Array<string> = [];
 
 afterEach(() => {
   vi.unstubAllEnvs();
+
   for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -35,6 +36,7 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", (l
   vi.stubEnv("CODEX_HOME", home);
   vi.stubEnv("CODEX_CONFIG_PATH", config);
   vi.stubEnv("CODEX_BIN", binary);
+
   return { config, home };
 }
 
@@ -47,6 +49,7 @@ test("native write completes before returning the private configuration path", a
       process.stdout.write('{"id":1,"result":{}}\\n');
     }
   `);
+
   const edits = [{ keyPath: "example", value: true, mergeStrategy: "upsert" }] as const;
   assert.equal(await writeConfigEdits(edits), config);
   assert.equal(readFileSync(config, "utf8"), "# updated\n");
@@ -90,11 +93,13 @@ test("planned edits read the user layer and write against its version", async ()
       process.stdout.write('{"id":1,"result":{}}\\n');
     }
   `);
+
   const seen: Array<unknown> = [];
   const edit = { keyPath: "example", value: true, mergeStrategy: "upsert" } as const;
   assert.equal(
     await writeConfigEdits((user) => {
       seen.push(user.projects);
+
       return [edit];
     }),
     config,

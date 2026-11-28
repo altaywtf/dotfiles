@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { Effect, FileSystem, Result, Schema } from "effect";
+import { Effect, FileSystem, Match, Result, Schema } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
 import { isCliFailure } from "../../lib/program.ts";
@@ -17,6 +17,7 @@ import {
 } from "./schedule.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
+
 const RenderedJob = Schema.fromJsonString(
   Schema.Struct({
     Label: Schema.String,
@@ -31,12 +32,15 @@ const RenderedJob = Schema.fromJsonString(
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
   const calls: Array<Array<string>> = [];
+
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
+
       return Effect.succeed({ status: 0, stdout: "loaded", stderr: "" });
     },
   });
+
   await Effect.runPromise(
     manageSchedule("run", "/fixture/home", 501).pipe(
       Effect.provideService(CommandRunner, runner),
@@ -61,15 +65,18 @@ function systemRunner(calls: Array<Array<string>>, kickstartStatus = 0, systemLo
   return CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
+
       if (command === "id") {
         return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
       }
+
       const status =
         args[0] === "print"
           ? args[1] === systemService && systemLoaded
             ? 0
             : 113
           : kickstartStatus;
+
       return Effect.succeed({ status, stdout: "", stderr: "" });
     },
   });
@@ -80,11 +87,13 @@ async function runSystemUpdate(
   options: { devbox?: string; interactive: boolean },
 ) {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-schedule-run-"));
+
   try {
     if (options.devbox !== undefined) {
       await mkdir(join(home, ".config/dotfiles"), { recursive: true });
       await writeFile(join(home, ".config/dotfiles/devbox.env"), options.devbox, { mode: 0o600 });
     }
+
     return await Effect.runPromise(
       manageSchedule("run", home, 501, options.interactive).pipe(
         Effect.provideService(CommandRunner, runner),
@@ -99,10 +108,12 @@ async function runSystemUpdate(
 
 test("a missing job cannot silently run an uncoordinated updater", async () => {
   const calls: Array<Array<string>> = [];
+
   const result = await runSystemUpdate(systemRunner(calls, 0, false), {
     devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
     interactive: false,
   });
+
   assert.ok(Result.isFailure(result));
   assert.match(String(result.failure), /enable the scheduler first/);
   assert.deepEqual(calls, [
@@ -113,6 +124,7 @@ test("a missing job cannot silently run an uncoordinated updater", async () => {
 });
 
 const kickstart = ["/bin/launchctl", "kickstart", systemService];
+
 test.each([
   {
     caller: "enrolled devboxes use the sudo helper",
@@ -134,6 +146,7 @@ test.each([
   const calls: Array<Array<string>> = [];
   const result = await runSystemUpdate(systemRunner(calls, status), options);
   assert.deepEqual(calls.at(-1), argv);
+
   if (status === 0) {
     assert.ok(Result.isSuccess(result));
   } else {
@@ -151,6 +164,7 @@ test("on-demand launch failures reach the caller", async () => {
         stderr: "launch failed",
       }),
   });
+
   const failure = await Effect.runPromise(
     manageSchedule("run", "/fixture/home", 501).pipe(
       Effect.provideService(CommandRunner, runner),
@@ -158,6 +172,7 @@ test("on-demand launch failures reach the caller", async () => {
       Effect.flip,
     ),
   );
+
   assert.ok(isCliFailure(failure));
   assert.equal(failure.exitCode, 5);
 });
@@ -165,12 +180,15 @@ test("on-demand launch failures reach the caller", async () => {
 for (const loaded of [false, true]) {
   test(`disabling a ${loaded ? "loaded" : "missing"} job persists its disabled state`, async () => {
     const calls: Array<Array<string>> = [];
+
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
+
         if (command === "id") {
           return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
         }
+
         return Effect.succeed({
           status: args[0] === "print" && (!loaded || args[1] === systemService) ? 113 : 0,
           stdout: "",
@@ -178,6 +196,7 @@ for (const loaded of [false, true]) {
         });
       },
     });
+
     await Effect.runPromise(
       manageSchedule("disable", "/fixture/home", 501).pipe(
         Effect.provideService(CommandRunner, runner),
@@ -197,6 +216,7 @@ for (const loaded of [false, true]) {
 
 test("disabling fails while the system updater stays enrolled", async () => {
   const calls: Array<Array<string>> = [];
+
   const failure = await Effect.runPromise(
     manageSchedule("disable", "/fixture/home", 501).pipe(
       Effect.provideService(CommandRunner, systemRunner(calls)),
@@ -204,6 +224,7 @@ test("disabling fails while the system updater stays enrolled", async () => {
       Effect.flip,
     ),
   );
+
   assert.ok(isCliFailure(failure));
   assert.match(failure.message, /system updater still enrolled/);
 });
@@ -219,24 +240,31 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     await mkdir(join(home, ".config/dotfiles"), { recursive: true });
     await writeFile(join(home, ".config/dotfiles/profile"), "workstation\n", { mode: 0o600 });
     await writeFile(plist, "fixture: plutil is stubbed at the process boundary", { mode: 0o600 });
+
     if (kind === "writable") {
       await chmod(plist, 0o622);
     }
+
     if (kind === "symlink") {
       await rm(plist);
       await symlink(join(home, ".config/dotfiles/profile"), plist);
     }
+
     const calls: Array<Array<string>> = [];
     let loaded = false;
+
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
+
         if (command === "id") {
           return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
         }
+
         if (args[0] === "bootstrap") {
           loaded = true;
         }
+
         return Effect.succeed({
           status: args[0] === "print" && !loaded ? 113 : 0,
           stdout: "",
@@ -244,8 +272,10 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
         });
       },
     });
+
     const operation = Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+
       return yield* manageSchedule("enable", home, uid).pipe(
         Effect.provideService(FileSystem.FileSystem, {
           ...fs,
@@ -257,7 +287,9 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
         }),
       );
     }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
+
     const service = `gui/${uid}/${updateLabel}`;
+
     if (kind === "regular") {
       await Effect.runPromise(operation);
       assert.deepEqual(calls, [
@@ -272,11 +304,11 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
       const failure = await Effect.runPromise(operation.pipe(Effect.flip));
       assert.match(
         String(failure),
-        kind === "system"
-          ? /system updater already enrolled/
-          : kind === "symlink"
-            ? /must not be a symlink/
-            : /owning user/,
+        Match.value(kind).pipe(
+          Match.when("system", () => /system updater already enrolled/),
+          Match.when("symlink", () => /must not be a symlink/),
+          Match.orElse(() => /owning user/),
+        ),
       );
       assert.deepEqual(calls, [
         ["launchctl", "print", service],
@@ -328,6 +360,7 @@ const launchdPrintFixture = `gui/501/local.dotfiles.software-update = {
 \t}
 }
 `;
+
 const fixtureArguments = [
   "/Users/fixture/.local/share/mise/shims/node",
   "/Users/fixture/projects/dotfiles/maintenance/run.ts",
@@ -336,6 +369,7 @@ const fixtureArguments = [
   "/opt/homebrew/bin/topgrade",
   "--yes",
 ];
+
 const fixturePlist = {
   ProgramArguments: fixtureArguments,
   EnvironmentVariables: {
@@ -371,25 +405,31 @@ test("launchctl print parsing extracts only the job's own arguments and environm
 test("drift detection compares the loaded job against the rendered plist defensively", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
   assert.deepEqual(comparePlist(loaded, fixturePlist), { comparable: true, drift: [] });
+
   const rescheduled = {
     ...fixturePlist,
     StartCalendarInterval: [{ Hour: 3, Minute: 0 }],
     WorkingDirectory: "/elsewhere",
   };
+
   assert.deepEqual(
     comparePlist(loaded, rescheduled),
     { comparable: true, drift: [] },
     "schedule and working directory are outside the comparison",
   );
+
   const changedArguments = {
     ...fixturePlist,
     ProgramArguments: [...fixtureArguments.slice(0, -1), "--dry-run"],
   };
+
   assert.match(comparePlist(loaded, changedArguments).drift.join("\n"), /ProgramArguments differ/);
+
   const changedEnvironment = {
     ...fixturePlist,
     EnvironmentVariables: { ...fixturePlist.EnvironmentVariables, NO_COLOR: "0" },
   };
+
   assert.match(
     comparePlist(loaded, changedEnvironment).drift.join("\n"),
     /EnvironmentVariables\.NO_COLOR differs/,
@@ -444,15 +484,19 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
     }),
   );
   const calls: Array<Array<string>> = [];
+
   const runner = CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
+
       if (command === "plutil") {
         return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
       }
+
       return Effect.succeed({ status: 0, stdout: launchdPrintFixture, stderr: "" });
     },
   });
+
   await Effect.runPromise(
     manageSchedule("status", home, uid).pipe(
       Effect.provideService(CommandRunner, runner),
@@ -467,9 +511,11 @@ test("status compares the loaded job with the rendered on-disk plist", async (t)
 
 test("rendered profiles keep updater scope, scheduling, and paths valid", async () => {
   const root = await mkdtemp(join(tmpdir(), "dotfiles-updates-"));
+
   try {
     const home = join(root, "home & space");
     await mkdir(home);
+
     for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {
       const render = (target: string) => {
         const result = spawnSync(
@@ -489,14 +535,19 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
             env: { ...process.env, HOME: home, XDG_CONFIG_HOME: join(root, "config") },
           },
         );
+
         assert.equal(result.status, 0, result.stderr);
+
         return result.stdout;
       };
+
       const plist = join(root, "update.plist");
       await writeFile(plist, render(`Library/LaunchAgents/${updateLabel}.plist`));
+
       const parsed = spawnSync("plutil", ["-convert", "json", "-o", "-", plist], {
         encoding: "utf8",
       });
+
       assert.equal(parsed.status, 0, parsed.stderr);
       const job = Schema.decodeUnknownSync(RenderedJob)(parsed.stdout);
       assert.equal(job.Label, "local.dotfiles.software-update");
@@ -559,15 +610,19 @@ for (const loaded of [true, false]) {
     const service = "system/example.host.software-update.fixture";
     const plist = "/Library/LaunchDaemons/example.host.software-update.fixture.plist";
     const calls: Array<Array<string>> = [];
+
     const runner = CommandRunner.of({
       run: (command, args = []) => {
         calls.push([command, ...args]);
+
         if (command === "id") {
           return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
         }
+
         if (command === "plutil") {
           return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
         }
+
         return Effect.succeed({
           status: loaded && args[1] === service ? 0 : 113,
           stdout: launchdPrintFixture,
@@ -575,8 +630,10 @@ for (const loaded of [true, false]) {
         });
       },
     });
+
     const operation = Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+
       return yield* manageSchedule("status", home, uid).pipe(
         Effect.provideService(FileSystem.FileSystem, {
           ...fs,
@@ -584,6 +641,7 @@ for (const loaded of [true, false]) {
         }),
       );
     }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
+
     if (loaded) {
       await Effect.runPromise(operation);
     } else {
@@ -592,6 +650,7 @@ for (const loaded of [true, false]) {
         /not loaded in the GUI or system domain/,
       );
     }
+
     assert.deepEqual(calls, [
       ["launchctl", "print", `gui/${uid}/${updateLabel}`],
       ["id", "-un", String(uid)],

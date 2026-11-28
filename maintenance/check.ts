@@ -20,6 +20,7 @@ import { probe, runProbe, runProcess } from "./probes.ts";
 import type { Probe, ProbeResult } from "./probes.ts";
 import { dropInvalid } from "./schema.ts";
 import type { CommandRunner, RawCommandResult } from "./command.ts";
+
 export type { CommandRunner, RawCommandResult } from "./command.ts";
 
 type MaintenanceProbes = Record<string, ProbeResult> & {
@@ -46,6 +47,7 @@ const BrewItem = Schema.Struct({
   installed_versions: Schema.Array(Schema.String),
   current_version: Schema.String,
 });
+
 type BrewItem = typeof BrewItem.Type;
 
 const BrewOutdated = Schema.Struct({
@@ -91,6 +93,7 @@ const MiseConfig = Schema.Struct({
     Schema.Union([Schema.NonEmptyString, Schema.Struct({ version: Schema.NonEmptyString })]),
   ),
 });
+
 const MiseInstallInventory = Schema.Record(
   Schema.String,
   Schema.Array(
@@ -105,6 +108,7 @@ const MiseInstallInventory = Schema.Record(
 function misePins(path: string): Record<string, string> {
   try {
     const config = Schema.decodeUnknownSync(MiseConfig)(parseToml(readFileSync(path, "utf8")));
+
     return Object.fromEntries(
       Object.entries(config.tools).map(([tool, pin]) => [
         tool,
@@ -118,15 +122,19 @@ function misePins(path: string): Record<string, string> {
 
 function miseConvergence(context: MaintenanceContext, result: RawCommandResult) {
   const templates = join(context.repoRoot, "chezmoi/.chezmoitemplates");
+
   const declared = {
     ...misePins(join(templates, "mise.toml")),
     ...misePins(join(templates, context.platform, "mise.toml")),
   };
+
   const configured = misePins(
     context.env.MISE_GLOBAL_CONFIG_FILE ||
       join(context.env.XDG_CONFIG_HOME || join(context.home, ".config"), "mise/config.toml"),
   );
+
   let inventory: typeof MiseInstallInventory.Type;
+
   try {
     inventory = Schema.decodeUnknownSync(Schema.fromJsonString(MiseInstallInventory))(
       result.stdout,
@@ -134,17 +142,21 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
   } catch (error) {
     throw new Error("mise returned an invalid installed pin inventory", { cause: error });
   }
+
   const pending: Record<
     string,
     { declared: string; configured: string | null; current: string | null; installed: boolean }
   > = {};
+
   for (const [tool, pin] of Object.entries(declared)) {
     const selection = inventory[tool]?.find(
       (entry) => entry.requested_version === configured[tool],
     );
+
     if (configured[tool] && !selection) {
       throw new Error(`mise did not report the configured installation of ${tool}`);
     }
+
     if (configured[tool] !== pin || !selection?.installed) {
       pending[tool] = {
         declared: pin,
@@ -154,6 +166,7 @@ function miseConvergence(context: MaintenanceContext, result: RawCommandResult) 
       };
     }
   }
+
   return pending;
 }
 
@@ -180,26 +193,34 @@ function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBa
   const apps = Schema.is(CaskInventory)(inventory) ? inventory.casks : [];
   const record_lag: Array<BrewItem> = [];
   const casks: Array<BrewItem> = [];
+
   const cask_verification = backlog.casks.map((item) => {
     const app = apps.find((entry) => entry.token === item.name || entry.full_token === item.name);
     const short = app?.bundle_short_version;
     const build = app?.bundle_version;
+
     const app_version =
       short && build && item.current_version.includes(",")
         ? `${short},${build}`
         : short || build || undefined;
+
     const status =
       app_version === item.current_version ? "record_lag" : app_version ? "pending" : "unknown";
+
     (status === "record_lag" ? record_lag : casks).push(item);
+
     const verification: NonNullable<BrewBacklog["cask_verification"]>[number] = {
       name: item.name,
       status,
     };
+
     if (app_version) {
       verification.app_version = app_version;
     }
+
     return verification;
   });
+
   return { ...backlog, casks, record_lag, cask_verification };
 }
 
@@ -215,9 +236,11 @@ function firstLine(result: RawCommandResult): string {
 function parseDisk(result: RawCommandResult) {
   const fields = result.stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
   const mount = fields.at(-1);
+
   if (fields.length < 6 || mount === undefined) {
     throw new Error("df returned an unsupported shape");
   }
+
   return {
     total_kb: Number(fields[1]),
     used_kb: Number(fields[2]),
@@ -242,7 +265,9 @@ function parseTailscale(result: RawCommandResult) {
     result.stdout || "{}",
     "Tailscale did not return a JSON object",
   );
+
   const peers = Object.values(value.Peer ?? {});
+
   return {
     backend_state: value.BackendState ?? "unknown",
     magic_dns_suffix: value.MagicDNSSuffix ?? "",
@@ -266,11 +291,13 @@ const CacheLocator = Schema.Struct({
 
 function parseContentCaches(result: RawCommandResult) {
   let locator: typeof CacheLocator.Type;
+
   try {
     locator = Schema.decodeUnknownSync(Schema.fromJsonString(CacheLocator))(result.stdout);
   } catch (error) {
     throw new Error("AssetCacheLocatorUtil returned an invalid cache inventory", { cause: error });
   }
+
   return locator.results.system["refreshed servers"]["shared caching"].map(
     ({ hostport, healthy }) => ({ hostport, healthy }),
   );
@@ -278,6 +305,7 @@ function parseContentCaches(result: RawCommandResult) {
 
 function parseGitStatus(result: RawCommandResult) {
   const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+
   return { branch: lines[0] ?? "", dirty_entries: Math.max(0, lines.length - 1) };
 }
 
@@ -301,6 +329,7 @@ function agentProbes(context: MaintenanceContext): Array<Probe> {
     ["codex", "codex", ["--version"]],
     ["claude", "claude", ["--version"]],
   ];
+
   const env = {
     PATH: [
       join(context.home, ".local/bin"),
@@ -310,6 +339,7 @@ function agentProbes(context: MaintenanceContext): Array<Probe> {
       .filter(Boolean)
       .join(":"),
   };
+
   return versions.map(([id, command, args]) =>
     probe(`version_${id}`, command, args, firstLine, { env }),
   );
@@ -326,24 +356,29 @@ function skillFacts(context: MaintenanceContext) {
   if (context.profileConfig.agentLayers.length === 0) {
     return { managed: false, selected: 0, locked: 0, installed: 0 };
   }
+
   const { skills: selected } = readLayeredSkills(
     context.repoRoot,
     context.profile,
     context.profileConfig.agentLayers,
   );
+
   const lockPath = managedLockLocation({ ...process.env, HOME: context.home }, "skills");
   const locked = readSkillLock(lockPath)?.length ?? 0;
   const installedRoot = join(context.home, ".agents/skills");
+
   const installed = existsSync(installedRoot)
     ? readdirSync(installedRoot, { withFileTypes: true }).filter(
         (entry) => entry.isDirectory() && existsSync(join(installedRoot, entry.name, "SKILL.md")),
       ).length
     : 0;
+
   return { managed: true, selected: selected.length, locked, installed };
 }
 
 function buildProbes(context: MaintenanceContext): Array<Probe> {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
+
   const probes: Array<Probe> = [
     probe(
       "mise_convergence",
@@ -382,6 +417,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
       probe("disk", "df", ["-Pk", "/"], parseDisk),
       probe("uptime", "uptime", [], (result) => result.stdout.trim()),
     );
+
     if (context.platform === "darwin") {
       probes.push(
         probe("content_cache", "AssetCacheLocatorUtil", ["-j"], parseContentCaches, {
@@ -389,6 +425,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
         }),
       );
     }
+
     if (context.profileConfig.capabilities.devbox || context.profileConfig.capabilities.personal) {
       probes.push(
         probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),
@@ -396,6 +433,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
       );
     }
   }
+
   if (
     context.profileConfig.capabilities.personal &&
     context.profileConfig.capabilities.workstation
@@ -417,6 +455,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
       ),
     );
   }
+
   if (context.profileConfig.capabilities.devbox && context.platform === "darwin") {
     probes.push(
       probe(
@@ -428,6 +467,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
       ),
     );
   }
+
   if (context.verify) {
     probes.push(
       probe(
@@ -441,6 +481,7 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
   }
 
   const checkout = checkoutPath(context);
+
   if (checkout) {
     probes.push(
       probe("dotfiles_status", "git", ["status", "--short", "--branch"], parseGitStatus, {
@@ -450,10 +491,12 @@ function buildProbes(context: MaintenanceContext): Array<Probe> {
         env: context.env,
       }),
     );
+
     for (const item of probes.slice(-2)) {
       item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
     }
   }
+
   return probes;
 }
 
@@ -462,11 +505,13 @@ async function runBrewBacklogProbe(
   runner: CommandRunner,
 ): Promise<ProbeResult> {
   const started = performance.now();
+
   const refresh = await runProbe(
     probe("brew_update", "brew", ["update"], () => null, { timeoutMs: 120_000 }),
     context,
     runner,
   );
+
   if (refresh.status !== "ok") {
     return {
       status: refresh.status,
@@ -483,8 +528,10 @@ async function runBrewBacklogProbe(
     context,
     runner,
   );
+
   if (backlog.status === "ok" && context.platform === "darwin") {
     const value = Schema.decodeUnknownSync(BrewOutdated)(backlog.value);
+
     if (value.casks.length > 0) {
       const inventory = await runProbe(
         probe(
@@ -496,12 +543,14 @@ async function runBrewBacklogProbe(
         context,
         runner,
       );
+
       backlog.value = reconcileCaskVersions(
         value,
         inventory.status === "ok" ? inventory.value : undefined,
       );
     }
   }
+
   return { ...backlog, duration_ms: Math.round(performance.now() - started) };
 }
 
@@ -511,27 +560,36 @@ const PendingList = Schema.Array(Schema.Unknown);
 function backlogCount(probes: Record<string, ProbeResult>): number {
   let count = 0;
   const brew = Schema.decodeUnknownOption(BrewOutdated)(probes.brew_outdated_greedy?.value);
+
   if (Option.isSome(brew)) {
     count += brew.value.formulae.length + brew.value.casks.length;
   }
+
   const misePending = new Set<string>();
+
   for (const id of ["mise_outdated", "mise_convergence"]) {
     const value = Schema.decodeUnknownOption(PendingKeys)(probes[id]?.value);
+
     if (Option.isSome(value)) {
       for (const tool of Object.keys(value.value)) {
         misePending.add(tool);
       }
     }
   }
+
   count += misePending.size;
   const npm = Schema.decodeUnknownOption(PendingKeys)(probes.npm_outdated?.value);
+
   if (Option.isSome(npm)) {
     count += Object.keys(npm.value).length;
   }
+
   const mas = Schema.decodeUnknownOption(PendingList)(probes.mas_outdated?.value);
+
   if (Option.isSome(mas)) {
     count += mas.value.length;
   }
+
   return count;
 }
 
@@ -542,6 +600,7 @@ export async function collectMaintenanceSnapshot(
   signal?: AbortSignal,
 ) {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
+
   const inventory =
     hostOwner && context.platform === "darwin"
       ? collectMacOSUpdateInventory(
@@ -556,6 +615,7 @@ export async function collectMaintenanceSnapshot(
           signal,
         )
       : undefined;
+
   const [entries, macosUpdates] = await Promise.all([
     Promise.all([
       ...buildProbes(context).map(
@@ -571,10 +631,13 @@ export async function collectMaintenanceSnapshot(
     ]),
     inventory,
   ]);
+
   const probes: MaintenanceProbes = {};
+
   for (const [id, result] of entries) {
     probes[id] = result;
   }
+
   if (macosUpdates) {
     const softwareUpdate: ProbeResult<MacOSUpdateInventory> = {
       status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
@@ -582,17 +645,23 @@ export async function collectMaintenanceSnapshot(
       duration_ms: macosUpdates.duration_ms,
       value: macosUpdates,
     };
+
     if (macosUpdates.applicability.status === "unknown") {
       softwareUpdate.error = "macOS update applicability could not be established";
     }
+
     probes.software_update = softwareUpdate;
   }
+
   const backlog_count = backlogCount(probes);
+
   const required_failures = Object.values(probes).filter(
     (result) => result.required && result.status !== "ok",
   ).length;
+
   const software_update_status = macosUpdates?.applicability.status ?? "not_applicable";
   const software_update_available = macosUpdates?.applicability.status === "updates_available";
+
   return {
     schema_version: 2,
     collected_at: new Date().toISOString(),
@@ -618,9 +687,11 @@ export async function collectMaintenanceSnapshot(
 
 function ownsHomebrew(env: NodeJS.ProcessEnv): boolean {
   const result = spawnSync("brew", ["--prefix"], { encoding: "utf8", env });
+
   if (result.status !== 0) {
     return false;
   }
+
   try {
     return statSync(result.stdout.trim()).uid === (process.getuid?.() ?? -1);
   } catch {
@@ -634,6 +705,7 @@ export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSna
 ) {
   const active = new Set<Promise<RawCommandResult>>();
   let collection: Promise<unknown> | undefined;
+
   const controller = yield* Effect.acquireRelease(
     Effect.sync(() => new AbortController()),
     (controller) =>
@@ -642,6 +714,7 @@ export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSna
         await Promise.allSettled([...active, ...(collection ? [collection] : [])]);
       }),
   );
+
   const runner: CommandRunner = (command, args, options) => {
     const pending = runProcess(command, args, { ...options, signal: controller.signal });
     active.add(pending);
@@ -649,12 +722,15 @@ export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSna
       () => active.delete(pending),
       () => active.delete(pending),
     );
+
     return pending;
   };
+
   return yield* Effect.tryPromise({
     try: () => {
       const pending = collectMaintenanceSnapshot(context, runner, macosUpdateIO, controller.signal);
       collection = pending;
+
       return pending;
     },
     catch: (error) => error,
@@ -663,22 +739,29 @@ export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSna
 
 const main = Effect.fn("maintenanceCheck")(function* () {
   const args = process.argv.slice(2);
+
   if (
     args.some((argument) => argument !== "--fresh" && argument !== "--verify") ||
     new Set(args).size !== args.length
   ) {
     process.stderr.write("Usage: maintenance/check.ts [--fresh] [--verify]\n");
+
     return 2;
   }
+
   const repoRoot = resolve(import.meta.dirname, "..");
   const home = process.env.HOME || homedir();
+
   const profile = yield* Effect.try(() =>
     readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim(),
   );
+
   const model = yield* Effect.try(() =>
     readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json")),
   );
+
   const profileConfig = yield* Effect.try(() => requireProfile(model, profile));
+
   const snapshot = yield* collectMaintenanceSnapshotEffect({
     cwd: repoRoot,
     env: process.env,
@@ -693,7 +776,9 @@ const main = Effect.fn("maintenanceCheck")(function* () {
     fresh: args.includes("--fresh"),
     verify: args.includes("--verify"),
   });
+
   process.stdout.write(`${JSON.stringify(snapshot)}\n`);
+
   return 0;
 });
 
