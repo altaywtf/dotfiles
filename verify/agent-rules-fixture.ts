@@ -131,8 +131,12 @@ export function assertManagedRules(home: string): string {
   assert.equal(lstatSync(rules).mode & 0o777, 0o600);
   assert.equal(lstatSync(join(home, ".claude/CLAUDE.md")).isSymbolicLink(), true);
   assert.equal(lstatSync(join(home, ".codex/AGENTS.md")).isSymbolicLink(), true);
+  assert.equal(lstatSync(join(home, ".gemini/GEMINI.md")).isSymbolicLink(), true);
+  assert.equal(lstatSync(join(home, ".gemini/config/skills")).isSymbolicLink(), true);
   assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../.agents/AGENTS.md");
   assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../.agents/AGENTS.md");
+  assert.equal(readlinkSync(join(home, ".gemini/GEMINI.md")), "../.agents/AGENTS.md");
+  assert.equal(readlinkSync(join(home, ".gemini/config/skills")), "../../.agents/skills");
 
   return readFileSync(rules, "utf8");
 }

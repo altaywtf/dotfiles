@@ -18,6 +18,7 @@ function assertNoBackups(home: string): void {
     join(home, ".agents"),
     join(home, ".claude"),
     join(home, ".codex"),
+    join(home, ".gemini"),
   ]) {
     assert.deepEqual(
       readdirSync(directory).filter((name) => name.includes(".backup.")),
@@ -33,7 +34,9 @@ test.each([
     (home: string) => {
       mkdirSync(join(home, ".claude"), { recursive: true });
       mkdirSync(join(home, ".codex"), { recursive: true });
+      mkdirSync(join(home, ".gemini"), { recursive: true });
       writeFileSync(join(home, ".claude/CLAUDE.md"), "unmanaged fixture rules\n");
+      writeFileSync(join(home, ".gemini/GEMINI.md"), "unmanaged fixture rules\n");
       mkdirSync(join(home, ".agents"), { recursive: true });
       writeFileSync(join(home, ".agents/AGENTS.md"), "unmanaged fixture rules\n");
       symlinkSync("../missing/AGENTS.md", join(home, ".codex/AGENTS.md"));
@@ -46,9 +49,11 @@ test.each([
       mkdirSync(dirname(externalRules), { recursive: true });
       mkdirSync(join(home, ".claude"), { recursive: true });
       mkdirSync(join(home, ".codex"), { recursive: true });
+      mkdirSync(join(home, ".gemini"), { recursive: true });
       writeFileSync(externalRules, "external fixture rules\n");
       symlinkSync(externalRules, join(home, ".claude/CLAUDE.md"));
       symlinkSync(externalRules, join(home, ".codex/AGENTS.md"));
+      symlinkSync(externalRules, join(home, ".gemini/GEMINI.md"));
     },
   ],
 ])("replaces conflicting %s without backups", (_name, conflict) => {

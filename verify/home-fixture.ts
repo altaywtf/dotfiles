@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -106,6 +107,8 @@ export function runApply(
       ).trim();
 
       assert.equal(storedProfile, profile);
+      assert.equal(readlinkSync(join(paths.home, ".gemini/GEMINI.md")), "../.agents/AGENTS.md");
+      assert.equal(readlinkSync(join(paths.home, ".gemini/config/skills")), "../../.agents/skills");
       assert.ok(realpathSync(paths.home).startsWith(`${realpathSync(fixtureRoot)}/`));
       finish();
     });

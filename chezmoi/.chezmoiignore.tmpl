@@ -7,9 +7,6 @@
 .config/zed
 Library/Application Support/com.mitchellh.ghostty
 {{ end }}
-{{ if not $profile.capabilities.personal }}
-.gemini
-{{ end }}
 {{ if ne .chezmoi.os "darwin" }}
 Library
 {{ end }}
