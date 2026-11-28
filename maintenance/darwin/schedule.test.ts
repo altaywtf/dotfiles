@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
-import { Effect, FileSystem, Result, Schema } from "effect";
+import { Effect, FileSystem, Match, Result, Schema } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
 import { isCliFailure } from "../../lib/program.ts";
@@ -304,11 +304,11 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
       const failure = await Effect.runPromise(operation.pipe(Effect.flip));
       assert.match(
         String(failure),
-        kind === "system"
-          ? /system updater already enrolled/
-          : kind === "symlink"
-            ? /must not be a symlink/
-            : /owning user/,
+        Match.value(kind).pipe(
+          Match.when("system", () => /system updater already enrolled/),
+          Match.when("symlink", () => /must not be a symlink/),
+          Match.orElse(() => /owning user/),
+        ),
       );
       assert.deepEqual(calls, [
         ["launchctl", "print", service],

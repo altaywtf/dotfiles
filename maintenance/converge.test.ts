@@ -12,6 +12,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { Match } from "effect";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test, vi } from "vite-plus/test";
@@ -234,7 +235,14 @@ test("bootstrap failure preserves exit status and releases the lock", (t) => {
 });
 
 for (const state of ["clean", "dirty", "unreachable"] as const) {
-  test(`agent rule checkout ${state === "clean" ? "advances before maintenance" : state === "dirty" ? "with local work is kept with a warning and convergence succeeds" : "that cannot fetch fails after maintenance"}`, (t) => {
+  const outcome = Match.value(state).pipe(
+    Match.when("clean", () => "advances before maintenance"),
+    Match.when("dirty", () => "with local work is kept with a warning and convergence succeeds"),
+    Match.when("unreachable", () => "that cannot fetch fails after maintenance"),
+    Match.exhaustive,
+  );
+
+  test(`agent rule checkout ${outcome}`, (t) => {
     const f = fixture(t);
     const { root, repo } = f;
     publishBootstrap(t, f, 'cat "$RULES" > "$RENDERED"');

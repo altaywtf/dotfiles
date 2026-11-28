@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { Console, Effect } from "effect";
+import { Console, Effect, Match } from "effect";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runMain } from "../lib/program.ts";
@@ -128,12 +128,11 @@ function commitsForUpdate(
 function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation: string): number {
   const format = git(["rev-parse", "--show-object-format"]);
 
-  const oidLength =
-    format === "sha256"
-      ? 64
-      : format === "sha1"
-        ? 40
-        : fail(`unsupported Git object format ${format}`);
+  const oidLength = Match.value(format).pipe(
+    Match.when("sha256", () => 64),
+    Match.when("sha1", () => 40),
+    Match.orElse(() => fail(`unsupported Git object format ${format}`)),
+  );
 
   const zeroOid = "0".repeat(oidLength);
   const updates = parseUpdates(input, oidLength);
