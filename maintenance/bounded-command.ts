@@ -266,7 +266,7 @@ export class BoundedCommand extends Context.Service<
                     })
                     .pipe(Effect.option);
 
-                  if (sample._tag === "Some") {
+                  if (Option.isSome(sample)) {
                     const start = sample.value.stdout.indexOf("Call graph:");
                     const end = sample.value.stdout.indexOf("Binary Images:", start);
 

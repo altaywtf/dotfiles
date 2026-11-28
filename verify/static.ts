@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem } from "effect";
+import { Console, Effect, FileSystem, Option } from "effect";
 import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
@@ -94,7 +94,7 @@ const program = Effect.gen(function* () {
 
   const claudeTarget = yield* fs.readLink(claudePath).pipe(Effect.option);
 
-  if (claudeTarget._tag === "None" || claudeTarget.value !== "AGENTS.md") {
+  if (Option.isNone(claudeTarget) || claudeTarget.value !== "AGENTS.md") {
     return yield* fail("CLAUDE.md must be a symlink to AGENTS.md");
   }
 

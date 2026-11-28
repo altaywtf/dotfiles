@@ -33,7 +33,6 @@ export default defineConfig({
       "anti-slop/no-unknown-parameters": "off",
       "anti-slop/no-runtime-typeof": "off",
       "anti-slop/require-safety-comment-for-type-assertion": "off",
-      "anti-slop-effect/no-manual-tag-comparison": "off",
       "anti-slop-effect/prefer-effect-match": "off",
       "anti-slop-effect/no-manual-tagged-construction": "off",
       "uinaf/no-comments": ["error", { allow: ["^renovate: ", "^trufflehog:ignore$"] }],

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect, Schema } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 import { resolve } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
@@ -54,7 +54,7 @@ export const parseProcesses = Effect.fn("parseProcesses")(function* (output: str
       command: match?.[4],
     }).pipe(Effect.option);
 
-    if (decoded._tag === "Some") {
+    if (Option.isSome(decoded)) {
       rows.push(decoded.value);
     } else {
       skipped++;
@@ -147,7 +147,7 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
     })
     .pipe(Effect.option);
 
-  if (result._tag === "None" || result.value.status !== 0) {
+  if (Option.isNone(result) || result.value.status !== 0) {
     return {
       lines: ["unknown: process inspection failed; no workload conclusion available"],
       complete: false,
