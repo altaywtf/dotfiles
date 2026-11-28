@@ -63,12 +63,12 @@ function readMcpLock(lockPath: string): Array<LockedMcp> | undefined {
   }
 
   const label = `Invalid managed MCP lock at ${lockPath}`;
-  const shapeMessage = `${label}: expected version 1 and an mcps array`;
-  const lock = decodeOr(McpLockDocument, parsed, shapeMessage);
+  const invalidLockMessage = `${label}: expected version 1 and an mcps array`;
+  const lock = decodeOr(McpLockDocument, parsed, invalidLockMessage);
   const entries = lock.mcps ?? lock.servers;
 
   if (entries === undefined) {
-    throw new Error(shapeMessage);
+    throw new Error(invalidLockMessage);
   }
 
   const mcps = entries.map((mcp, index) => {

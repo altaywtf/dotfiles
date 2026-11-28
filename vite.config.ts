@@ -31,7 +31,6 @@ export default defineConfig({
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
       "anti-slop/no-unknown-parameters": "off",
-      "anti-slop/no-shape-in-symbol-names": "off",
       "anti-slop/no-runtime-typeof": "off",
       "anti-slop/require-safety-comment-for-type-assertion": "off",
       "anti-slop-effect/no-manual-tag-comparison": "off",

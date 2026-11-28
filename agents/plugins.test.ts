@@ -204,18 +204,18 @@ test("honours an explicit marketplaceId when the marketplace name diverges", () 
   assert.equal(readPlugins(manifestPath(repoDir, "developer"))[0]?.marketplaceId, "renamed");
 });
 
-const ENTRY_SHAPE = /expected a marketplace .* and a safe plugin name/;
+const INVALID_ENTRY = /expected a marketplace .* and a safe plugin name/;
 const HARNESS_SET = /harnesses must be a unique/;
 
 test.each([
-  ["a marketplace that is not owner/repo", { marketplace: "fixture", name: "one" }, ENTRY_SHAPE],
-  ["an unsafe plugin name", { marketplace: "fixture/market", name: "../escape" }, ENTRY_SHAPE],
+  ["a marketplace that is not owner/repo", { marketplace: "fixture", name: "one" }, INVALID_ENTRY],
+  ["an unsafe plugin name", { marketplace: "fixture/market", name: "../escape" }, INVALID_ENTRY],
   [
     "an HTTPS marketplace with credentials",
     { marketplace: "https://user:secret@git.fixture.test/m.git", name: "one", marketplaceId: "m" }, // trufflehog:ignore
-    ENTRY_SHAPE,
+    INVALID_ENTRY,
   ],
-  ["a relative path marketplace", { marketplace: "./market", name: "one" }, ENTRY_SHAPE],
+  ["a relative path marketplace", { marketplace: "./market", name: "one" }, INVALID_ENTRY],
   [
     "a Git URL without marketplaceId",
     { marketplace: "https://git.fixture.test/m.git", name: "one" },

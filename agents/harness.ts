@@ -146,10 +146,10 @@ export function composeLayers<T, Layer extends string = AgentLayer>(
 
   for (const entry of selected.flatMap((layer) => manifests.get(layer) ?? [])) {
     const key = keyOf(entry);
-    const shape = JSON.stringify(entry);
+    const serialized = JSON.stringify(entry);
     const previous = seen.get(key);
 
-    if (previous === shape) {
+    if (previous === serialized) {
       continue;
     }
 
@@ -157,7 +157,7 @@ export function composeLayers<T, Layer extends string = AgentLayer>(
       throw new Error(conflictMessage(key));
     }
 
-    seen.set(key, shape);
+    seen.set(key, serialized);
     entries.push(entry);
   }
 
