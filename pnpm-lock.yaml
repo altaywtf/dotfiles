@@ -207,15 +207,12 @@ importers:
         specifier: 1.9.1
         version: 1.9.1
     devDependencies:
-      '@cloudflare/oxlint-config':
-        specifier: 0.2.0
-        version: 0.2.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
       '@types/node':
         specifier: 26.6.11
         version: 26.6.11
-      '@uinaf/oxlint-plugin-no-comments':
-        specifier: 1.1.0
-        version: 1.1.0
+      '@uinaf/oxlint-config':
+        specifier: 1.0.0
+        version: 1.0.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
       knip:
         specifier: 6.48.0
         version: 6.48.0
@@ -1445,6 +1442,18 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
+
+  '@uinaf/oxlint-config@1.0.0':
+    resolution: {integrity: sha512-mijhPRhKF+MTJZHEh2aXWNAZpkeq1EF4J/sm2uh0NsoIioB8bW8AJJepqQ3+wXBCRB5k0d9K0aEUAuHyDPfhKw==}
+    engines: {node: ^22.18.0 || >=24.0.0}
+    peerDependencies:
+      oxlint: '>=1.94.0'
+      vite-plus: '>=1.7.0'
+    peerDependenciesMeta:
+      oxlint:
+        optional: true
+      vite-plus:
+        optional: true
 
   '@uinaf/oxlint-plugin-no-comments@1.1.0':
     resolution: {integrity: sha512-Jc1LomQyspHZCKNRX+5OLXqzWgz+Z1Jey1JxpbBITSxTrQ7RLR3JmWsSpbReyP8p6Xa/Bzx1+tVJJ67tD57kPw==}
@@ -3128,6 +3137,18 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  '@uinaf/oxlint-config@1.0.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))':
+    dependencies:
+      '@cloudflare/oxlint-config': 0.2.0(eslint-plugin-perfectionist@5.14.0(eslint@10.15.0(jiti@2.7.0))(typescript@7.0.2))(eslint@10.15.0(jiti@2.7.0))(oxlint@1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(tsrs@7.1.0-beta.tsrs4)(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
+      '@uinaf/oxlint-plugin-no-comments': 1.1.0
+    optionalDependencies:
+      oxlint: 1.95.0(vite-plus@1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
+      vite-plus: 1.8.0(@types/node@26.6.11)(@vitest/ui@5.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
+    transitivePeerDependencies:
+      - eslint
+      - eslint-plugin-perfectionist
+      - tsrs
 
   '@uinaf/oxlint-plugin-no-comments@1.1.0': {}
 

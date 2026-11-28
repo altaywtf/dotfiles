@@ -5,7 +5,7 @@ minimumReleaseAgeExclude:
   - "@effect/platform-node-shared"
   - "@effect/platform-node"
   - effect
-  - "@cloudflare/oxlint-config@0.1.0"
+  - "@uinaf/oxlint-config"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
   vite-plus: 1.8.0

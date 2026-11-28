@@ -33,8 +33,10 @@ function allowed(file: string, content: string): boolean {
       return content.includes("githubusercontent.com/uinaf/ffss");
     case "package.json":
     case "pnpm-lock.yaml":
+    case "pnpm-workspace.yaml":
+      return content.includes("@uinaf/oxlint-");
     case "vite.config.ts":
-      return content.includes("@uinaf/oxlint-plugin-no-comments");
+      return containsAny(content, ["@uinaf/oxlint-config", '"uinaf/no-comments"']);
     case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
       return content.includes("uinaf/tap");
